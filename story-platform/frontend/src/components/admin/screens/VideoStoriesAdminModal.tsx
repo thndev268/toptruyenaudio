@@ -50,6 +50,8 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
   // Manual create / edit state
   const [editingStory, setEditingStory] = useState<Partial<AdminStoryItem> | null>(null);
   const [previewIframe, setPreviewIframe] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -133,23 +135,40 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
     setActiveTab('IMPORT');
   };
 
-  const handleSaveAllExtracted = () => {
-    if (!extractedItems.length) return;
-    adminRepository.addBulkVideos(extractedItems as any);
-    setExtractedItems([]);
-    setIframeInputText('');
-    onRefreshData();
-    setActiveTab('LIST');
+  const handleSaveAllExtracted = async () => {
+    if (!extractedItems.length || isSaving) return;
+    setIsSaving(true);
+    setSaveError(null);
+    const res = await adminRepository.addBulkVideos(extractedItems as any);
+    setIsSaving(false);
+    if (res.success) {
+      setExtractedItems([]);
+      setIframeInputText('');
+      onRefreshData();
+      setActiveTab('LIST');
+    } else {
+      // In a real app we might want to show a toast, but here we can just alert or log
+      alert(res.message || 'Lỗi khi lưu video.');
+    }
   };
 
-  const handleSaveSingleStory = (storyData: Partial<AdminStoryItem>) => {
+  const handleSaveSingleStory = async (storyData: Partial<AdminStoryItem>) => {
+    if (isSaving) return;
+    setIsSaving(true);
+    setSaveError(null);
+    let res;
     if (storyData.id) {
-      adminRepository.updateVideoStory(storyData.id, storyData);
+      res = await adminRepository.updateVideoStory(storyData.id, storyData);
     } else {
-      adminRepository.addVideoStory(storyData);
+      res = await adminRepository.addVideoStory(storyData);
     }
-    setEditingStory(null);
-    onRefreshData();
+    setIsSaving(false);
+    if (res.success) {
+      setEditingStory(null);
+      onRefreshData();
+    } else {
+      setSaveError(res.message);
+    }
   };
 
   const handleDeleteVideo = (id: string) => {
@@ -312,9 +331,11 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
 
                     <button
                       onClick={handleSaveAllExtracted}
-                      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                      disabled={isSaving}
+                      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
                     >
-                      <Plus className="w-4 h-4" /> Đăng Tất Cả Video Lên Website
+                      {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                      <span>{isSaving ? 'Đang lưu...' : 'Đăng Tất Cả Video Lên Website'}</span>
                     </button>
                   </div>
 
@@ -569,23 +590,34 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3">
-                <button
-                  onClick={() => {
-                    setEditingStory(null);
-                    setActiveTab('LIST');
-                  }}
-                  className="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-700 transition-all"
-                >
-                  Hủy
-                </button>
+              <div className="flex flex-col gap-2 pt-3">
+                {saveError && (
+                  <div className="p-2.5 bg-rose-950/60 border border-rose-500/40 text-rose-300 rounded-xl text-xs flex items-center gap-2">
+                    {saveError}
+                  </div>
+                )}
+                <div className="flex items-center justify-end gap-3">
+                  <button
+                    onClick={() => {
+                      setEditingStory(null);
+                      setActiveTab('LIST');
+                      setSaveError(null);
+                    }}
+                    disabled={isSaving}
+                    className="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-700 transition-all disabled:opacity-50"
+                  >
+                    Hủy
+                  </button>
 
-                <button
-                  onClick={() => handleSaveSingleStory(editingStory || {})}
-                  className="px-5 py-2 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-xl shadow-lg transition-all"
-                >
-                  Lưu Nội Dung
-                </button>
+                  <button
+                    onClick={() => handleSaveSingleStory(editingStory || {})}
+                    disabled={isSaving}
+                    className="px-5 py-2 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-xl shadow-lg transition-all disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                    <span>{isSaving ? 'Đang lưu...' : 'Lưu Nội Dung'}</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}

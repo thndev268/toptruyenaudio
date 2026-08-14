@@ -7,6 +7,8 @@ import { RefreshSession, RefreshSessionSchema } from '../auth/schemas/refresh-se
 import { UserSubscription, UserSubscriptionSchema } from '../subscriptions/schemas/user-subscription.schema';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { AuthModule } from '../auth/auth.module';
+import { StorageModule } from '../storage/storage.module';
+import { AdminStoriesController } from './admin-stories.controller';
 
 @Module({
   imports: [
@@ -17,8 +19,9 @@ import { AuthModule } from '../auth/auth.module';
     ]),
     AuditLogsModule,
     AuthModule,
+    StorageModule,
   ],
-  controllers: [AdminController],
+  controllers: [AdminController, AdminStoriesController],
   providers: [AdminService],
   exports: [AdminService],
 })

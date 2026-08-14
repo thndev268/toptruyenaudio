@@ -388,8 +388,8 @@ export const AdminLayout: React.FC = () => {
       variant: 'primary',
       requiresReason: true,
       reasonPlaceholder: 'Nhập lý do thay đổi trạng thái phát hành...',
-      onConfirm: (reason) => {
-        const res = adminRepository.updateStoryPublishStatus(story.id, newStatus, reason);
+      onConfirm: async (reason) => {
+        const res = await adminRepository.updateStoryPublishStatus(story.id, newStatus, reason);
         refreshAllData();
         showToast(res.message);
       },
@@ -409,8 +409,8 @@ export const AdminLayout: React.FC = () => {
       variant: 'primary',
       requiresReason: true,
       reasonPlaceholder: 'Nhập lý do điều chỉnh phân quyền gói cước...',
-      onConfirm: (reason) => {
-        const res = adminRepository.updateStoryAccessLevel(story.id, newAccess, reason);
+      onConfirm: async (reason) => {
+        const res = await adminRepository.updateStoryAccessLevel(story.id, newAccess, reason);
         refreshAllData();
         showToast(res.message);
       },
@@ -427,8 +427,8 @@ export const AdminLayout: React.FC = () => {
       variant: 'danger',
       requiresReason: true,
       reasonPlaceholder: 'Bắt buộc nhập lý do gỡ bài...',
-      onConfirm: (reason) => {
-        const res = adminRepository.deleteStory(story.id, reason);
+      onConfirm: async (reason) => {
+        const res = await adminRepository.deleteStory(story.id, reason);
         refreshAllData();
         showToast(res.message);
       },
@@ -449,8 +449,8 @@ export const AdminLayout: React.FC = () => {
       variant: 'danger',
       requiresReason: true,
       reasonPlaceholder: 'Nhập lý do xóa tập (tệp hỏng, đổi MC, bản quyền)...',
-      onConfirm: (reason) => {
-        const res = adminRepository.deleteStoryChapter(story.id, chapterId, reason);
+      onConfirm: async (reason) => {
+        const res = await adminRepository.deleteStoryChapter(story.id, chapterId, reason);
         refreshAllData();
         showToast(res.message);
       },
@@ -470,8 +470,8 @@ export const AdminLayout: React.FC = () => {
       variant: 'danger',
       requiresReason: true,
       reasonPlaceholder: 'Nhập lý do xóa hàng loạt tập audio...',
-      onConfirm: (reason) => {
-        const res = adminRepository.deleteStoryChapters(story.id, chapterIds, reason);
+      onConfirm: async (reason) => {
+        const res = await adminRepository.deleteStoryChapters(story.id, chapterIds, reason);
         refreshAllData();
         showToast(res.message);
       },

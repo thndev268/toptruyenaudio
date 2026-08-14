@@ -82,9 +82,13 @@ export async function apiRequest<T = any>(
   
   const customHeaders = (options.headers || {}) as Record<string, string>;
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...customHeaders,
   };
+
+  // Only set application/json if body is not FormData
+  if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   // Always try to get the latest token from Supabase if not set
   if (!accessToken) {

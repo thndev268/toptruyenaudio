@@ -24,6 +24,7 @@ import {
   Edit3,
   Save,
   Video,
+  Loader2,
 } from 'lucide-react';
 import { AdminStoryItem } from '../../../types/admin';
 import { AudioChapter } from '../../../types';
@@ -93,6 +94,8 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const [editStoryNarrator, setEditStoryNarrator] = useState('');
   const [editStoryCoverUrl, setEditStoryCoverUrl] = useState('');
   const [editStorySummary, setEditStorySummary] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Reset state when story changes or modal closes
   useEffect(() => {
@@ -208,10 +211,12 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     }
   };
 
-  const handleSaveNewChapter = () => {
-    if (!story) return;
+  const handleSaveNewChapter = async () => {
+    if (!story || isSaving) return;
     const title = newChapterTitle.trim() || `Tập ${newChapterNumber}`;
-    adminRepository.addStoryChapter(story.id, {
+    setIsSaving(true);
+    setSaveError(null);
+    const res = await adminRepository.addStoryChapter(story.id, {
       number: newChapterNumber,
       title,
       narrator: newChapterNarrator || story.narratorName,
@@ -223,14 +228,18 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
       accessLevel: newChapterAccessLevel,
       audioContent: newChapterContent,
     });
-
-    setIsAddingChapter(false);
-    setNewChapterTitle('');
-    setNewChapterAudioUrl('');
-    setNewChapterIframe('');
-    setNewChapterAllowVideoDisplay(true);
-    setNewChapterContent('');
-    refreshChapters();
+    setIsSaving(false);
+    if (res.success) {
+      setIsAddingChapter(false);
+      setNewChapterTitle('');
+      setNewChapterAudioUrl('');
+      setNewChapterIframe('');
+      setNewChapterAllowVideoDisplay(true);
+      setNewChapterContent('');
+      refreshChapters();
+    } else {
+      setSaveError(res.message);
+    }
   };
 
   const handleStartEditChapter = (chapter: AudioChapter) => {
@@ -248,9 +257,11 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     setEditChapterContent(chapter.audioContent || '');
   };
 
-  const handleSaveEditChapter = () => {
-    if (!story || !editingChapterId) return;
-    adminRepository.updateStoryChapter(story.id, editingChapterId, {
+  const handleSaveEditChapter = async () => {
+    if (!story || !editingChapterId || isSaving) return;
+    setIsSaving(true);
+    setSaveError(null);
+    const res = await adminRepository.updateStoryChapter(story.id, editingChapterId, {
       number: editChapterNumber,
       title: editChapterTitle.trim() || `Tập ${editChapterNumber}`,
       narrator: editChapterNarrator || story.narratorName,
@@ -262,9 +273,13 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
       accessLevel: editChapterAccessLevel,
       audioContent: editChapterContent,
     });
-
-    setEditingChapterId(null);
-    refreshChapters();
+    setIsSaving(false);
+    if (res.success) {
+      setEditingChapterId(null);
+      refreshChapters();
+    } else {
+      setSaveError(res.message);
+    }
   };
 
   const handleStartEditStory = () => {
@@ -276,9 +291,11 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     setEditStorySummary(story.summary || story.storyline || '');
   };
 
-  const handleSaveEditStory = () => {
-    if (!story) return;
-    adminRepository.updateStory(story.id, {
+  const handleSaveEditStory = async () => {
+    if (!story || isSaving) return;
+    setIsSaving(true);
+    setSaveError(null);
+    const res = await adminRepository.updateStory(story.id, {
       title: editStoryTitle,
       authorName: editStoryAuthor,
       narratorName: editStoryNarrator,
@@ -286,8 +303,13 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
       summary: editStorySummary,
       storyline: editStorySummary,
     });
-    setIsEditingStory(false);
-    refreshChapters();
+    setIsSaving(false);
+    if (res.success) {
+      setIsEditingStory(false);
+      refreshChapters();
+    } else {
+      setSaveError(res.message);
+    }
   };
 
   return (
@@ -504,22 +526,32 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setIsEditingStory(false)}
-                  className="px-3.5 py-2 bg-slate-800 text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-750 transition-all cursor-pointer"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveEditStory}
-                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-xl shadow-lg transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>Lưu Thông Tin Truyện</span>
-                </button>
+              <div className="flex flex-col gap-2 pt-2 border-t border-slate-800">
+                {saveError && (
+                  <div className="p-2.5 bg-rose-950/60 border border-rose-500/40 text-rose-300 rounded-xl text-xs flex items-center gap-2">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    {saveError}
+                  </div>
+                )}
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setIsEditingStory(false); setSaveError(null); }}
+                    disabled={isSaving}
+                    className="px-3.5 py-2 bg-slate-800 text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-750 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveEditStory}
+                    disabled={isSaving}
+                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-lg transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    <span>{isSaving ? 'Đang lưu...' : 'Lưu Thông Tin Truyện'}</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -767,22 +799,32 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingChapter(false)}
-                    className="px-3.5 py-2 bg-slate-800 text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-750 transition-all cursor-pointer"
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSaveNewChapter}
-                    className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-xl shadow-lg transition-all cursor-pointer flex items-center gap-1.5"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>Lưu Tập Mới</span>
-                  </button>
+                <div className="flex flex-col gap-2 pt-2 border-t border-slate-800">
+                  {saveError && (
+                    <div className="p-2.5 bg-rose-950/60 border border-rose-500/40 text-rose-300 rounded-xl text-xs flex items-center gap-2">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                      {saveError}
+                    </div>
+                  )}
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setIsAddingChapter(false); setSaveError(null); }}
+                      disabled={isSaving}
+                      className="px-3.5 py-2 bg-slate-800 text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-750 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveNewChapter}
+                      disabled={isSaving}
+                      className="px-4 py-2 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-lg transition-all cursor-pointer flex items-center gap-1.5"
+                    >
+                      {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                      <span>{isSaving ? 'Đang lưu...' : 'Lưu Tập Mới'}</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

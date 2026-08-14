@@ -757,188 +757,157 @@ class AdminRepositoryService {
     return this.stories.find((s) => s.id === id);
   }
 
-  updateStoryPublishStatus(
+  async updateStoryPublishStatus(
     storyId: string,
     newStatus: 'PUBLISHED' | 'PENDING' | 'DRAFT' | 'REJECTED',
     reason: string
-  ): { success: boolean; message: string } {
-    const story = this.stories.find((s) => s.id === storyId);
-    if (!story) return { success: false, message: 'Không tìm thấy truyện.' };
-
-    story.publishStatus = newStatus;
-    this.recordAuditLog(
-      `ĐỔI_TRẠNG_THÁI_PHÁT_HÀNH_${newStatus}`,
-      'Story',
-      story.id,
-      story.title,
-      reason,
-      `Chuyển bộ truyện "${story.title}" sang trạng thái ${newStatus}`
-    );
-
-    return { success: true, message: 'Đã cập nhật trạng thái phát hành truyện.' };
+  ): Promise<{ success: boolean; message: string }> {
+    const res = await this.updateStory(storyId, { publishStatus: newStatus });
+    if (res.success) {
+      const story = this.stories.find((s) => s.id === storyId);
+      if (story) {
+        this.recordAuditLog(
+          `ĐỔI_TRẠNG_THÁI_PHÁT_HÀNH_${newStatus}`,
+          'Story',
+          story.id,
+          story.title,
+          reason,
+          `Chuyển bộ truyện "${story.title}" sang trạng thái ${newStatus}`
+        );
+      }
+    }
+    return res;
   }
 
-  updateStoryAccessLevel(
+  async updateStoryAccessLevel(
     storyId: string,
     newAccess: 'FREE' | 'PREMIUM',
     reason: string
-  ): { success: boolean; message: string } {
-    const story = this.stories.find((s) => s.id === storyId);
-    if (!story) return { success: false, message: 'Không tìm thấy truyện.' };
-
-    story.accessLevel = newAccess;
-    this.recordAuditLog(
-      `ĐỔI_QUYỀN_TRUY_CẬP_${newAccess}`,
-      'Story',
-      story.id,
-      story.title,
-      reason,
-      `Chuyển bộ truyện "${story.title}" sang hạng ${newAccess}`
-    );
-
-    return { success: true, message: 'Đã cập nhật phân quyền truy cập truyện.' };
+  ): Promise<{ success: boolean; message: string }> {
+    const res = await this.updateStory(storyId, { accessLevel: newAccess });
+    if (res.success) {
+      const story = this.stories.find((s) => s.id === storyId);
+      if (story) {
+        this.recordAuditLog(
+          `ĐỔI_QUYỀN_TRUY_CẬP_${newAccess}`,
+          'Story',
+          story.id,
+          story.title,
+          reason,
+          `Chuyển bộ truyện "${story.title}" sang hạng ${newAccess}`
+        );
+      }
+    }
+    return res;
   }
 
-  deleteStory(storyId: string, reason: string): { success: boolean; message: string } {
-    const idx = this.stories.findIndex((s) => s.id === storyId);
-    if (idx === -1) return { success: false, message: 'Không tìm thấy truyện.' };
+  async deleteStory(storyId: string, reason: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const story = this.stories.find((s) => s.id === storyId);
+      await apiRequest(`/admin/stories/${storyId}`, {
+        method: 'DELETE',
+      });
+      
+      await this.fetchFromBackendApi();
 
-    const story = this.stories[idx];
-    this.stories.splice(idx, 1);
-    delete this.storyChapters[storyId];
+      if (story) {
+        this.recordAuditLog(
+          'GỠ_BỎ_BỘ_TRUYỆN',
+          'Story',
+          story.id,
+          story.title,
+          reason,
+          `Gỡ vĩnh viễn bộ truyện "${story.title}" khỏi nền tảng`
+        );
+      }
 
-    this.recordAuditLog(
-      'GỠ_BỎ_BỘ_TRUYỆN',
-      'Story',
-      story.id,
-      story.title,
-      reason,
-      `Gỡ vĩnh viễn bộ truyện "${story.title}" khỏi nền tảng`
-    );
-
-    this.persistState();
-    return { success: true, message: 'Đã gỡ bỏ bộ truyện thành công.' };
+      return { success: true, message: 'Đã gỡ bỏ bộ truyện thành công.' };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Lỗi khi xóa truyện' };
+    }
   }
 
   // --- Video Story CRUD Methods ---
-  addVideoStory(item: Partial<AdminStoryItem>): { success: boolean; message: string; story: AdminStoryItem } {
-    const id = item.id || `video-story-${Date.now()}`;
-    const slug = item.slug || (item.title ? item.title.toLowerCase().replace(/[^a-z0-9]/g, '-') : 'video-story');
-    
-    const newStory: AdminStoryItem = {
-      id,
-      title: item.title || 'Truyện Video Mới',
-      slug,
-      authorName: item.authorName || 'Kênh Studio AI',
-      authorId: item.authorId || 'author-default',
-      narratorName: item.narratorName || 'MC Giọng Đọc Video',
-      genres: item.genres && item.genres.length ? item.genres : ['Truyện Video'],
-      totalChapters: 1,
-      storyStatus: item.storyStatus || 'COMPLETED',
-      publishStatus: item.publishStatus || 'PUBLISHED',
-      accessLevel: item.accessLevel || 'FREE',
-      listenCount: item.listenCount || 100,
-      rating: item.rating || 5.0,
-      createdAt: new Date().toISOString().split('T')[0],
-      summary: item.summary || item.storyline || 'Mô tả cốt truyện video',
-      storyline: item.storyline || item.summary || 'Chi tiết cốt truyện video',
-      audioContent: item.audioContent || 'Chi tiết nội dung âm thanh và kịch bản',
-      coverUrl: item.coverUrl || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80',
-      isVideoStory: true,
-      iframeCode: item.iframeCode || '',
-      iframeUrl: item.iframeUrl || '',
-    };
+  async addVideoStory(item: Partial<AdminStoryItem>): Promise<{ success: boolean; message: string; story?: AdminStoryItem }> {
+    try {
+      const formData = new FormData();
+      if (item.title) formData.append('title', item.title);
+      if (item.slug) formData.append('slug', item.slug);
+      if (item.authorName) formData.append('authorName', item.authorName);
+      if (item.narratorName) formData.append('narratorName', item.narratorName);
+      if (item.summary) formData.append('summary', item.summary);
+      if (item.storyStatus) formData.append('storyStatus', item.storyStatus);
+      if (item.publishStatus) formData.append('publishStatus', item.publishStatus);
+      
+      // We assume if it's a new video story, we just set the coverUrl as text for now
+      // since the backend can just store the URL.
+      if (item.coverUrl) formData.append('coverUrl', item.coverUrl);
 
-    this.stories.unshift(newStory);
+      // Create story
+      const res = await apiRequest<{ id: string }>('/admin/stories', {
+        method: 'POST',
+        body: formData,
+      });
 
-    // Create corresponding chapter for the video player
-    this.storyChapters[id] = [
-      {
-        id: `cv-${id}-1`,
-        storyId: id,
-        number: 1,
-        title: `Video Audio Full: ${newStory.title}`,
-        slug: `full-video-${slug}`,
-        audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-        videoIframeUrl: newStory.iframeUrl,
-        iframeCode: newStory.iframeCode,
-        audioContent: newStory.audioContent,
-        durationSeconds: 1800,
-        accessLevel: newStory.accessLevel as any,
-        isEarlyAccess: false,
-        narrator: newStory.narratorName,
-        publishStatus: 'PUBLISHED' as any,
-        publishedAt: newStory.createdAt,
-      }
-    ];
+      // Also create chapter for video
+      const chapterFormData = new FormData();
+      chapterFormData.append('number', '1');
+      chapterFormData.append('title', `Video Audio Full: ${item.title}`);
+      chapterFormData.append('durationSeconds', '1800');
+      chapterFormData.append('accessLevel', item.accessLevel || 'FREE');
+      if (item.iframeUrl) chapterFormData.append('audioUrl', item.iframeUrl);
 
-    this.recordAuditLog(
-      'THÊM_VIDEO_STORY',
-      'Story',
-      newStory.id,
-      newStory.title,
-      'Đăng video story iframe thành công',
-      `Tạo mới video story "${newStory.title}"`
-    );
+      await apiRequest(`/admin/stories/${res.id}/chapters`, {
+        method: 'POST',
+        body: chapterFormData,
+      });
 
-    this.persistState();
-    return { success: true, message: 'Đã thêm video story thành công.', story: newStory };
+      // Refetch stories to update local cache
+      await this.fetchFromBackendApi();
+
+      return { success: true, message: 'Đã thêm video story thành công.' };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Lỗi khi tạo video story' };
+    }
   }
 
-  updateVideoStory(storyId: string, updated: Partial<AdminStoryItem>): { success: boolean; message: string } {
+  async updateVideoStory(storyId: string, updated: Partial<AdminStoryItem>): Promise<{ success: boolean; message: string }> {
     return this.updateStory(storyId, updated);
   }
 
-  updateStory(storyId: string, updated: Partial<AdminStoryItem>): { success: boolean; message: string; story?: AdminStoryItem } {
-    const story = this.stories.find((s) => s.id === storyId);
-    if (!story) return { success: false, message: 'Không tìm thấy bộ truyện.' };
+  async updateStory(storyId: string, updated: Partial<AdminStoryItem>): Promise<{ success: boolean; message: string; story?: AdminStoryItem }> {
+    try {
+      const formData = new FormData();
+      if (updated.title) formData.append('title', updated.title);
+      if (updated.slug) formData.append('slug', updated.slug);
+      if (updated.authorName) formData.append('authorName', updated.authorName);
+      if (updated.narratorName) formData.append('narratorName', updated.narratorName);
+      if (updated.summary) formData.append('summary', updated.summary);
+      if (updated.storyStatus) formData.append('storyStatus', updated.storyStatus);
+      if (updated.publishStatus) formData.append('publishStatus', updated.publishStatus);
+      if (updated.coverUrl) formData.append('coverUrl', updated.coverUrl);
 
-    if (updated.title !== undefined) story.title = updated.title;
-    if (updated.summary !== undefined) story.summary = updated.summary;
-    if (updated.storyline !== undefined) story.storyline = updated.storyline;
-    if (updated.audioContent !== undefined) story.audioContent = updated.audioContent;
-    if (updated.coverUrl !== undefined) story.coverUrl = updated.coverUrl;
-    if (updated.iframeCode !== undefined) story.iframeCode = updated.iframeCode;
-    if (updated.iframeUrl !== undefined) story.iframeUrl = updated.iframeUrl;
-    if (updated.authorName !== undefined) story.authorName = updated.authorName;
-    if (updated.authorId !== undefined) story.authorId = updated.authorId;
-    if (updated.narratorName !== undefined) story.narratorName = updated.narratorName;
-    if (updated.genres !== undefined) story.genres = updated.genres;
-    if (updated.accessLevel !== undefined) story.accessLevel = updated.accessLevel;
-    if (updated.publishStatus !== undefined) story.publishStatus = updated.publishStatus;
-    if (updated.storyStatus !== undefined) story.storyStatus = updated.storyStatus;
+      await apiRequest(`/admin/stories/${storyId}`, {
+        method: 'PUT',
+        body: formData,
+      });
 
-    // Update chapter as well if it's a single video story
-    const chapters = this.storyChapters[storyId];
-    if (chapters && chapters[0] && story.isVideoStory) {
-      chapters[0].title = `Video Audio Full: ${story.title}`;
-      chapters[0].videoIframeUrl = story.iframeUrl;
-      chapters[0].iframeCode = story.iframeCode;
-      chapters[0].audioContent = story.audioContent;
-      chapters[0].accessLevel = story.accessLevel as any;
+      await this.fetchFromBackendApi();
+
+      return { success: true, message: 'Cập nhật bộ truyện thành công.' };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Lỗi khi cập nhật truyện' };
     }
-
-    this.recordAuditLog(
-      'CẬP_NHẬT_BỘ_TRUYỆN',
-      'Story',
-      story.id,
-      story.title,
-      'Cập nhật thông tin bộ truyện',
-      `Sửa thông tin bộ truyện "${story.title}"`
-    );
-
-    this.persistState();
-    return { success: true, message: 'Cập nhật bộ truyện thành công.', story };
   }
 
-  addBulkVideos(items: Partial<AdminStoryItem>[]): { success: boolean; count: number } {
+  async addBulkVideos(items: Partial<AdminStoryItem>[]): Promise<{ success: boolean; count: number; message: string }> {
     let added = 0;
     for (const item of items) {
-      this.addVideoStory(item);
-      added++;
+      const res = await this.addVideoStory(item);
+      if (res.success) added++;
     }
-    this.persistState();
-    return { success: true, count: added };
+    await this.fetchFromBackendApi();
+    return { success: true, count: added, message: `Thêm thành công ${added} video` };
   }
 
   // --- Story Chapters Management ---
@@ -946,113 +915,87 @@ class AdminRepositoryService {
     return [...(this.storyChapters[storyId] || [])];
   }
 
-  addStoryChapter(
+  async addStoryChapter(
     storyId: string,
     chapterData: Partial<AudioChapter>
-  ): { success: boolean; message: string; chapter: AudioChapter } {
-    const list = this.storyChapters[storyId] || [];
-    const nextNum = list.length > 0 ? Math.max(...list.map((c) => c.number)) + 1 : 1;
+  ): Promise<{ success: boolean; message: string; chapter?: AudioChapter }> {
+    try {
+      const formData = new FormData();
+      formData.append('number', chapterData.number?.toString() || '1');
+      if (chapterData.title) formData.append('title', chapterData.title);
+      if (chapterData.durationSeconds) formData.append('durationSeconds', chapterData.durationSeconds.toString());
+      if (chapterData.accessLevel) formData.append('accessLevel', chapterData.accessLevel);
+      if (chapterData.audioUrl) formData.append('audioUrl', chapterData.audioUrl);
 
-    const newChapter: AudioChapter = {
-      id: chapterData.id || `chapter-${storyId}-${Date.now()}`,
-      storyId,
-      number: chapterData.number || nextNum,
-      title: chapterData.title || `Tập ${nextNum}`,
-      slug: chapterData.slug || `tap-${nextNum}`,
-      audioUrl: chapterData.audioUrl || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-      videoIframeUrl: chapterData.videoIframeUrl || '',
-      iframeCode: chapterData.iframeCode || '',
-      allowVideoDisplay: chapterData.allowVideoDisplay !== undefined ? chapterData.allowVideoDisplay : (chapterData.isVideoEnabled !== undefined ? chapterData.isVideoEnabled : true),
-      isVideoEnabled: chapterData.isVideoEnabled !== undefined ? chapterData.isVideoEnabled : (chapterData.allowVideoDisplay !== undefined ? chapterData.allowVideoDisplay : true),
-      audioContent: chapterData.audioContent || '',
-      durationSeconds: chapterData.durationSeconds || 1800,
-      accessLevel: chapterData.accessLevel || 'FREE',
-      isEarlyAccess: false,
-      narrator: chapterData.narrator || 'MC Giọng Đọc',
-      publishStatus: 'PUBLISHED' as any,
-      publishedAt: new Date().toISOString().split('T')[0],
-    };
+      await apiRequest(`/admin/stories/${storyId}/chapters`, {
+        method: 'POST',
+        body: formData,
+      });
 
-    list.push(newChapter);
-    this.storyChapters[storyId] = list;
+      await this.fetchFromBackendApi();
 
-    const story = this.stories.find((s) => s.id === storyId);
-    if (story) {
-      story.totalChapters = list.length;
+      return {
+        success: true,
+        message: `Đã thêm Tập thành công.`,
+      };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Lỗi khi thêm tập' };
     }
-
-    this.recordAuditLog(
-      'THÊM_TẬP_TRUYỆN',
-      'Chapter',
-      newChapter.id,
-      newChapter.title,
-      'Thêm tập mới cho bộ truyện',
-      `Thêm tập #${newChapter.number} (${newChapter.title}) vào bộ truyện "${story?.title || storyId}"`
-    );
-
-    this.persistState();
-    return {
-      success: true,
-      message: `Đã thêm Tập ${newChapter.number}: "${newChapter.title}" thành công.`,
-      chapter: newChapter,
-    };
   }
 
-  updateStoryChapter(
+  async updateStoryChapter(
     storyId: string,
     chapterId: string,
     chapterData: Partial<AudioChapter>
-  ): { success: boolean; message: string; chapter?: AudioChapter } {
-    const list = this.storyChapters[storyId] || [];
-    const idx = list.findIndex((c) => c.id === chapterId);
-    if (idx === -1) {
-      return { success: false, message: 'Không tìm thấy tập audio cần sửa.' };
+  ): Promise<{ success: boolean; message: string; chapter?: AudioChapter }> {
+    // Note: To fully implement this with the backend, we would need a PUT /admin/stories/:id/chapters/:chapterId API
+    // Since we only created addChapter in the backend, let's keep the local update logic but just return a Promise for compatibility
+    // In a real scenario, we would add the PUT endpoint to the backend as well.
+    try {
+      const list = this.storyChapters[storyId] || [];
+      const idx = list.findIndex((c) => c.id === chapterId);
+      if (idx === -1) {
+        return { success: false, message: 'Không tìm thấy tập audio cần sửa.' };
+      }
+
+      const current = list[idx];
+      const updatedChapter: AudioChapter = {
+        ...current,
+        ...chapterData,
+        title: chapterData.title !== undefined ? chapterData.title : current.title,
+        number: chapterData.number !== undefined ? chapterData.number : current.number,
+        narrator: chapterData.narrator !== undefined ? chapterData.narrator : current.narrator,
+        audioUrl: chapterData.audioUrl !== undefined ? chapterData.audioUrl : current.audioUrl,
+        videoIframeUrl: chapterData.videoIframeUrl !== undefined ? chapterData.videoIframeUrl : current.videoIframeUrl,
+        iframeCode: chapterData.iframeCode !== undefined ? chapterData.iframeCode : current.iframeCode,
+        allowVideoDisplay: chapterData.allowVideoDisplay !== undefined ? chapterData.allowVideoDisplay : (chapterData.isVideoEnabled !== undefined ? chapterData.isVideoEnabled : current.allowVideoDisplay),
+        isVideoEnabled: chapterData.isVideoEnabled !== undefined ? chapterData.isVideoEnabled : (chapterData.allowVideoDisplay !== undefined ? chapterData.allowVideoDisplay : current.isVideoEnabled),
+        audioContent: chapterData.audioContent !== undefined ? chapterData.audioContent : current.audioContent,
+        accessLevel: chapterData.accessLevel !== undefined ? chapterData.accessLevel : current.accessLevel,
+        durationSeconds: chapterData.durationSeconds !== undefined ? chapterData.durationSeconds : current.durationSeconds,
+      };
+
+      list[idx] = updatedChapter;
+      this.storyChapters[storyId] = list;
+
+      this.persistState();
+      return {
+        success: true,
+        message: `Đã cập nhật Tập ${updatedChapter.number}: "${updatedChapter.title}" thành công.`,
+        chapter: updatedChapter,
+      };
+    } catch (err: any) {
+      return { success: false, message: err.message };
     }
-
-    const current = list[idx];
-    const updatedChapter: AudioChapter = {
-      ...current,
-      ...chapterData,
-      title: chapterData.title !== undefined ? chapterData.title : current.title,
-      number: chapterData.number !== undefined ? chapterData.number : current.number,
-      narrator: chapterData.narrator !== undefined ? chapterData.narrator : current.narrator,
-      audioUrl: chapterData.audioUrl !== undefined ? chapterData.audioUrl : current.audioUrl,
-      videoIframeUrl: chapterData.videoIframeUrl !== undefined ? chapterData.videoIframeUrl : current.videoIframeUrl,
-      iframeCode: chapterData.iframeCode !== undefined ? chapterData.iframeCode : current.iframeCode,
-      allowVideoDisplay: chapterData.allowVideoDisplay !== undefined ? chapterData.allowVideoDisplay : (chapterData.isVideoEnabled !== undefined ? chapterData.isVideoEnabled : current.allowVideoDisplay),
-      isVideoEnabled: chapterData.isVideoEnabled !== undefined ? chapterData.isVideoEnabled : (chapterData.allowVideoDisplay !== undefined ? chapterData.allowVideoDisplay : current.isVideoEnabled),
-      audioContent: chapterData.audioContent !== undefined ? chapterData.audioContent : current.audioContent,
-      accessLevel: chapterData.accessLevel !== undefined ? chapterData.accessLevel : current.accessLevel,
-      durationSeconds: chapterData.durationSeconds !== undefined ? chapterData.durationSeconds : current.durationSeconds,
-    };
-
-    list[idx] = updatedChapter;
-    this.storyChapters[storyId] = list;
-
-    const story = this.stories.find((s) => s.id === storyId);
-
-    this.recordAuditLog(
-      'SỬA_TẬP_TRUYỆN',
-      'Chapter',
-      updatedChapter.id,
-      updatedChapter.title,
-      'Cập nhật thông tin tập audio',
-      `Sửa tập #${updatedChapter.number} (${updatedChapter.title}) trong bộ truyện "${story?.title || storyId}"`
-    );
-
-    this.persistState();
-    return {
-      success: true,
-      message: `Đã cập nhật Tập ${updatedChapter.number}: "${updatedChapter.title}" thành công.`,
-      chapter: updatedChapter,
-    };
   }
 
-  deleteStoryChapter(
+  async deleteStoryChapter(
     storyId: string,
     chapterId: string,
     reason: string
-  ): { success: boolean; message: string; remainingCount: number } {
+  ): Promise<{ success: boolean; message: string; remainingCount: number }> {
+    // Note: Mocked API for now since backend chapter delete might not be implemented
+    // In real app: await apiRequest(`/admin/stories/${storyId}/chapters/${chapterId}`, { method: 'DELETE' });
     const list = this.storyChapters[storyId] || [];
     const idx = list.findIndex((c) => c.id === chapterId);
     if (idx === -1) {
@@ -1063,20 +1006,18 @@ class AdminRepositoryService {
     list.splice(idx, 1);
     this.storyChapters[storyId] = list;
 
-    // Update totalChapters in story summary item
     const story = this.stories.find((s) => s.id === storyId);
     if (story) {
       story.totalChapters = list.length;
+      this.recordAuditLog(
+        'XÓA_TẬP_AUDIO',
+        'Chapter',
+        removedChapter.id,
+        removedChapter.title,
+        reason || 'Chủ sở hữu xóa tập audio',
+        `Xóa vĩnh viễn tập audio #${removedChapter.number} (${removedChapter.title}) khỏi bộ truyện "${story.title}"`
+      );
     }
-
-    this.recordAuditLog(
-      'XÓA_TẬP_AUDIO',
-      'Chapter',
-      removedChapter.id,
-      removedChapter.title,
-      reason || 'Chủ sở hữu xóa tập audio',
-      `Xóa vĩnh viễn tập audio #${removedChapter.number} (${removedChapter.title}) khỏi bộ truyện "${story?.title || storyId}"`
-    );
 
     this.persistState();
     return {
@@ -1086,11 +1027,12 @@ class AdminRepositoryService {
     };
   }
 
-  deleteStoryChapters(
+  async deleteStoryChapters(
     storyId: string,
     chapterIds: string[],
     reason: string
-  ): { success: boolean; message: string; remainingCount: number } {
+  ): Promise<{ success: boolean; message: string; remainingCount: number }> {
+    // Note: Mocked API for now
     const list = this.storyChapters[storyId] || [];
     const initialCount = list.length;
     const idsSet = new Set(chapterIds);
@@ -1100,20 +1042,18 @@ class AdminRepositoryService {
 
     this.storyChapters[storyId] = remaining;
 
-    // Update totalChapters in story summary item
     const story = this.stories.find((s) => s.id === storyId);
     if (story) {
       story.totalChapters = remaining.length;
+      this.recordAuditLog(
+        'XÓA_NHIỀU_TẬP_AUDIO',
+        'Chapter',
+        chapterIds.join(', '),
+        `${deletedCount} tập audio`,
+        reason || 'Chủ sở hữu xóa hàng loạt tập audio',
+        `Xóa ${deletedCount} tập audio khỏi bộ truyện "${story.title}"`
+      );
     }
-
-    this.recordAuditLog(
-      'XÓA_NHIỀU_TẬP_AUDIO',
-      'Chapter',
-      chapterIds.join(', '),
-      `${deletedCount} tập audio`,
-      reason || 'Chủ sở hữu xóa hàng loạt tập audio',
-      `Xóa ${deletedCount} tập audio khỏi bộ truyện "${story?.title || storyId}"`
-    );
 
     return {
       success: true,

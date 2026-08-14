@@ -18,6 +18,8 @@ import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { SupportModule } from './modules/support/support.module';
 import { StoriesModule } from './modules/stories/stories.module';
 import { ListeningModule } from './modules/listening/listening.module';
+import { PrismaModule } from './prisma/prisma.module';
+import { StorageModule } from './modules/storage/storage.module';
 
 @Module({
   imports: [
@@ -66,6 +68,8 @@ import { ListeningModule } from './modules/listening/listening.module';
     SupportModule,
     StoriesModule,
     ListeningModule,
+    PrismaModule,
+    StorageModule,
   ],
   providers: [
     {

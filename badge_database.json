@@ -1,0 +1,168 @@
+{
+  "badges": [
+    {
+      "id": "badge-1",
+      "code": "FIRST_LISTEN",
+      "name": "Khởi đầu hành trình",
+      "description": "Bắt đầu nghe câu chuyện audio đầu tiên trên hệ thống.",
+      "icon": "Headphones",
+      "level": "COMMON",
+      "requirementText": "Nghe ít nhất 1 phút audio",
+      "awardMode": "AUTOMATIC",
+      "condition": {
+        "id": "cond-1",
+        "badgeId": "badge-1",
+        "eventType": "LISTENING_MINUTES_REACHED",
+        "operator": "GREATER_THAN_OR_EQUAL",
+        "targetValue": 1,
+        "isActive": true,
+        "description": "Tổng thời gian nghe đạt từ 1 phút"
+      },
+      "isActive": true,
+      "createdAt": "2025-01-01T00:00:00Z",
+      "updatedAt": "2025-01-01T00:00:00Z"
+    },
+    {
+      "id": "badge-2",
+      "code": "LISTEN_10_HOURS",
+      "name": "Người nghe chăm chỉ",
+      "description": "Dành trên 10 giờ đồng hồ đắm chìm trong thế giới audio.",
+      "icon": "Clock",
+      "level": "RARE",
+      "requirementText": "Tích lũy tổng thời gian nghe đạt 600 phút (10 giờ)",
+      "awardMode": "AUTOMATIC",
+      "condition": {
+        "id": "cond-2",
+        "badgeId": "badge-2",
+        "eventType": "LISTENING_MINUTES_REACHED",
+        "operator": "GREATER_THAN_OR_EQUAL",
+        "targetValue": 600,
+        "isActive": true,
+        "description": "Tổng thời gian nghe đạt từ 600 phút"
+      },
+      "isActive": true,
+      "createdAt": "2025-01-01T00:00:00Z",
+      "updatedAt": "2025-01-01T00:00:00Z"
+    },
+    {
+      "id": "badge-3",
+      "code": "FINISH_10_CHAPTERS",
+      "name": "Chăm chỉ hoàn thành tập",
+      "description": "Lắng nghe trọn vẹn 10 chương truyện audio.",
+      "icon": "BookOpen",
+      "level": "RARE",
+      "requirementText": "Hoàn thành 10 chương truyện",
+      "awardMode": "AUTOMATIC",
+      "condition": {
+        "id": "cond-3",
+        "badgeId": "badge-3",
+        "eventType": "CHAPTERS_COMPLETED",
+        "operator": "GREATER_THAN_OR_EQUAL",
+        "targetValue": 10,
+        "isActive": true,
+        "description": "Hoàn thành từ 10 tập truyện"
+      },
+      "isActive": true,
+      "createdAt": "2025-01-01T00:00:00Z",
+      "updatedAt": "2025-01-01T00:00:00Z"
+    },
+    {
+      "id": "badge-4",
+      "code": "TOP_DONOR",
+      "name": "Nhà Tài Trợ Vàng",
+      "description": "Danh hiệu vinh danh độc quyền do Admin cấp trực tiếp cho nhà tài trợ.",
+      "icon": "Crown",
+      "level": "LEGENDARY",
+      "requirementText": "Được Admin trực tiếp cấp tặng",
+      "awardMode": "MANUAL",
+      "isActive": true,
+      "createdAt": "2025-01-01T00:00:00Z",
+      "updatedAt": "2025-01-01T00:00:00Z"
+    },
+    {
+      "id": "badge-5",
+      "code": "EARLY_MEMBER",
+      "name": "Thành viên tiên phong",
+      "description": "Đồng hành cùng Top Truyện Audio từ những ngày đầu ra mắt.",
+      "icon": "Sparkles",
+      "level": "EPIC",
+      "requirementText": "Đồng hành từ giai đoạn thử nghiệm",
+      "awardMode": "MANUAL",
+      "isActive": true,
+      "createdAt": "2025-01-01T00:00:00Z",
+      "updatedAt": "2025-01-01T00:00:00Z"
+    }
+  ],
+  "userBadges": [
+    {
+      "id": "assign-seed-1",
+      "userId": "user-1",
+      "badgeId": "badge-5",
+      "source": "ADMIN",
+      "assignedBy": "admin-1",
+      "assignedAt": "2026-08-09T07:08:14.670Z",
+      "visibility": "PUBLIC",
+      "isFeatured": true
+    }
+  ],
+  "badgeNotifications": [],
+  "badgeEventDefinitions": [
+    {
+      "id": "evt-1",
+      "eventKey": "LISTENING_MINUTES_REACHED",
+      "name": "Số phút nghe audio",
+      "description": "Tích lũy tổng thời gian nghe câu chuyện audio.",
+      "metricType": "DURATION",
+      "unit": "phút",
+      "active": true,
+      "createdAt": "2026-08-14T07:08:14.668Z",
+      "updatedAt": "2026-08-14T07:08:14.669Z"
+    },
+    {
+      "id": "evt-2",
+      "eventKey": "CHAPTERS_COMPLETED",
+      "name": "Số tập đã hoàn thành",
+      "description": "Số lượng tập audio đã nghe hoàn chỉnh.",
+      "metricType": "COUNT",
+      "unit": "tập",
+      "active": true,
+      "createdAt": "2026-08-14T07:08:14.669Z",
+      "updatedAt": "2026-08-14T07:08:14.669Z"
+    },
+    {
+      "id": "evt-3",
+      "eventKey": "STORIES_COMPLETED",
+      "name": "Số bộ truyện hoàn thành",
+      "description": "Số bộ truyện đã nghe từ tập đầu đến tập cuối.",
+      "metricType": "COUNT",
+      "unit": "bộ",
+      "active": true,
+      "createdAt": "2026-08-14T07:08:14.669Z",
+      "updatedAt": "2026-08-14T07:08:14.669Z"
+    },
+    {
+      "id": "evt-4",
+      "eventKey": "COMMENTS_POSTED",
+      "name": "Số bình luận đã đăng",
+      "description": "Số lượt bình luận hợp lệ trên các chương truyện.",
+      "metricType": "COUNT",
+      "unit": "bình luận",
+      "active": true,
+      "createdAt": "2026-08-14T07:08:14.669Z",
+      "updatedAt": "2026-08-14T07:08:14.669Z"
+    },
+    {
+      "id": "evt-5",
+      "eventKey": "VALID_REVIEWS_POSTED",
+      "name": "Số đánh giá chất lượng",
+      "description": "Đánh giá chi tiết và hữu ích cho tác phẩm.",
+      "metricType": "COUNT",
+      "unit": "đánh giá",
+      "active": true,
+      "createdAt": "2026-08-14T07:08:14.669Z",
+      "updatedAt": "2026-08-14T07:08:14.669Z"
+    }
+  ],
+  "badgeEventProgress": [],
+  "badgeAuditLogs": []
+}
