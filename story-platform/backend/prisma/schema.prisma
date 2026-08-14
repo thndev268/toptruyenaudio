@@ -1,0 +1,466 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+// -----------------------------------------------------------------------------
+// AUTH & USERS
+// -----------------------------------------------------------------------------
+
+model Profile {
+  id              String   @id // Maps to Supabase auth.users.id
+  email           String   @unique
+  emailNormalized String?  @unique
+  displayName     String?
+  role            String   @default("USER") // GUEST, USER, CREATOR, PARTNER, ADMIN, OWNER_ADMIN
+  membershipTier  String   @default("FREE")
+  status          String   @default("ACTIVE")
+  avatarUrl       String?
+  lastLoginAt     DateTime?
+  premiumExpiresAt DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  listeningProgress     ListeningProgress[]
+  listeningSessions     ListeningSession[]
+  userSubscriptions     UserSubscription[]
+  paymentOrders         PaymentOrder[]
+  supportConversations  SupportConversation[]
+  securityEvents        SecurityEvent[]
+  wallets               Wallet[]
+  creatorApplications   CreatorApplication[]
+  partnerApplications   PartnerApplication[]
+
+  @@map("profiles")
+}
+
+// -----------------------------------------------------------------------------
+// STORIES & CONTENT
+// -----------------------------------------------------------------------------
+
+model Story {
+  id            String   @id @default(cuid())
+  title         String
+  slug          String   @unique
+  authorName    String
+  narratorName  String
+  summary       String
+  storyline     String?
+  audioContent  String?
+  coverUrl      String?
+  iframeCode    String?
+  iframeUrl     String?
+  isVideoStory  Boolean  @default(false)
+  storyStatus   String   @default("ONGOING")
+  publishStatus String   @default("PUBLISHED")
+  accessLevel   String   @default("FREE")
+  rating        Float    @default(5.0)
+  listenCount   Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  chapters      Chapter[]
+  genres        GenreToStory[]
+  contentRights ContentRights[]
+
+  @@map("stories")
+}
+
+model Chapter {
+  id              String   @id @default(cuid())
+  storyId         String
+  story           Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  number          Int
+  title           String
+  slug            String?
+  audioUrl        String?
+  videoIframeUrl  String?
+  iframeCode      String?
+  audioContent    String?
+  durationSeconds Int      @default(0)
+  accessLevel     String   @default("FREE")
+  isEarlyAccess   Boolean  @default(false)
+  narrator        String?
+  publishStatus   String   @default("PUBLISHED")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  listeningProgress ListeningProgress[]
+
+  @@map("chapters")
+}
+
+model Genre {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  iconName    String?
+  storyCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stories     GenreToStory[]
+
+  @@map("genres")
+}
+
+model GenreToStory {
+  storyId String
+  genreId String
+
+  story   Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  genre   Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([storyId, genreId])
+  @@map("genres_stories")
+}
+
+model ContentRights {
+  id            String   @id @default(cuid())
+  storyId       String
+  story         Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  provider      String
+  contractId    String?
+  expiresAt     DateTime?
+  status        String   @default("ACTIVE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("content_rights")
+}
+
+// -----------------------------------------------------------------------------
+// LISTENING ACTIVITY
+// -----------------------------------------------------------------------------
+
+model ListeningProgress {
+  id              String   @id @default(cuid())
+  profileId       String
+  profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  chapterId       String
+  chapter         Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  progressSeconds Int      @default(0)
+  isCompleted     Boolean  @default(false)
+  lastListenedAt  DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([profileId, chapterId])
+  @@map("listening_progress")
+}
+
+model ListeningSession {
+  id              String   @id @default(cuid())
+  profileId       String
+  profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  deviceInfo      String?
+  ipAddress       String?
+  durationSeconds Int      @default(0)
+  startedAt       DateTime @default(now())
+  endedAt         DateTime?
+  createdAt       DateTime @default(now())
+
+  @@map("listening_sessions")
+}
+
+// -----------------------------------------------------------------------------
+// SUBSCRIPTIONS & PAYMENTS
+// -----------------------------------------------------------------------------
+
+model SubscriptionPlan {
+  id            String   @id @default(cuid())
+  name          String
+  code          String   @unique
+  description   String?
+  price         Float
+  durationDays  Int
+  isActive      Boolean  @default(true)
+  features      String[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  userSubscriptions UserSubscription[]
+  paymentPackages   PaymentPackage[]
+
+  @@map("subscription_plans")
+}
+
+model UserSubscription {
+  id            String   @id @default(cuid())
+  profileId     String
+  profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  planId        String
+  plan          SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  status        String   @default("ACTIVE")
+  startedAt     DateTime @default(now())
+  expiresAt     DateTime
+  cancelledAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("user_subscriptions")
+}
+
+model PremiumGrantLedger {
+  id            String   @id @default(cuid())
+  profileId     String
+  grantedBy     String
+  reason        String
+  daysGranted   Int
+  createdAt     DateTime @default(now())
+
+  @@map("premium_grant_ledgers")
+}
+
+model PaymentPackage {
+  id            String   @id @default(cuid())
+  planId        String?
+  plan          SubscriptionPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  name          String
+  code          String   @unique
+  price         Float
+  currency      String   @default("VND")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  paymentOrders PaymentOrder[]
+
+  @@map("payment_packages")
+}
+
+model PaymentOrder {
+  id            String   @id @default(cuid())
+  profileId     String
+  profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  packageId     String
+  package       PaymentPackage @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  amount        Float
+  currency      String   @default("VND")
+  status        String   @default("PENDING")
+  paymentMethod String?
+  transactionId String?  @unique
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  transactions  Transaction[]
+
+  @@map("payment_orders")
+}
+
+model Transaction {
+  id            String   @id @default(cuid())
+  orderId       String
+  order         PaymentOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  gateway       String
+  gatewayTxId   String?
+  amount        Float
+  status        String   @default("SUCCESS")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("transactions")
+}
+
+model WebhookEvent {
+  id            String   @id @default(cuid())
+  gateway       String
+  eventId       String   @unique
+  payload       String // JSON string
+  status        String   @default("PROCESSED")
+  createdAt     DateTime @default(now())
+
+  @@map("webhook_events")
+}
+
+// -----------------------------------------------------------------------------
+// WALLETS & CREATORS
+// -----------------------------------------------------------------------------
+
+model Wallet {
+  id            String   @id @default(cuid())
+  profileId     String
+  profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  balance       Float    @default(0)
+  currency      String   @default("VND")
+  status        String   @default("ACTIVE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  ledgerEntries      LedgerEntry[]
+  withdrawalRequests WithdrawalRequest[]
+
+  @@map("wallets")
+}
+
+model LedgerEntry {
+  id            String   @id @default(cuid())
+  walletId      String
+  wallet        Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  amount        Float
+  type          String   @default("CREDIT") // CREDIT, DEBIT
+  description   String?
+  referenceId   String?
+  createdAt     DateTime @default(now())
+
+  @@map("ledger_entries")
+}
+
+model WithdrawalRequest {
+  id            String   @id @default(cuid())
+  walletId      String
+  wallet        Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  amount        Float
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  bankDetails   String // JSON string
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("withdrawal_requests")
+}
+
+model CreatorApplication {
+  id            String   @id @default(cuid())
+  profileId     String
+  profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  realName      String
+  portfolioUrl  String?
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  reviewNotes   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("creator_applications")
+}
+
+// -----------------------------------------------------------------------------
+// PARTNERS & AFFILIATES
+// -----------------------------------------------------------------------------
+
+model PartnerApplication {
+  id            String   @id @default(cuid())
+  profileId     String
+  profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  companyName   String?
+  website       String?
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("partner_applications")
+}
+
+model AffiliateEvent {
+  id            String   @id @default(cuid())
+  affiliateId   String
+  eventType     String
+  revenue       Float    @default(0)
+  createdAt     DateTime @default(now())
+
+  @@map("affiliate_events")
+}
+
+model Commission {
+  id            String   @id @default(cuid())
+  affiliateId   String
+  amount        Float
+  status        String   @default("PENDING")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("commissions")
+}
+
+// -----------------------------------------------------------------------------
+// SUPPORT, SECURITY & AUDIT
+// -----------------------------------------------------------------------------
+
+model SupportConversation {
+  id            String   @id @default(cuid())
+  profileId     String
+  profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  subject       String
+  status        String   @default("OPEN")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  messages      SupportMessage[]
+
+  @@map("support_conversations")
+}
+
+model SupportMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   SupportConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  content        String
+  createdAt      DateTime @default(now())
+
+  @@map("support_messages")
+}
+
+model SecurityEvent {
+  id            String   @id @default(cuid())
+  profileId     String?
+  profile       Profile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  eventType     String
+  ipAddress     String?
+  userAgent     String?
+  details       String? // JSON string
+  createdAt     DateTime @default(now())
+
+  @@map("security_events")
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  actorId       String
+  action        String
+  entityType    String
+  entityId      String
+  details       String? // JSON string
+  createdAt     DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+model Report {
+  id            String   @id @default(cuid())
+  reporterId    String
+  targetType    String
+  targetId      String
+  reason        String
+  status        String   @default("PENDING")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("reports")
+}
+
+model FeatureFlag {
+  id            String   @id @default(cuid())
+  key           String   @unique
+  isEnabled     Boolean  @default(false)
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("feature_flags")
+}
+
+model IdempotencyRecord {
+  id            String   @id @default(cuid())
+  key           String   @unique
+  response      String? // JSON string
+  status        String   @default("PROCESSING")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("idempotency_records")
+}
