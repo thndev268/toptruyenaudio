@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Top Truyện Audio - Nền tảng nghe truyện audio hàng đầu</title>
+    <script>
+      (function() {
+        try {
+          var key = 'toptruyenaudio:theme:v1';
+          var pref = localStorage.getItem(key);
+          if (!pref) {
+            var legacy = localStorage.getItem('app_user_preferences');
+            if (legacy) {
+              var parsed = JSON.parse(legacy);
+              if (parsed && parsed.theme) {
+                pref = parsed.theme.toUpperCase();
+              }
+            }
+          }
+          if (pref) {
+            pref = pref.replace(/['"]/g, '').toUpperCase();
+          }
+          var isDark = false;
+          if (pref === 'DARK') {
+            isDark = true;
+          } else if (pref === 'LIGHT') {
+            isDark = false;
+          } else {
+            isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          }
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.style.colorScheme = 'light';
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

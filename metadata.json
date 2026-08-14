@@ -1,0 +1,8 @@
+{
+  "name": " TOP TRUYỆN AUDIO",
+  "description": "Nền tảng nghe truyện audio trực tuyến với kho truyện phong phú, trình phát hiện đại và trải nghiệm nghe liền mạch trên mọi thiết bị.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

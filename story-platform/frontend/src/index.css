@@ -1,0 +1,217 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --mini-player-height: 80px;
+
+    /* Semantic color tokens - LIGHT */
+    --bg-main: #f8fafc;
+    --bg-surface: #ffffff;
+    --bg-surface-hover: #f1f5f9;
+    --bg-surface-elevated: #ffffff;
+    --bg-muted: #e2e8f0;
+
+    --text-primary: #0f172a;
+    --text-secondary: #334155;
+    --text-muted: #64748b;
+    --text-subtle: #94a3b8;
+
+    --border-subtle: #e2e8f0;
+    --border-strong: #cbd5e1;
+
+    --overlay-bg: rgba(15, 23, 42, 0.5);
+  }
+
+  .dark {
+    /* Semantic color tokens - DARK */
+    --bg-main: #020617;
+    --bg-surface: #0f172a;
+    --bg-surface-hover: #1e293b;
+    --bg-surface-elevated: #1e293b;
+    --bg-muted: #1e293b;
+
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --text-subtle: #64748b;
+
+    --border-subtle: #1e293b;
+    --border-strong: #334155;
+
+    --overlay-bg: rgba(2, 6, 23, 0.85);
+  }
+
+  html {
+    scroll-padding-top: 5rem;
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    touch-action: manipulation;
+  }
+
+  body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    overflow-x: hidden;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: none; /* Prevent pull-to-refresh if not needed or handle specifically */
+  }
+
+  /* Optimized Mobile Layouts */
+  .mobile-optimized-scroll {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    will-change: scroll-position;
+  }
+
+  .gpu-accelerated {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000;
+    will-change: transform, opacity;
+  }
+
+  /* Respect prefers-reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Specific theme transition properties to avoid reflow */
+  .theme-transition,
+  .theme-transition *,
+  .theme-transition *::before,
+  .theme-transition *::after {
+    transition-property: color, background-color, border-color, box-shadow, fill, stroke !important;
+    transition-duration: 200ms !important;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1) !important;
+  }
+
+  /* Prevent zoom on mobile inputs */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+  @media (min-width: 768px) {
+    input, select, textarea {
+      font-size: 0.875rem !important; /* 14px */
+    }
+  }
+}
+
+/* Custom sleek scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-main);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #06b6d4; /* cyan-500 */
+}
+
+/* Hide scrollbar for clean horizontal scroll containers */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slideOutRight {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slideOutLeft {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideOutRight {
+  animation: slideOutRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideOutLeft {
+  animation: slideOutLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.filter-scroll-area {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Main container layout padding taking mini-player into account */
+.main-container-padding {
+  padding-bottom: calc(var(--mini-player-height) + 2rem);
+}
+
+/* YouTube Audio Source Hidden Container */
+.youtube-audio-source {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  left: -9999px;
+  top: -9999px;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
