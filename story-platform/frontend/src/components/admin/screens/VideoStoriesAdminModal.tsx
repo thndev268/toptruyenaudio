@@ -63,7 +63,7 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
     setIsExtracting(true);
 
     try {
-      const res = await fetch('/api/analyze-video', {
+      const res = await fetch('/api/v1/admin/analyze-video', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ iframeInput: iframeInputText }),
@@ -113,10 +113,16 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
         ? item
         : `<iframe width="100%" height="450" src="${ytId ? `https://www.youtube.com/embed/${ytId}` : src}" title="Video Player" frameborder="0" allowfullscreen></iframe>`;
 
+      let titleFromIframe = '';
+      const titleM = item.match(/title=["']([^"']+)["']/i);
+      if (titleM && titleM[1] && titleM[1] !== 'Video Player') {
+        titleFromIframe = titleM[1];
+      }
+
       results.push({
         id: `video-import-${Date.now()}-${idx}`,
-        title: `Video Truyện Lồng Tiếng #${idx + 1}${ytId ? ` (${ytId})` : ''}`,
-        summary: `Cốt truyện video #${idx + 1}: Diễn biến gay cấn xoay quanh những nhân vật chính và phân cảnh hình ảnh âm thanh giàu cảm xúc.`,
+        title: titleFromIframe || `Video Truyện Lồng Tiếng #${idx + 1}${ytId ? ` (${ytId})` : ''}`,
+        summary: titleFromIframe ? `Cốt truyện cho: ${titleFromIframe}` : `Cốt truyện video #${idx + 1}: Diễn biến gay cấn xoay quanh những nhân vật chính và phân cảnh hình ảnh âm thanh giàu cảm xúc.`,
         storyline: `Cốt truyện chi tiết: Bộ phim video câu chuyện dẫn dắt người xem qua từng diễn biến đặc sắc, cao trào và thông điệp nhân văn sâu sắc.`,
         audioContent: `Nội dung âm thanh kịch bản lời thoại:\n- Thuyết minh tập ${idx + 1} trọn vẹn.\n- Âm nhạc nền và hiệu ứng âm thanh lồng tiếng sống động.`,
         coverUrl: thumbnail,

@@ -838,6 +838,10 @@ class AdminRepositoryService {
       if (item.summary) formData.append('summary', item.summary);
       if (item.storyStatus) formData.append('storyStatus', item.storyStatus);
       if (item.publishStatus) formData.append('publishStatus', item.publishStatus);
+      if (item.iframeUrl) formData.append('iframeUrl', item.iframeUrl);
+      if (item.iframeCode) formData.append('iframeCode', item.iframeCode);
+      if (item.audioContent) formData.append('audioContent', item.audioContent);
+      if (item.isVideoStory) formData.append('isVideoStory', 'true');
       
       // We assume if it's a new video story, we just set the coverUrl as text for now
       // since the backend can just store the URL.

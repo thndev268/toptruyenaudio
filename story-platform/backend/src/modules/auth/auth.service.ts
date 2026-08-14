@@ -17,6 +17,7 @@ import { UserSubscription, UserSubscriptionDocument } from '../subscriptions/sch
 import { AccountRole, AccountStatus, MembershipTier, SubscriptionStatus } from '../../common/enums';
 import { RegisterDto, LoginDto, ChangePasswordDto, UpdateProfileDto } from './dto/auth.dto';
 import { PasswordHasherService } from '../../common/services/password-hasher.service';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class AuthService {
@@ -27,6 +28,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly passwordHasher: PasswordHasherService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -62,6 +64,24 @@ export class AuthService {
       status: SubscriptionStatus.NONE,
       autoRenew: false,
     });
+
+    // Sync to Supabase PostgreSQL database
+    try {
+      await this.prisma.profile.create({
+        data: {
+          id: user._id.toString(),
+          email: user.email,
+          emailNormalized: user.emailNormalized,
+          displayName: user.displayName,
+          role: user.role,
+          status: user.status,
+          membershipTier: user.membershipTier,
+        }
+      });
+    } catch (prismaError) {
+      console.error('Failed to sync user to Supabase PostgreSQL:', prismaError);
+      // Continue even if sync fails, as MongoDB is the primary storage
+    }
 
     const tokens = await this.generateTokens(user._id.toString(), user.email, user.role);
 

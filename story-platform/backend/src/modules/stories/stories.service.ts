@@ -1,79 +1,140 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Story, StoryDocument } from './schemas/story.schema';
-import { Chapter, ChapterDocument } from './schemas/chapter.schema';
-import { Genre, GenreDocument } from './schemas/genre.schema';
-import { PublishStatus, MembershipTier } from '../../common/enums';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+import { MembershipTier } from '../../common/enums';
 
 @Injectable()
 export class StoriesService {
-  constructor(
-    @InjectModel(Story.name) private storyModel: Model<StoryDocument>,
-    @InjectModel(Chapter.name) private chapterModel: Model<ChapterDocument>,
-    @InjectModel(Genre.name) private genreModel: Model<GenreDocument>,
-  ) {}
+  private readonly logger = new Logger(StoriesService.name);
+
+  constructor(private readonly prisma: PrismaService) {}
 
   async findAllPublic(query: any) {
-    return this.storyModel.find({ publishStatus: 'PUBLISHED' }).exec();
+    const { genre, search, page = 1, limit = 20 } = query;
+    const skip = (Number(page) - 1) * Number(limit);
+
+    return this.prisma.story.findMany({
+      where: {
+        publishStatus: 'PUBLISHED',
+        ...(genre && {
+          genres: { some: { genre: { slug: genre } } },
+        }),
+        ...(search && {
+          OR: [
+            { title: { contains: search, mode: 'insensitive' } },
+            { authorName: { contains: search, mode: 'insensitive' } },
+          ],
+        }),
+      },
+      include: {
+        genres: {
+          include: { genre: true },
+        },
+      },
+      orderBy: { listenCount: 'desc' },
+      skip,
+      take: Number(limit),
+    });
   }
 
   async findBySlug(slug: string) {
-    const story = await this.storyModel.findOne({ slug, publishStatus: 'PUBLISHED' }).exec();
+    const story = await this.prisma.story.findFirst({
+      where: { slug, publishStatus: 'PUBLISHED' },
+      include: {
+        genres: {
+          include: { genre: true },
+        },
+        chapters: {
+          where: { publishStatus: 'PUBLISHED' },
+          orderBy: { number: 'asc' },
+          select: {
+            id: true,
+            number: true,
+            title: true,
+            slug: true,
+            durationSeconds: true,
+            accessLevel: true,
+          },
+        },
+      },
+    });
+
     if (!story) throw new NotFoundException('Truyện không tồn tại hoặc chưa xuất bản');
     return story;
   }
 
   async findChaptersByStorySlug(slug: string, user?: any) {
-    const story = await this.findBySlug(slug);
-    const chapters = await this.chapterModel.find({ storyId: story._id, publishStatus: PublishStatus.PUBLISHED }).sort({ number: 1 }).exec();
-    
-    // If no user, return sanitized metadata only
+    const story = await this.prisma.story.findFirst({
+      where: { slug, publishStatus: 'PUBLISHED' },
+    });
+    if (!story) throw new NotFoundException('Truyện không tồn tại hoặc chưa xuất bản');
+
+    const chapters = await this.prisma.chapter.findMany({
+      where: { storyId: story.id, publishStatus: 'PUBLISHED' },
+      orderBy: { number: 'asc' },
+    });
+
+    // Unauthenticated: trả về metadata + flag requiresAuthentication
     if (!user) {
       return chapters.map(chapter => ({
-        id: chapter._id,
+        id: chapter.id,
         storyId: chapter.storyId,
         number: chapter.number,
         title: chapter.title,
         slug: chapter.slug,
         durationSeconds: chapter.durationSeconds,
-        isFree: chapter.isFree,
+        isFree: chapter.accessLevel === 'FREE',
         canListen: false,
         requiresAuthentication: true,
       }));
     }
 
-    // For authenticated users, they see metadata + canListen flag
-    // But we still don't return audioUrl here to prevent easy scraping/leaks via list endpoint
+    // Authenticated: trả về metadata + canListen flag (không expose audioUrl)
     return chapters.map(chapter => {
-      const canListen = chapter.isFree || user.membershipTier === MembershipTier.PREMIUM;
+      const isFree = chapter.accessLevel === 'FREE';
+      const isPremium = user.membershipTier === MembershipTier.PREMIUM;
+      const canListen = isFree || isPremium;
       return {
-        id: chapter._id,
+        id: chapter.id,
         storyId: chapter.storyId,
         number: chapter.number,
         title: chapter.title,
         slug: chapter.slug,
         durationSeconds: chapter.durationSeconds,
-        isFree: chapter.isFree,
+        isFree,
         canListen,
-        requiresPremium: !chapter.isFree && user.membershipTier !== MembershipTier.PREMIUM,
+        requiresPremium: !isFree && !isPremium,
       };
     });
   }
 
   async getChapterAccess(storySlug: string, chapterSlug: string, user: any) {
-    const story = await this.findBySlug(storySlug);
-    const chapter = await this.chapterModel.findOne({ 
-      storyId: story._id, 
-      slug: chapterSlug,
-      publishStatus: PublishStatus.PUBLISHED 
-    }).exec();
+    const story = await this.prisma.story.findFirst({
+      where: { slug: storySlug, publishStatus: 'PUBLISHED' },
+    });
+    if (!story) throw new NotFoundException('Truyện không tồn tại hoặc chưa xuất bản');
 
+    const chapter = await this.prisma.chapter.findFirst({
+      where: {
+        storyId: story.id,
+        slug: chapterSlug,
+        publishStatus: 'PUBLISHED',
+      },
+    });
     if (!chapter) throw new NotFoundException('Chương không tồn tại');
 
-    // Authentication is required (Guarded by JwtAuthGuard)
-    // Check membership for Premium content
-    if (!chapter.isFree && user.membershipTier !== MembershipTier.PREMIUM) {
+    // Kiểm tra account bị suspended (defense-in-depth)
+    if (user.status === 'SUSPENDED') {
+      return {
+        canListen: false,
+        denialReason: 'ACCOUNT_SUSPENDED',
+      };
+    }
+
+    const isFree = chapter.accessLevel === 'FREE';
+    const isPremium = user.membershipTier === MembershipTier.PREMIUM;
+
+    // Premium content yêu cầu subscription
+    if (!isFree && !isPremium) {
       return {
         canListen: false,
         requiresPremium: true,
@@ -81,15 +142,7 @@ export class StoriesService {
         chapter: {
           title: chapter.title,
           number: chapter.number,
-        }
-      };
-    }
-
-    // Check account status (Defense-in-depth)
-    if (user.status === 'SUSPENDED') {
-      return {
-        canListen: false,
-        denialReason: 'ACCOUNT_SUSPENDED'
+        },
       };
     }
 
@@ -103,16 +156,18 @@ export class StoriesService {
   }
 
   async incrementListenCount(storyId: string) {
-    return this.storyModel.updateOne(
-      { _id: storyId },
-      { $inc: { 'stats.listenCount': 1 } }
-    ).exec();
+    return this.prisma.story.update({
+      where: { id: storyId },
+      data: { listenCount: { increment: 1 } },
+    });
   }
 
   async incrementChapterListenCount(storyId: string, chapterId: string) {
-    return this.chapterModel.updateOne(
-      { _id: chapterId, storyId },
-      { $inc: { listenCount: 1 } }
-    ).exec();
+    // Chapter model không có listenCount trong schema Prisma hiện tại.
+    // Log để theo dõi, không throw error để tránh crash listening flow.
+    this.logger.warn(
+      `incrementChapterListenCount called (storyId=${storyId}, chapterId=${chapterId}) ` +
+      `but Chapter model has no listenCount field in Prisma schema. Skipping.`,
+    );
   }
 }

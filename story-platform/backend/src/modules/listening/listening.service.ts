@@ -42,7 +42,7 @@ export class ListeningService {
     
     if (!this.isMemoryProvider) {
        const session = new this.sessionModel({
-         userId, storyId: story._id, chapterId: chapter.id,
+         userId, storyId: story.id, chapterId: chapter.id,
          startedAt: new Date(), lastHeartbeatAt: new Date(),
          lastPositionSeconds: dto.startPosition || 0, playbackRate: dto.playbackRate || 1,
          status: ListeningSessionStatus.ACTIVE,

@@ -44,16 +44,22 @@ export class AdminStoriesController {
       coverUrl = await this.storage.uploadFile('media', filename, coverFile.buffer, coverFile.mimetype);
     }
 
+    const generatedSlug = body.slug || (body.title ? body.title.toLowerCase().replace(/ /g, '-') : `story-${Date.now()}`);
+
     return this.prisma.story.create({
       data: {
-        title: body.title,
-        slug: body.slug,
+        title: body.title || 'Không có tiêu đề',
+        slug: generatedSlug,
         authorName: body.authorName,
         narratorName: body.narratorName,
         summary: body.summary,
         coverUrl,
         storyStatus: body.storyStatus || 'ONGOING',
         publishStatus: body.publishStatus || 'PUBLISHED',
+        iframeUrl: body.iframeUrl,
+        iframeCode: body.iframeCode,
+        audioContent: body.audioContent,
+        isVideoStory: body.isVideoStory === 'true' || body.isVideoStory === true,
       },
     });
   }
@@ -84,6 +90,11 @@ export class AdminStoriesController {
       storyStatus: body.storyStatus,
       publishStatus: body.publishStatus,
     };
+
+    if (body.iframeUrl !== undefined) dataToUpdate.iframeUrl = body.iframeUrl;
+    if (body.iframeCode !== undefined) dataToUpdate.iframeCode = body.iframeCode;
+    if (body.audioContent !== undefined) dataToUpdate.audioContent = body.audioContent;
+    if (body.isVideoStory !== undefined) dataToUpdate.isVideoStory = body.isVideoStory === 'true' || body.isVideoStory === true;
 
     if (coverUrl) {
       dataToUpdate.coverUrl = coverUrl;

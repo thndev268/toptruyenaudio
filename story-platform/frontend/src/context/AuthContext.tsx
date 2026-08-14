@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { UserRole, UserTitle } from '../types';
 import { supabase } from '../lib/supabase';
 import { adminRepository } from '../services/repositories/AdminRepository';
+import { apiRequest } from '../services/apiClient';
 
 export { UserRole };
 
@@ -68,41 +69,72 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchProfile = async (userId: string, email: string): Promise<UserProfile | null> => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error) {
-        console.error('Error fetching profile:', error);
-        return null;
-      }
-
+      // Try to fetch from backend API first
+      const data = await apiRequest('/auth/me');
+      
       if (data) {
         let mappedRole: UserRole = UserRole.USER;
-        if (data.role === 'ADMIN' || data.role === 'OWNER_ADMIN' || email === 'thndev26@gmail.com') mappedRole = UserRole.ADMIN;
+        if (data.role === 'OWNER_ADMIN' || data.role === 'ADMIN' || email === 'thndev26@gmail.com') mappedRole = UserRole.ADMIN;
         else if (data.role === 'CREATOR') mappedRole = UserRole.CREATOR;
         else if (data.role === 'PARTNER') mappedRole = UserRole.PARTNER;
         else if (data.role === 'REVIEWER') mappedRole = UserRole.REVIEWER;
 
         const profile: UserProfile = {
           id: data.id,
-          name: data.full_name || data.username || email.split('@')[0],
+          name: data.displayName || email.split('@')[0],
           email: data.email,
           role: mappedRole,
-          avatarUrl: data.avatar_url,
+          avatarUrl: data.avatarUrl,
           accountStatus: data.status,
-          isPremium: data.membership_tier === 'PREMIUM',
+          isPremium: data.membershipTier === 'PREMIUM',
           membership: {
-            tier: data.membership_tier || 'FREE',
-            subscriptionStatus: 'ACTIVE',
+            tier: data.membershipTier || 'FREE',
+            subscriptionStatus: data.subscription?.status || 'ACTIVE',
           }
         };
         return profile;
       }
     } catch (err) {
-      console.error('Profile fetch exception:', err);
+      console.log('Backend API profile fetch failed, falling back to Supabase');
+      
+      // Fallback to Supabase if backend fails
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
+
+        if (error) {
+          console.error('Error fetching profile from Supabase:', error);
+          return null;
+        }
+
+        if (data) {
+          let mappedRole: UserRole = UserRole.USER;
+          if (data.role === 'ADMIN' || data.role === 'OWNER_ADMIN' || email === 'thndev26@gmail.com') mappedRole = UserRole.ADMIN;
+          else if (data.role === 'CREATOR') mappedRole = UserRole.CREATOR;
+          else if (data.role === 'PARTNER') mappedRole = UserRole.PARTNER;
+          else if (data.role === 'REVIEWER') mappedRole = UserRole.REVIEWER;
+
+          const profile: UserProfile = {
+            id: data.id,
+            name: data.full_name || data.username || email.split('@')[0],
+            email: data.email,
+            role: mappedRole,
+            avatarUrl: data.avatar_url,
+            accountStatus: data.status,
+            isPremium: data.membership_tier === 'PREMIUM',
+            membership: {
+              tier: data.membership_tier || 'FREE',
+              subscriptionStatus: 'ACTIVE',
+            }
+          };
+          return profile;
+        }
+      } catch (supabaseErr) {
+        console.error('Supabase profile fetch exception:', supabaseErr);
+      }
     }
     return null;
   };
@@ -188,6 +220,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     
+    try {
+      // Try backend API first
+      const data = await apiRequest('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      
+      if (data && data.user) {
+        let mappedRole: UserRole = UserRole.USER;
+        if (data.user.role === 'OWNER_ADMIN' || data.user.role === 'ADMIN' || email === 'thndev26@gmail.com') mappedRole = UserRole.ADMIN;
+        else if (data.user.role === 'CREATOR') mappedRole = UserRole.CREATOR;
+        else if (data.user.role === 'PARTNER') mappedRole = UserRole.PARTNER;
+        else if (data.user.role === 'REVIEWER') mappedRole = UserRole.REVIEWER;
+
+        const profile: UserProfile = {
+          id: data.user.id,
+          name: data.user.displayName || email.split('@')[0],
+          email: data.user.email,
+          role: mappedRole,
+          avatarUrl: data.user.avatarUrl,
+          accountStatus: data.user.status,
+          isPremium: data.user.membershipTier === 'PREMIUM',
+          membership: {
+            tier: data.user.membershipTier || 'FREE',
+            subscriptionStatus: 'ACTIVE',
+          }
+        };
+        
+        setAuthData({ role: profile.role, user: profile });
+        checkBannedStatus(profile);
+        
+        // Store tokens for future requests
+        if (data.tokens) {
+          localStorage.setItem('access_token', data.tokens.accessToken);
+        }
+        
+        return;
+      }
+    } catch (backendErr) {
+      console.log('Backend login failed, falling back to Supabase');
+    }
+    
+    // Fallback to Supabase
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -203,41 +278,85 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const register = async (name: string, email: string, password?: string, username?: string) => {
     if (!password) throw new Error('Vui lòng nhập mật khẩu để đăng ký.');
-    if (!username || username.length < 3 || username.length > 30) {
-      throw new Error('Tên đăng nhập phải từ 3 đến 30 ký tự.');
-    }
-
-    // Check username uniqueness
-    const { data: existingUser } = await supabase
-      .from('profiles')
-      .select('username')
-      .eq('username', username)
-      .single();
-
-    if (existingUser) {
-      throw new Error('Tên đăng nhập đã tồn tại, vui lòng chọn tên khác.');
-    }
-
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: name,
-          username: username,
-        }
-      }
-    });
-
-    if (error) {
-      if (error.message.includes('already registered')) {
-        throw new Error('Email này đã được đăng ký.');
-      }
-      throw error;
-    }
     
-    if (data?.user && data?.session === null) {
-      throw new Error('Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.');
+    try {
+      // Try backend API first
+      const data = await apiRequest('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ email, password, displayName: name }),
+      });
+      
+      if (data && data.user) {
+        let mappedRole: UserRole = UserRole.USER;
+        if (data.user.role === 'OWNER_ADMIN' || data.user.role === 'ADMIN' || email === 'thndev26@gmail.com') mappedRole = UserRole.ADMIN;
+        else if (data.user.role === 'CREATOR') mappedRole = UserRole.CREATOR;
+        else if (data.user.role === 'PARTNER') mappedRole = UserRole.PARTNER;
+        else if (data.user.role === 'REVIEWER') mappedRole = UserRole.REVIEWER;
+
+        const profile: UserProfile = {
+          id: data.user.id,
+          name: data.user.displayName || name,
+          email: data.user.email,
+          role: mappedRole,
+          avatarUrl: data.user.avatarUrl,
+          accountStatus: data.user.status,
+          isPremium: data.user.membershipTier === 'PREMIUM',
+          membership: {
+            tier: data.user.membershipTier || 'FREE',
+            subscriptionStatus: 'ACTIVE',
+          }
+        };
+        
+        setAuthData({ role: profile.role, user: profile });
+        checkBannedStatus(profile);
+        
+        // Store tokens for future requests
+        if (data.tokens) {
+          localStorage.setItem('access_token', data.tokens.accessToken);
+        }
+        
+        return;
+      }
+    } catch (backendErr) {
+      console.log('Backend registration failed, falling back to Supabase');
+      
+      // Fallback to Supabase
+      if (!username || username.length < 3 || username.length > 30) {
+        throw new Error('Tên đăng nhập phải từ 3 đến 30 ký tự.');
+      }
+
+      // Check username uniqueness
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('username', username)
+        .single();
+
+      if (existingUser) {
+        throw new Error('Tên đăng nhập đã tồn tại, vui lòng chọn tên khác.');
+      }
+
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: name,
+            username: username,
+          }
+        }
+      });
+
+      if (error) {
+        if (error.message.includes('already registered')) {
+          throw new Error('Email này đã được đăng ký.');
+        }
+        throw error;
+      }
+      
+      if (data?.user && data?.session === null) {
+        throw new Error('Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.');
+      }
     }
   };
 

@@ -4,9 +4,7 @@ import { Strategy } from 'passport-custom';
 import { ConfigService } from '@nestjs/config';
 import { createClient } from '@supabase/supabase-js';
 import { Request } from 'express';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { User, UserDocument } from '../users/schemas/user.schema';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
@@ -14,7 +12,7 @@ export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
 
   constructor(
     private configService: ConfigService,
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly prisma: PrismaService,
   ) {
     super();
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL') || process.env.SUPABASE_URL || 'https://placeholder.supabase.co';
@@ -37,20 +35,32 @@ export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
       throw new UnauthorizedException('Invalid Supabase token');
     }
 
-    // Now match with our local MongoDB user
-    let user = await this.userModel.findOne({ email: data.user.email }).exec();
+    let user = await this.prisma.profile.findUnique({ where: { id: data.user.id } });
     
     if (!user) {
-      // Sync from Supabase to MongoDB if user exists in Supabase but not MongoDB yet
-      user = new this.userModel({
-        email: data.user.email,
-        emailNormalized: data.user.email?.toLowerCase(),
-        displayName: data.user.user_metadata?.full_name || data.user.email?.split('@')[0],
-        role: 'USER',
-        status: 'ACTIVE',
-        membershipTier: 'FREE',
+      const adminEmail = this.configService.get<string>('ADMIN_EMAIL') || 'admin@toptruyenaudio.com';
+      const isOwnerAdmin = data.user.email?.toLowerCase() === adminEmail.toLowerCase();
+
+      // Sync from Supabase to Postgres if profile exists in Supabase but not Postgres yet
+      user = await this.prisma.profile.create({
+        data: {
+          id: data.user.id,
+          email: data.user.email || '',
+          emailNormalized: data.user.email?.toLowerCase(),
+          displayName: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'User',
+          role: isOwnerAdmin ? 'OWNER_ADMIN' : 'USER',
+          status: 'ACTIVE',
+          membershipTier: 'FREE',
+        }
       });
-      await user.save();
+    } else {
+      const adminEmail = this.configService.get<string>('ADMIN_EMAIL') || 'admin@toptruyenaudio.com';
+      if (data.user.email?.toLowerCase() === adminEmail.toLowerCase() && user.role !== 'OWNER_ADMIN') {
+        user = await this.prisma.profile.update({
+          where: { id: user.id },
+          data: { role: 'OWNER_ADMIN' }
+        });
+      }
     }
 
     if (user.status !== 'ACTIVE') {
@@ -58,7 +68,7 @@ export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
     }
 
     return {
-      id: user._id.toString(),
+      id: user.id,
       supabaseId: data.user.id,
       email: user.email,
       displayName: user.displayName,

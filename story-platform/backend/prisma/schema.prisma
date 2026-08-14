@@ -14,15 +14,23 @@ model Profile {
   id              String   @id // Maps to Supabase auth.users.id
   email           String   @unique
   emailNormalized String?  @unique
+  username        String?  @unique
   displayName     String?
+  passwordHash    String?
   role            String   @default("USER") // GUEST, USER, CREATOR, PARTNER, ADMIN, OWNER_ADMIN
   membershipTier  String   @default("FREE")
   status          String   @default("ACTIVE")
+  suspendedReason String?
+  suspendedAt     DateTime?
   avatarUrl       String?
   lastLoginAt     DateTime?
+  passwordChangedAt DateTime?
   premiumExpiresAt DateTime?
+  version         Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  refreshSessions       RefreshSession[]
 
   listeningProgress     ListeningProgress[]
   listeningSessions     ListeningSession[]
@@ -40,6 +48,23 @@ model Profile {
 // -----------------------------------------------------------------------------
 // STORIES & CONTENT
 // -----------------------------------------------------------------------------
+
+model RefreshSession {
+  id            String   @id @default(cuid())
+  userId        String
+  profile       Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId      String
+  tokenHash     String   @unique
+  isRevoked     Boolean  @default(false)
+  revokedAt     DateTime?
+  revokedReason String?
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_sessions")
+}
 
 model Story {
   id            String   @id @default(cuid())

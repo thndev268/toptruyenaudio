@@ -11,6 +11,7 @@ describe('AuthService', () => {
   let mockJwtService: any;
   let mockConfigService: any;
   let mockPasswordHasher: any;
+  let mockPrismaService: any;
 
   beforeEach(() => {
     mockUserModel = jest.fn().mockImplementation((data) => ({
@@ -57,6 +58,14 @@ describe('AuthService', () => {
       needsRehash: jest.fn().mockImplementation((hash: string) => hash.startsWith('$2b$')),
     };
 
+    mockPrismaService = {
+      profile: {
+        create: jest.fn(),
+        findUnique: jest.fn(),
+        update: jest.fn(),
+      },
+    };
+
     authService = new AuthService(
       mockUserModel,
       mockRefreshSessionModel,
@@ -64,6 +73,7 @@ describe('AuthService', () => {
       mockJwtService,
       mockConfigService,
       mockPasswordHasher,
+      mockPrismaService,
     );
   });
 
