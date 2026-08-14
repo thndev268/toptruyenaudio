@@ -2,16 +2,14 @@ import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/c
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { User, UserDocument } from '../users/schemas/user.schema';
+import { PrismaService } from '../../prisma/prisma.service';
 import { AccountStatus } from '../../common/enums';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private readonly configService: ConfigService,
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly prisma: PrismaService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
@@ -24,7 +22,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: { sub: string; email: string; role: string }) {
-    const user = await this.userModel.findById(payload.sub).exec();
+    const user = await this.prisma.profile.findUnique({ where: { id: payload.sub } });
 
     if (!user) {
       throw new UnauthorizedException({
@@ -48,7 +46,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     return {
-      id: user._id.toString(),
+      id: user.id,
       email: user.email,
       displayName: user.displayName,
       role: user.role,

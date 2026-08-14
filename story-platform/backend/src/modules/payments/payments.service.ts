@@ -1,18 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { PaymentPackage, PaymentPackageDocument } from './schemas/payment-package.schema';
-import { PaymentOrder, PaymentOrderDocument } from './schemas/payment-order.schema';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class PaymentsService {
   constructor(
-    @InjectModel(PaymentPackage.name) private packageModel: Model<PaymentPackageDocument>,
-    @InjectModel(PaymentOrder.name) private orderModel: Model<PaymentOrderDocument>,
+    private readonly prisma: PrismaService,
   ) {}
 
   async getPackages() {
-    return this.packageModel.find({ status: true }).exec();
+    return this.prisma.paymentPackage.findMany({ where: { status: true } });
   }
 
   async createOrder(userId: string, dto: any) {

@@ -71,7 +71,7 @@ export class SupportController {
     @Param('conversationId') conversationId: string,
     @Body() dto: CreateMessageDto,
   ) {
-    return this.supportService.addMessageFromUser(
+    return this.supportService.addMessage(
       userId,
       userName || 'Người dùng',
       conversationId,

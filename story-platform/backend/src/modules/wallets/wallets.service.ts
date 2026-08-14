@@ -1,20 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { Wallet, WalletDocument } from './schemas/wallet.schema';
-import { LedgerEntry, LedgerEntryDocument } from './schemas/ledger-entry.schema';
-import { WithdrawalRequest, WithdrawalRequestDocument } from './schemas/withdrawal-request.schema';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class WalletsService {
   constructor(
-    @InjectModel(Wallet.name) private walletModel: Model<WalletDocument>,
-    @InjectModel(LedgerEntry.name) private ledgerModel: Model<LedgerEntryDocument>,
-    @InjectModel(WithdrawalRequest.name) private withdrawalModel: Model<WithdrawalRequestDocument>,
+    private readonly prisma: PrismaService,
   ) {}
 
   async getMyWallet(ownerId: string) {
-    return this.walletModel.findOne({ ownerId }).exec();
+    return this.prisma.wallet.findFirst({ where: { profileId: ownerId } });
   }
 
   async requestWithdrawal(userId: string, dto: any) {

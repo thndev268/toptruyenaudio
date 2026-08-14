@@ -1,18 +1,13 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
 import { ListeningController } from './listening.controller';
 import { ListeningService } from './listening.service';
-import { ListeningSession, ListeningSessionSchema } from './schemas/listening-session.schema';
-import { ListeningProgress, ListeningProgressSchema } from './schemas/listening-progress.schema';
+import { PrismaModule } from '../../prisma/prisma.module';
 import { StoriesModule } from '../stories/stories.module';
 import { InMemoryListeningProgressRepository } from './in-memory-progress.repository';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: ListeningSession.name, schema: ListeningSessionSchema },
-      { name: ListeningProgress.name, schema: ListeningProgressSchema },
-    ]),
+    PrismaModule,
     StoriesModule,
   ],
   controllers: [ListeningController],

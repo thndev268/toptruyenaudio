@@ -1,14 +1,11 @@
 import { Injectable, ConflictException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import * as crypto from 'crypto';
-import { IdempotencyRecord, IdempotencyRecordDocument } from './schemas/idempotency-record.schema';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class IdempotencyService {
   constructor(
-    @InjectModel(IdempotencyRecord.name)
-    private readonly idempotencyModel: Model<IdempotencyRecordDocument>,
+    private readonly prisma: PrismaService,
   ) {}
 
   calculateHash(payload: any): string {
@@ -30,9 +27,9 @@ export class IdempotencyService {
     const requestHash = this.calculateHash(payload);
 
     // 1. Check existing record
-    const existing = await this.idempotencyModel
-      .findOne({ actorId, operation, key })
-      .exec();
+    const existing = await this.prisma.idempotencyRecord.findUnique({
+      where: { actorId_operation_key: { actorId, operation, key } }
+    });
 
     if (existing) {
       if (existing.requestHash === requestHash) {
@@ -57,20 +54,24 @@ export class IdempotencyService {
     expiresAt.setDate(expiresAt.getDate() + ttlDays);
 
     try {
-      await this.idempotencyModel.create({
-        key,
-        actorId,
-        operation,
-        resourceId,
-        requestHash,
-        responseStatus: result.status,
-        responseBody: result.body,
-        expiresAt,
+      await this.prisma.idempotencyRecord.create({
+        data: {
+          key,
+          actorId,
+          operation,
+          resourceId,
+          requestHash,
+          responseStatus: result.status,
+          responseBody: result.body as any,
+          expiresAt,
+        },
       });
     } catch (err: any) {
-      // Catch MongoDB duplicate key error (11000) for race condition
-      if (err.code === 11000 || err.message?.includes('E11000')) {
-        const raced = await this.idempotencyModel.findOne({ actorId, operation, key }).exec();
+      // Catch Prisma duplicate key error (P2002) for race condition
+      if (err.code === 'P2002') {
+        const raced = await this.prisma.idempotencyRecord.findUnique({
+          where: { actorId_operation_key: { actorId, operation, key } }
+        });
         if (raced && raced.requestHash === requestHash) {
           return {
             status: raced.responseStatus,

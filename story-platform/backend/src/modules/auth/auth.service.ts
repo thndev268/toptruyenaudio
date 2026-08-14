@@ -6,14 +6,8 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
-import { User, UserDocument } from '../users/schemas/user.schema';
-import { RefreshSession, RefreshSessionDocument } from './schemas/refresh-session.schema';
-import { UserSubscription, UserSubscriptionDocument } from '../subscriptions/schemas/user-subscription.schema';
 import { AccountRole, AccountStatus, MembershipTier, SubscriptionStatus } from '../../common/enums';
 import { RegisterDto, LoginDto, ChangePasswordDto, UpdateProfileDto } from './dto/auth.dto';
 import { PasswordHasherService } from '../../common/services/password-hasher.service';
@@ -22,9 +16,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    @InjectModel(RefreshSession.name) private readonly refreshSessionModel: Model<RefreshSessionDocument>,
-    @InjectModel(UserSubscription.name) private readonly subscriptionModel: Model<UserSubscriptionDocument>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly passwordHasher: PasswordHasherService,
@@ -34,7 +25,7 @@ export class AuthService {
   async register(dto: RegisterDto) {
     const emailNormalized = dto.email.trim().toLowerCase();
 
-    const existing = await this.userModel.findOne({ emailNormalized }).exec();
+    const existing = await this.prisma.profile.findUnique({ where: { emailNormalized } });
     if (existing) {
       throw new ConflictException({
         code: 'VALIDATION_ERROR',
@@ -45,45 +36,29 @@ export class AuthService {
 
     const passwordHash = await this.passwordHasher.hash(dto.password);
 
-    const user = new this.userModel({
-      email: dto.email.trim(),
-      emailNormalized,
-      passwordHash,
-      displayName: dto.displayName.trim(),
-      role: AccountRole.USER,
-      status: AccountStatus.ACTIVE,
-      membershipTier: MembershipTier.FREE,
+    const user = await this.prisma.profile.create({
+      data: {
+        email: dto.email.trim(),
+        emailNormalized,
+        passwordHash,
+        displayName: dto.displayName.trim(),
+        role: AccountRole.USER,
+        status: AccountStatus.ACTIVE,
+        membershipTier: MembershipTier.FREE,
+      }
     });
-
-    await user.save();
 
     // Create default subscription record
-    await this.subscriptionModel.create({
-      userId: user._id,
-      membershipTier: MembershipTier.FREE,
-      status: SubscriptionStatus.NONE,
-      autoRenew: false,
+    await this.prisma.userSubscription.create({
+      data: {
+        profileId: user.id,
+        membershipTier: MembershipTier.FREE,
+        status: SubscriptionStatus.NONE,
+        autoRenew: false,
+      }
     });
 
-    // Sync to Supabase PostgreSQL database
-    try {
-      await this.prisma.profile.create({
-        data: {
-          id: user._id.toString(),
-          email: user.email,
-          emailNormalized: user.emailNormalized,
-          displayName: user.displayName,
-          role: user.role,
-          status: user.status,
-          membershipTier: user.membershipTier,
-        }
-      });
-    } catch (prismaError) {
-      console.error('Failed to sync user to Supabase PostgreSQL:', prismaError);
-      // Continue even if sync fails, as MongoDB is the primary storage
-    }
-
-    const tokens = await this.generateTokens(user._id.toString(), user.email, user.role);
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
 
     return {
       user: this.sanitizeUser(user),
@@ -93,7 +68,7 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const emailNormalized = dto.email.trim().toLowerCase();
-    const user = await this.userModel.findOne({ emailNormalized }).exec();
+    let user = await this.prisma.profile.findUnique({ where: { emailNormalized } });
 
     // Generic error to prevent email enumeration
     if (!user) {
@@ -103,7 +78,7 @@ export class AuthService {
       });
     }
 
-    const isMatch = await this.passwordHasher.verify(dto.password, user.passwordHash);
+    const isMatch = await this.passwordHasher.verify(dto.password, user.passwordHash!);
     if (!isMatch) {
       throw new UnauthorizedException({
         code: 'UNAUTHENTICATED',
@@ -112,8 +87,12 @@ export class AuthService {
     }
 
     // Automatic transparent rehash from legacy bcrypt to Argon2id
-    if (this.passwordHasher.needsRehash(user.passwordHash)) {
-      user.passwordHash = await this.passwordHasher.hash(dto.password);
+    if (this.passwordHasher.needsRehash(user.passwordHash!)) {
+      const newHash = await this.passwordHasher.hash(dto.password);
+      user = await this.prisma.profile.update({
+        where: { id: user.id },
+        data: { passwordHash: newHash },
+      });
     }
 
     if (user.status === AccountStatus.SUSPENDED) {
@@ -130,10 +109,12 @@ export class AuthService {
       });
     }
 
-    user.lastLoginAt = new Date();
-    await user.save();
+    user = await this.prisma.profile.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
 
-    const tokens = await this.generateTokens(user._id.toString(), user.email, user.role);
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
 
     return {
       user: this.sanitizeUser(user),
@@ -150,7 +131,7 @@ export class AuthService {
     }
 
     const tokenHash = await this.hashToken(refreshToken);
-    const session = await this.refreshSessionModel.findOne({ tokenHash }).exec();
+    const session = await this.prisma.refreshSession.findUnique({ where: { tokenHash } });
 
     if (!session) {
       throw new UnauthorizedException({
@@ -161,10 +142,10 @@ export class AuthService {
 
     // Token reuse detection -> Revoke whole family!
     if (session.isRevoked) {
-      await this.refreshSessionModel.updateMany(
-        { familyId: session.familyId },
-        { isRevoked: true, revokedAt: new Date(), revokedReason: 'TOKEN_REUSE_DETECTED' },
-      );
+      await this.prisma.refreshSession.updateMany({
+        where: { familyId: session.familyId },
+        data: { isRevoked: true, revokedAt: new Date(), revokedReason: 'TOKEN_REUSE_DETECTED' },
+      });
       throw new ForbiddenException({
         code: 'REFRESH_TOKEN_REUSE',
         message: 'Cảnh báo an ninh: Phát hiện mã đăng nhập bị lạm dụng. Toàn bộ phiên làm việc đã bị thu hồi.',
@@ -172,17 +153,17 @@ export class AuthService {
     }
 
     if (session.expiresAt < new Date()) {
-      session.isRevoked = true;
-      session.revokedAt = new Date();
-      session.revokedReason = 'EXPIRED';
-      await session.save();
+      await this.prisma.refreshSession.update({
+        where: { id: session.id },
+        data: { isRevoked: true, revokedAt: new Date(), revokedReason: 'EXPIRED' },
+      });
       throw new UnauthorizedException({
         code: 'UNAUTHENTICATED',
         message: 'Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.',
       });
     }
 
-    const user = await this.userModel.findById(session.userId).exec();
+    const user = await this.prisma.profile.findUnique({ where: { id: session.userId } });
     if (!user || user.status !== AccountStatus.ACTIVE) {
       throw new ForbiddenException({
         code: 'USER_SUSPENDED',
@@ -191,12 +172,12 @@ export class AuthService {
     }
 
     // Rotate token
-    session.isRevoked = true;
-    session.revokedAt = new Date();
-    session.revokedReason = 'ROTATED';
-    await session.save();
+    await this.prisma.refreshSession.update({
+      where: { id: session.id },
+      data: { isRevoked: true, revokedAt: new Date(), revokedReason: 'ROTATED' },
+    });
 
-    const newTokens = await this.generateTokens(user._id.toString(), user.email, user.role, session.familyId);
+    const newTokens = await this.generateTokens(user.id, user.email, user.role, session.familyId);
 
     return {
       user: this.sanitizeUser(user),
@@ -207,24 +188,24 @@ export class AuthService {
   async logout(refreshToken: string) {
     if (refreshToken) {
       const tokenHash = await this.hashToken(refreshToken);
-      await this.refreshSessionModel.updateOne(
-        { tokenHash },
-        { isRevoked: true, revokedAt: new Date(), revokedReason: 'USER_LOGOUT' },
-      );
+      await this.prisma.refreshSession.updateMany({
+        where: { tokenHash },
+        data: { isRevoked: true, revokedAt: new Date(), revokedReason: 'USER_LOGOUT' },
+      });
     }
     return { success: true };
   }
 
   async logoutAll(userId: string) {
-    await this.refreshSessionModel.updateMany(
-      { userId: new Types.ObjectId(userId), isRevoked: false },
-      { isRevoked: true, revokedAt: new Date(), revokedReason: 'LOGOUT_ALL' },
-    );
+    await this.prisma.refreshSession.updateMany({
+      where: { userId, isRevoked: false },
+      data: { isRevoked: true, revokedAt: new Date(), revokedReason: 'LOGOUT_ALL' },
+    });
     return { success: true };
   }
 
   async getCurrentUser(userId: string) {
-    const user = await this.userModel.findById(userId).exec();
+    const user = await this.prisma.profile.findUnique({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException({
         code: 'RESOURCE_NOT_FOUND',
@@ -232,7 +213,7 @@ export class AuthService {
       });
     }
 
-    const subscription = await this.subscriptionModel.findOne({ userId: user._id }).exec();
+    const subscription = await this.prisma.userSubscription.findFirst({ where: { profileId: userId } });
 
     return {
       user: this.sanitizeUser(user),
@@ -245,27 +226,30 @@ export class AuthService {
   }
 
   async updateProfile(userId: string, dto: UpdateProfileDto) {
-    const user = await this.userModel.findById(userId).exec();
+    const user = await this.prisma.profile.findUnique({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Người dùng không tồn tại' });
     }
 
-    if (dto.displayName) user.displayName = dto.displayName.trim();
-    if (dto.avatarUrl !== undefined) user.avatarUrl = dto.avatarUrl;
+    const updateData: any = { version: { increment: 1 } };
+    if (dto.displayName) updateData.displayName = dto.displayName.trim();
+    if (dto.avatarUrl !== undefined) updateData.avatarUrl = dto.avatarUrl;
 
-    user.version += 1;
-    await user.save();
+    const updated = await this.prisma.profile.update({
+      where: { id: userId },
+      data: updateData,
+    });
 
-    return this.sanitizeUser(user);
+    return this.sanitizeUser(updated);
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto) {
-    const user = await this.userModel.findById(userId).exec();
+    const user = await this.prisma.profile.findUnique({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Người dùng không tồn tại' });
     }
 
-    const isMatch = await this.passwordHasher.verify(dto.oldPassword, user.passwordHash);
+    const isMatch = await this.passwordHasher.verify(dto.oldPassword, user.passwordHash!);
     if (!isMatch) {
       throw new BadRequestException({
         code: 'VALIDATION_ERROR',
@@ -274,9 +258,11 @@ export class AuthService {
       });
     }
 
-    user.passwordHash = await this.passwordHasher.hash(dto.newPassword);
-    user.version += 1;
-    await user.save();
+    const newHash = await this.passwordHasher.hash(dto.newPassword);
+    await this.prisma.profile.update({
+      where: { id: userId },
+      data: { passwordHash: newHash, version: { increment: 1 } },
+    });
 
     // Revoke all other refresh sessions after password change
     await this.logoutAll(userId);
@@ -286,38 +272,40 @@ export class AuthService {
 
   // Bootstrap single OWNER_ADMIN account via CLI command only
   async bootstrapOwnerAdmin(email: string, password: string, displayName: string = 'Chủ Sở Hữu (Owner Admin)') {
-    const existingAdmin = await this.userModel.findOne({ role: AccountRole.OWNER_ADMIN }).exec();
+    const existingAdmin = await this.prisma.profile.findFirst({ where: { role: AccountRole.OWNER_ADMIN } });
     if (existingAdmin) {
       throw new ConflictException('Hệ thống đã tồn tại tài khoản OWNER_ADMIN. Không thể khởi tạo thêm tài khoản quản trị viên.');
     }
 
     const emailNormalized = email.trim().toLowerCase();
-    const existingEmail = await this.userModel.findOne({ emailNormalized }).exec();
+    const existingEmail = await this.prisma.profile.findUnique({ where: { emailNormalized } });
     if (existingEmail) {
       throw new ConflictException(`Email ${email} đã được sử dụng bởi tài khoản khác.`);
     }
 
     const passwordHash = await this.passwordHasher.hash(password);
 
-    const admin = new this.userModel({
-      email: email.trim(),
-      emailNormalized,
-      passwordHash,
-      displayName,
-      role: AccountRole.OWNER_ADMIN,
-      status: AccountStatus.ACTIVE,
-      membershipTier: MembershipTier.PREMIUM,
+    const admin = await this.prisma.profile.create({
+      data: {
+        email: email.trim(),
+        emailNormalized,
+        passwordHash,
+        displayName,
+        role: AccountRole.OWNER_ADMIN,
+        status: AccountStatus.ACTIVE,
+        membershipTier: MembershipTier.PREMIUM,
+      }
     });
 
-    await admin.save();
-
-    await this.subscriptionModel.create({
-      userId: admin._id,
-      membershipTier: MembershipTier.PREMIUM,
-      status: SubscriptionStatus.ACTIVE,
-      startedAt: new Date(),
-      expiresAt: new Date(Date.now() + 100 * 365 * 86400000), // 100 years
-      autoRenew: true,
+    await this.prisma.userSubscription.create({
+      data: {
+        profileId: admin.id,
+        membershipTier: MembershipTier.PREMIUM,
+        status: SubscriptionStatus.ACTIVE,
+        startedAt: new Date(),
+        expiresAt: new Date(Date.now() + 100 * 365 * 86400000), // 100 years
+        autoRenew: true,
+      }
     });
 
     return admin;
@@ -340,12 +328,14 @@ export class AuthService {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
 
-    await this.refreshSessionModel.create({
-      userId: new Types.ObjectId(userId),
-      familyId,
-      tokenHash,
-      isRevoked: false,
-      expiresAt,
+    await this.prisma.refreshSession.create({
+      data: {
+        userId,
+        familyId,
+        tokenHash,
+        isRevoked: false,
+        expiresAt,
+      }
     });
 
     return {
@@ -360,9 +350,9 @@ export class AuthService {
     return crypto.createHash('sha256').update(token).digest('hex');
   }
 
-  sanitizeUser(user: UserDocument) {
+  sanitizeUser(user: any) {
     return {
-      id: user._id.toString(),
+      id: user.id,
       email: user.email,
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,
@@ -372,7 +362,7 @@ export class AuthService {
       suspendedReason: user.suspendedReason,
       suspendedAt: user.suspendedAt ? user.suspendedAt.toISOString() : undefined,
       lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : undefined,
-      createdAt: (user as any).createdAt ? (user as any).createdAt.toISOString() : new Date().toISOString(),
+      createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString(),
       version: user.version,
     };
   }

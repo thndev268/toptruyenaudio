@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
+
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { User, UserSchema } from './schemas/user.schema';
@@ -10,12 +10,7 @@ import { CommonModule } from '../../common/common.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: User.name, schema: UserSchema },
-      { name: UserProfile.name, schema: UserProfileSchema },
-      { name: UserSubscription.name, schema: UserSubscriptionSchema },
-      { name: RefreshSession.name, schema: RefreshSessionSchema },
-    ]),
+
     CommonModule,
   ],
   controllers: [UsersController],

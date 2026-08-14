@@ -5,11 +5,7 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { User, UserDocument } from '../users/schemas/user.schema';
-import { RefreshSession, RefreshSessionDocument } from '../auth/schemas/refresh-session.schema';
-import { UserSubscription, UserSubscriptionDocument } from '../subscriptions/schemas/user-subscription.schema';
+import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AccountStatus, AccountRole } from '../../common/enums';
 import { QueryUsersDto, UserMutationDto } from './dto/admin-users.dto';
@@ -17,35 +13,31 @@ import { QueryUsersDto, UserMutationDto } from './dto/admin-users.dto';
 @Injectable()
 export class AdminService {
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    @InjectModel(RefreshSession.name) private readonly refreshSessionModel: Model<RefreshSessionDocument>,
-    @InjectModel(UserSubscription.name) private readonly subscriptionModel: Model<UserSubscriptionDocument>,
+    private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
   ) {}
 
   async getUsers(queryDto: QueryUsersDto) {
-    const query: any = {};
+    const where: any = {};
 
-    // Filtering by search term (displayName, email, or _id)
+    // Filtering by search term (displayName, email, or id)
     if (queryDto.search) {
       const term = queryDto.search.trim();
-      const isObjectId = Types.ObjectId.isValid(term);
-
-      if (isObjectId) {
-        query.$or = [{ _id: new Types.ObjectId(term) }, { emailNormalized: new RegExp(term, 'i') }, { displayName: new RegExp(term, 'i') }];
-      } else {
-        query.$or = [{ emailNormalized: new RegExp(term, 'i') }, { displayName: new RegExp(term, 'i') }];
-      }
+      where.OR = [
+        { emailNormalized: { contains: term, mode: 'insensitive' } },
+        { displayName: { contains: term, mode: 'insensitive' } },
+        { id: term },
+      ];
     }
 
-    if (queryDto.status) query.status = queryDto.status;
-    if (queryDto.membershipTier) query.membershipTier = queryDto.membershipTier;
-    if (queryDto.role) query.role = queryDto.role;
+    if (queryDto.status) where.status = queryDto.status;
+    if (queryDto.membershipTier) where.membershipTier = queryDto.membershipTier;
+    if (queryDto.role) where.role = queryDto.role;
 
     if (queryDto.startDate || queryDto.endDate) {
-      query.createdAt = {};
-      if (queryDto.startDate) query.createdAt.$gte = new Date(queryDto.startDate);
-      if (queryDto.endDate) query.createdAt.$lte = new Date(queryDto.endDate);
+      where.createdAt = {};
+      if (queryDto.startDate) where.createdAt.gte = new Date(queryDto.startDate);
+      if (queryDto.endDate) where.createdAt.lte = new Date(queryDto.endDate);
     }
 
     const page = queryDto.page || 1;
@@ -53,16 +45,16 @@ export class AdminService {
     const skip = (page - 1) * limit;
 
     const sortField = queryDto.sortBy || 'createdAt';
-    const sortDirection = queryDto.sortOrder === 'asc' ? 1 : -1;
+    const sortDirection = queryDto.sortOrder === 'asc' ? 'asc' : 'desc';
 
     const [users, total] = await Promise.all([
-      this.userModel
-        .find(query)
-        .sort({ [sortField]: sortDirection })
-        .skip(skip)
-        .limit(limit)
-        .exec(),
-      this.userModel.countDocuments(query).exec(),
+      this.prisma.profile.findMany({
+        where,
+        orderBy: { [sortField]: sortDirection },
+        skip,
+        take: limit,
+      }),
+      this.prisma.profile.count({ where }),
     ]);
 
     return {
@@ -77,16 +69,12 @@ export class AdminService {
   }
 
   async getUserById(userId: string) {
-    if (!Types.ObjectId.isValid(userId)) {
-      throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Mã người dùng không hợp lệ.' });
-    }
-
-    const user = await this.userModel.findById(userId).exec();
+    const user = await this.prisma.profile.findUnique({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy người dùng.' });
     }
 
-    const subscription = await this.subscriptionModel.findOne({ userId: user._id }).exec();
+    const subscription = await this.prisma.userSubscription.findFirst({ where: { profileId: userId } });
 
     return {
       user: this.formatUser(user),
@@ -107,7 +95,7 @@ export class AdminService {
       });
     }
 
-    const user = await this.userModel.findById(userId).exec();
+    const user = await this.prisma.profile.findUnique({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy người dùng.' });
     }
@@ -126,33 +114,37 @@ export class AdminService {
       });
     }
 
-    user.status = AccountStatus.SUSPENDED;
-    user.suspendedAt = new Date();
-    user.suspendedReason = dto.reason;
-    user.version += 1;
-    await user.save();
+    const updated = await this.prisma.profile.update({
+      where: { id: userId },
+      data: {
+        status: AccountStatus.SUSPENDED,
+        suspendedAt: new Date(),
+        suspendedReason: dto.reason,
+        version: { increment: 1 },
+      },
+    });
 
     // Revoke all refresh token sessions
-    await this.refreshSessionModel.updateMany(
-      { userId: user._id, isRevoked: false },
-      { isRevoked: true, revokedAt: new Date(), revokedReason: `ACCOUNT_SUSPENDED: ${dto.reason}` },
-    );
+    await this.prisma.refreshSession.updateMany({
+      where: { userId, isRevoked: false },
+      data: { isRevoked: true, revokedAt: new Date(), revokedReason: `ACCOUNT_SUSPENDED: ${dto.reason}` },
+    });
 
     await this.auditLogsService.log({
       performedByAdminId: adminId,
       action: 'USER_SUSPENDED',
       resource: 'User',
-      resourceId: user._id.toString(),
-      entityName: user.displayName,
+      resourceId: userId,
+      entityName: user.displayName || undefined,
       reason: dto.reason,
       requestId,
     });
 
-    return this.formatUser(user);
+    return this.formatUser(updated);
   }
 
   async unsuspendUser(userId: string, adminId: string, dto: UserMutationDto, requestId?: string) {
-    const user = await this.userModel.findById(userId).exec();
+    const user = await this.prisma.profile.findUnique({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy người dùng.' });
     }
@@ -164,42 +156,46 @@ export class AdminService {
       });
     }
 
-    user.status = AccountStatus.ACTIVE;
-    user.suspendedAt = undefined;
-    user.suspendedReason = undefined;
-    user.version += 1;
-    await user.save();
+    const updated = await this.prisma.profile.update({
+      where: { id: userId },
+      data: {
+        status: AccountStatus.ACTIVE,
+        suspendedAt: null,
+        suspendedReason: null,
+        version: { increment: 1 },
+      },
+    });
 
     await this.auditLogsService.log({
       performedByAdminId: adminId,
       action: 'USER_UNSUSPENDED',
       resource: 'User',
-      resourceId: user._id.toString(),
-      entityName: user.displayName,
+      resourceId: userId,
+      entityName: user.displayName || undefined,
       reason: dto.reason,
       requestId,
     });
 
-    return this.formatUser(user);
+    return this.formatUser(updated);
   }
 
   async revokeUserSessions(userId: string, adminId: string, dto: UserMutationDto, requestId?: string) {
-    const user = await this.userModel.findById(userId).exec();
+    const user = await this.prisma.profile.findUnique({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy người dùng.' });
     }
 
-    await this.refreshSessionModel.updateMany(
-      { userId: user._id, isRevoked: false },
-      { isRevoked: true, revokedAt: new Date(), revokedReason: `ADMIN_REVOKED: ${dto.reason}` },
-    );
+    await this.prisma.refreshSession.updateMany({
+      where: { userId, isRevoked: false },
+      data: { isRevoked: true, revokedAt: new Date(), revokedReason: `ADMIN_REVOKED: ${dto.reason}` },
+    });
 
     await this.auditLogsService.log({
       performedByAdminId: adminId,
       action: 'USER_SESSIONS_REVOKED',
       resource: 'User',
-      resourceId: user._id.toString(),
-      entityName: user.displayName,
+      resourceId: userId,
+      entityName: user.displayName || undefined,
       reason: dto.reason,
       requestId,
     });
@@ -210,9 +206,9 @@ export class AdminService {
     };
   }
 
-  private formatUser(user: UserDocument) {
+  private formatUser(user: any) {
     return {
-      id: user._id.toString(),
+      id: user.id,
       email: user.email,
       displayName: user.displayName,
       avatarUrl: user.avatarUrl,
@@ -222,7 +218,7 @@ export class AdminService {
       suspendedReason: user.suspendedReason,
       suspendedAt: user.suspendedAt ? user.suspendedAt.toISOString() : null,
       lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
-      createdAt: (user as any).createdAt ? (user as any).createdAt.toISOString() : new Date().toISOString(),
+      createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString(),
       version: user.version,
     };
   }

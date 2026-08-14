@@ -6,12 +6,7 @@ import {
   BadRequestException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { InjectModel, InjectConnection } from '@nestjs/mongoose';
-import { Model, Connection, Types } from 'mongoose';
-import { UserSubscription, UserSubscriptionDocument } from './schemas/user-subscription.schema';
-import { SubscriptionPlan, SubscriptionPlanDocument } from './schemas/subscription-plan.schema';
-import { PremiumGrantLedger, PremiumGrantLedgerDocument } from './schemas/premium-grant-ledger.schema';
-import { User, UserDocument } from '../users/schemas/user.schema';
+import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { IdempotencyService } from '../idempotency/idempotency.service';
 import { calculateSubscriptionExpiry, PLAN_DURATION_MONTHS_MAP } from './utils/subscription-expiry.calculator';
@@ -25,13 +20,9 @@ import {
 @Injectable()
 export class SubscriptionsService {
   constructor(
-    @InjectModel(UserSubscription.name) private readonly subscriptionModel: Model<UserSubscriptionDocument>,
-    @InjectModel(SubscriptionPlan.name) private readonly planModel: Model<SubscriptionPlanDocument>,
-    @InjectModel(PremiumGrantLedger.name) private readonly ledgerModel: Model<PremiumGrantLedgerDocument>,
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
     private readonly idempotencyService: IdempotencyService,
-    @InjectConnection() private readonly connection: Connection,
   ) {}
 
   async seedDefaultPlans() {
@@ -75,41 +66,50 @@ export class SubscriptionsService {
     ];
 
     for (const plan of defaultPlans) {
-      await this.planModel.updateOne({ id: plan.id }, { $setOnInsert: plan }, { upsert: true }).exec();
+      const existing = await this.prisma.subscriptionPlan.findUnique({ where: { id: plan.id } });
+      if (!existing) {
+        await this.prisma.subscriptionPlan.create({ data: plan as any });
+      }
     }
   }
 
   async getPlans() {
-    const plans = await this.planModel.find().exec();
+    const plans = await this.prisma.subscriptionPlan.findMany();
     if (!plans || plans.length === 0) {
       await this.seedDefaultPlans();
-      return this.planModel.find().exec();
+      return this.prisma.subscriptionPlan.findMany();
     }
     return plans;
   }
 
   async getUserSubscription(userId: string) {
-    let sub = await this.subscriptionModel.findOne({ userId: new Types.ObjectId(userId) }).exec();
+    let sub = await this.prisma.userSubscription.findFirst({ where: { profileId: userId } });
     if (!sub) {
-      sub = await this.subscriptionModel.create({
-        userId: new Types.ObjectId(userId),
-        membershipTier: MembershipTier.FREE,
-        status: SubscriptionStatus.NONE,
-        autoRenew: false,
+      sub = await this.prisma.userSubscription.create({
+        data: {
+          profileId: userId,
+          membershipTier: MembershipTier.FREE,
+          status: SubscriptionStatus.NONE,
+          autoRenew: false,
+        }
       });
     }
 
     // Check if subscription has expired based on server time
     const now = new Date();
     if (sub.status === SubscriptionStatus.ACTIVE && sub.expiresAt && sub.expiresAt < now) {
-      sub.status = SubscriptionStatus.EXPIRED;
-      sub.membershipTier = MembershipTier.FREE;
-      await sub.save();
+      sub = await this.prisma.userSubscription.update({
+        where: { id: sub!.id },
+        data: {
+          status: SubscriptionStatus.EXPIRED,
+          membershipTier: MembershipTier.FREE,
+        }
+      });
 
-      await this.userModel.updateOne(
-        { _id: new Types.ObjectId(userId) },
-        { membershipTier: MembershipTier.FREE },
-      );
+      await this.prisma.profile.update({
+        where: { id: userId },
+        data: { membershipTier: MembershipTier.FREE },
+      });
     }
 
     return sub;
@@ -145,7 +145,7 @@ export class SubscriptionsService {
       }
 
       // Resolve User
-      const user = await this.userModel.findById(userId).exec();
+      const user = await this.prisma.profile.findUnique({ where: { id: userId } });
       if (!user) {
         throw new NotFoundException({
           code: 'RESOURCE_NOT_FOUND',
@@ -162,12 +162,14 @@ export class SubscriptionsService {
 
       // UTC Month calculation
       const serverNow = new Date();
-      let currentSub = await this.subscriptionModel.findOne({ userId: user._id }).exec();
+      let currentSub = await this.prisma.userSubscription.findFirst({ where: { profileId: userId } });
       if (!currentSub) {
-        currentSub = new this.subscriptionModel({
-          userId: user._id,
-          membershipTier: MembershipTier.FREE,
-          status: SubscriptionStatus.NONE,
+        currentSub = await this.prisma.userSubscription.create({
+          data: {
+            profileId: userId,
+            membershipTier: MembershipTier.FREE,
+            status: SubscriptionStatus.NONE,
+          }
         });
       }
 
@@ -185,78 +187,57 @@ export class SubscriptionsService {
       const actionType = isExtend ? 'EXTEND' : 'GRANT';
 
       // Transaction execution
-      let session;
-      try {
-        session = await this.connection.startSession();
-      } catch (err) {
-        throw new ServiceUnavailableException({
-          code: 'TRANSACTION_NOT_SUPPORTED',
-          message: 'Hệ thống yêu cầu MongoDB Replica Set (Transactions) để thực hiện giao dịch này.',
-        });
-      }
-
       let resultLedger: any;
-
       try {
-        await session.withTransaction(async () => {
-          currentSub.membershipTier = MembershipTier.PREMIUM;
-          currentSub.planId = plan.id;
-          currentSub.status = SubscriptionStatus.ACTIVE;
-          currentSub.source = SubscriptionSource.ADMIN_GRANT;
-          if (!currentSub.startedAt || currentSub.status !== SubscriptionStatus.ACTIVE) {
-            currentSub.startedAt = serverNow;
-          }
-          currentSub.expiresAt = newExpiresAt;
-          currentSub.autoRenew = false;
-          currentSub.version += 1;
-          await currentSub.save({ session });
+        await this.prisma.$transaction(async (tx) => {
+          currentSub = await tx.userSubscription.update({
+            where: { id: currentSub!.id },
+            data: {
+              membershipTier: MembershipTier.PREMIUM,
+              planId: plan.id,
+              status: SubscriptionStatus.ACTIVE,
+              source: SubscriptionSource.ADMIN_GRANT,
+              startedAt: (!currentSub!.startedAt || currentSub!.status !== SubscriptionStatus.ACTIVE) ? serverNow : currentSub!.startedAt,
+              expiresAt: newExpiresAt,
+              autoRenew: false,
+              version: { increment: 1 }
+            }
+          });
 
-          user.membershipTier = MembershipTier.PREMIUM;
-          user.version += 1;
-          await user.save({ session });
+          await tx.profile.update({
+            where: { id: userId },
+            data: {
+              membershipTier: MembershipTier.PREMIUM,
+              version: { increment: 1 }
+            }
+          });
 
-          const ledgerEntries = await this.ledgerModel.create(
-            [
-              {
-                idempotencyKey: effectiveKey,
-                userId: user._id,
-                action: actionType,
-                planId: plan.id,
-                grantedByAdminId: new Types.ObjectId(adminId),
-                durationDays: Math.round((newExpiresAt.getTime() - baseTime.getTime()) / 86400000),
-                previousExpiresAt,
-                newExpiresAt,
-                reason,
-              },
-            ],
-            { session },
-          );
-          resultLedger = ledgerEntries[0];
+          resultLedger = await tx.premiumGrantLedger.create({
+            data: {
+              idempotencyKey: effectiveKey,
+              profileId: userId,
+              grantedBy: adminId,
+              grantedByAdminId: adminId,
+              reason: 'Admin grant premium',
+              daysGranted: durationMonths * 30,
+              action: actionType,
+              planId: plan.id,
+              durationDays: durationMonths * 30,
+              previousExpiresAt,
+              newExpiresAt,
+            }
+          });
         });
       } catch (e: any) {
-        if (
-          e instanceof ServiceUnavailableException ||
-          e?.message?.includes('Transaction numbers are only allowed') ||
-          e?.message?.includes('replica set') ||
-          e?.codeName === 'TransactionNotSupported' ||
-          (e?.name === 'MongoServerError' && e?.code === 20)
-        ) {
-          throw new ServiceUnavailableException({
-            code: 'TRANSACTION_NOT_SUPPORTED',
-            message: 'Hệ thống yêu cầu MongoDB Replica Set (Transactions) để thực hiện giao dịch này.',
-          });
-        }
         throw e;
-      } finally {
-        await session.endSession();
       }
 
       await this.auditLogsService.log({
         performedByAdminId: adminId,
         action: isExtend ? 'PREMIUM_EXTENDED' : 'PREMIUM_GRANTED',
         resource: 'UserSubscription',
-        resourceId: user._id.toString(),
-        entityName: user.displayName,
+        resourceId: user.id,
+        entityName: user.displayName || undefined,
         reason,
         requestId,
         metadata: { planId: plan.id, durationMonths, newExpiresAt: newExpiresAt.toISOString() },
@@ -266,7 +247,7 @@ export class SubscriptionsService {
         success: true,
         subscription: currentSub,
         user: {
-          id: user._id.toString(),
+          id: user.id,
           displayName: user.displayName,
           email: user.email,
           membershipTier: user.membershipTier,
@@ -300,12 +281,12 @@ export class SubscriptionsService {
     const effectiveKey = idempotencyKey || `ik_revoke_${userId}_${Date.now()}`;
 
     const executeRevoke = async () => {
-      const user = await this.userModel.findById(userId).exec();
+      const user = await this.prisma.profile.findUnique({ where: { id: userId } });
       if (!user) {
         throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy người dùng.' });
       }
 
-      const currentSub = await this.subscriptionModel.findOne({ userId: user._id }).exec();
+      let currentSub = await this.prisma.userSubscription.findFirst({ where: { profileId: userId } });
       if (!currentSub || currentSub.status !== SubscriptionStatus.ACTIVE) {
         throw new BadRequestException({
           code: 'VALIDATION_ERROR',
@@ -316,82 +297,65 @@ export class SubscriptionsService {
       const serverNow = new Date();
       const previousExpiresAt = currentSub.expiresAt;
 
-      let session;
-      try {
-        session = await this.connection.startSession();
-      } catch (err) {
-        throw new ServiceUnavailableException({
-          code: 'TRANSACTION_NOT_SUPPORTED',
-          message: 'Hệ thống yêu cầu MongoDB Replica Set (Transactions) để thực hiện giao dịch này.',
-        });
-      }
-
       let ledger: any;
 
       try {
-        await session.withTransaction(async () => {
-          currentSub.membershipTier = MembershipTier.FREE;
-          currentSub.status = SubscriptionStatus.CANCELLED;
-          currentSub.cancelledAt = serverNow;
-          currentSub.autoRenew = false;
-          currentSub.version += 1;
-          await currentSub.save({ session });
+        await this.prisma.$transaction(async (tx) => {
+          currentSub = await tx.userSubscription.update({
+            where: { id: currentSub!.id },
+            data: {
+              membershipTier: MembershipTier.FREE,
+              status: SubscriptionStatus.CANCELLED,
+              cancelledAt: serverNow,
+              autoRenew: false,
+              version: { increment: 1 }
+            }
+          });
 
-          user.membershipTier = MembershipTier.FREE;
-          user.version += 1;
-          await user.save({ session });
+          await tx.profile.update({
+            where: { id: userId },
+            data: {
+              membershipTier: MembershipTier.FREE,
+              version: { increment: 1 }
+            }
+          });
 
-          const ledgerEntries = await this.ledgerModel.create(
-            [
-              {
-                idempotencyKey: effectiveKey,
-                userId: user._id,
-                action: 'REVOKE',
-                planId: currentSub.planId,
-                grantedByAdminId: new Types.ObjectId(adminId),
-                durationDays: 0,
-                previousExpiresAt,
-                newExpiresAt: serverNow,
-                reason,
-              },
-            ],
-            { session },
-          );
-          ledger = ledgerEntries[0];
+          ledger = await tx.premiumGrantLedger.create({
+            data: {
+              idempotencyKey: effectiveKey,
+              profileId: userId,
+              grantedBy: adminId,
+              grantedByAdminId: adminId,
+              reason: reason || 'Revoke premium',
+              daysGranted: 0,
+              action: 'REVOKE',
+              planId: currentSub!.planId,
+              durationDays: 0,
+              previousExpiresAt,
+              newExpiresAt: serverNow,
+            }
+          });
         });
       } catch (e: any) {
-        if (
-          e instanceof ServiceUnavailableException ||
-          e?.message?.includes('Transaction numbers are only allowed') ||
-          e?.message?.includes('replica set') ||
-          e?.codeName === 'TransactionNotSupported' ||
-          (e?.name === 'MongoServerError' && e?.code === 20)
-        ) {
-          throw new ServiceUnavailableException({
-            code: 'TRANSACTION_NOT_SUPPORTED',
-            message: 'Hệ thống yêu cầu MongoDB Replica Set (Transactions) để thực hiện giao dịch này.',
-          });
-        }
         throw e;
-      } finally {
-        await session.endSession();
       }
 
       await this.auditLogsService.log({
         performedByAdminId: adminId,
         action: 'PREMIUM_REVOKED',
         resource: 'UserSubscription',
-        resourceId: user._id.toString(),
-        entityName: user.displayName,
+        resourceId: user.id,
+        entityName: user.displayName || undefined,
         reason,
         requestId,
+        metadata: { previousExpiresAt: previousExpiresAt.toISOString() },
       });
 
       const responsePayload = {
         success: true,
         subscription: currentSub,
         user: {
-          id: user._id.toString(),
+          id: user.id,
           membershipTier: user.membershipTier,
         },
         ledger,
@@ -413,24 +377,23 @@ export class SubscriptionsService {
   }
 
   async getGrantLedger(userId: string) {
-    const ledger = await this.ledgerModel
-      .find({ userId: new Types.ObjectId(userId) })
-      .sort({ createdAt: -1 })
-      .populate('grantedByAdminId', 'displayName email')
-      .exec();
+    const ledger = await this.prisma.premiumGrantLedger.findMany({
+      where: { profileId: userId },
+      orderBy: { createdAt: 'desc' },
+    });
 
     return ledger.map((entry) => ({
-      id: entry._id.toString(),
+      id: entry.id,
       idempotencyKey: entry.idempotencyKey,
-      userId: entry.userId.toString(),
+      userId: entry.profileId,
       action: entry.action,
       planId: entry.planId,
-      grantedBy: (entry.grantedByAdminId as any)?.displayName || 'OWNER_ADMIN',
+      grantedBy: entry.grantedBy,
       durationDays: entry.durationDays,
       previousExpiresAt: entry.previousExpiresAt ? entry.previousExpiresAt.toISOString() : null,
       newExpiresAt: entry.newExpiresAt ? entry.newExpiresAt.toISOString() : null,
       reason: entry.reason,
-      createdAt: (entry as any).createdAt ? (entry as any).createdAt.toISOString() : new Date().toISOString(),
+      createdAt: entry.createdAt ? entry.createdAt.toISOString() : new Date().toISOString(),
     }));
   }
 }

@@ -1,14 +1,10 @@
 import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { ListeningSession, ListeningSessionDocument } from './schemas/listening-session.schema';
-import { ListeningProgress, ListeningProgressDocument } from './schemas/listening-progress.schema';
+import { PrismaService } from '../../prisma/prisma.service';
 import { StoriesService } from '../stories/stories.service';
 import { StartSessionDto, HeartbeatDto, UpsertListeningProgressDto } from './dto/listening.dto';
 import { ListeningSessionStatus, MembershipTier } from '../../common/enums';
 import { InMemoryListeningProgressRepository, isValidProgressId } from './in-memory-progress.repository';
-
 
 @Injectable()
 export class ListeningService {
@@ -17,8 +13,7 @@ export class ListeningService {
   private isMemoryProvider: boolean;
 
   constructor(
-    @InjectModel(ListeningSession.name) private sessionModel: Model<ListeningSessionDocument>,
-    @InjectModel(ListeningProgress.name) private progressModel: Model<ListeningProgressDocument>,
+    private readonly prisma: PrismaService,
     private storiesService: StoriesService,
     private memoryRepo: InMemoryListeningProgressRepository,
     private configService: ConfigService
@@ -41,13 +36,14 @@ export class ListeningService {
     if (!chapter) throw new NotFoundException('Chapter not found');
     
     if (!this.isMemoryProvider) {
-       const session = new this.sessionModel({
-         userId, storyId: story.id, chapterId: chapter.id,
-         startedAt: new Date(), lastHeartbeatAt: new Date(),
-         lastPositionSeconds: dto.startPosition || 0, playbackRate: dto.playbackRate || 1,
-         status: ListeningSessionStatus.ACTIVE,
+       return this.prisma.listeningSession.create({
+         data: {
+           profileId: userId, storyId: story.id, chapterId: chapter.id,
+           startedAt: new Date(), lastHeartbeatAt: new Date(),
+           lastPositionSeconds: dto.startPosition || 0, playbackRate: dto.playbackRate || 1,
+           status: ListeningSessionStatus.ACTIVE,
+         }
        });
-       return session.save();
     }
     return { id: 'mock-session', status: ListeningSessionStatus.ACTIVE };
   }
@@ -55,71 +51,95 @@ export class ListeningService {
   async handleHeartbeat(userId: string, sessionId: string, dto: HeartbeatDto) {
     if (this.isMemoryProvider) return { id: sessionId, status: ListeningSessionStatus.ACTIVE };
     
-    const session = await this.sessionModel.findOne({ _id: sessionId, userId }).exec();
-    if (!session) throw new NotFoundException('Session not found');
-    if (session.status !== ListeningSessionStatus.ACTIVE) throw new BadRequestException('Session is no longer active');
+    const session = await this.prisma.listeningSession.findUnique({ where: { id: sessionId } });
+    if (!session || session.profileId !== userId) throw new NotFoundException('Session not found');
+    if (session.status && session.status !== ListeningSessionStatus.ACTIVE) throw new BadRequestException('Session is no longer active');
     
     const now = new Date();
-    const diffSeconds = (now.getTime() - session.lastHeartbeatAt.getTime()) / 1000;
+    const diffSeconds = session.lastHeartbeatAt ? (now.getTime() - session.lastHeartbeatAt.getTime()) / 1000 : 0;
     
     if (diffSeconds > this.HEARTBEAT_MAX_GAP_SECONDS) {
-      session.lastHeartbeatAt = now;
-      session.lastPositionSeconds = dto.currentPosition;
-      return session.save();
+      return this.prisma.listeningSession.update({
+        where: { id: sessionId },
+        data: {
+          lastHeartbeatAt: now,
+          lastPositionSeconds: dto.currentPosition
+        }
+      });
     }
     
-    session.validListeningSeconds += diffSeconds;
-    session.audioContentSecondsPlayed += diffSeconds * (dto.playbackRate || session.playbackRate);
-    session.lastHeartbeatAt = now;
-    session.lastPositionSeconds = dto.currentPosition;
-    session.playbackRate = dto.playbackRate || session.playbackRate;
+    const updatedSession = await this.prisma.listeningSession.update({
+      where: { id: sessionId },
+      data: {
+        validListeningSeconds: { increment: diffSeconds },
+        audioContentSecondsPlayed: { increment: diffSeconds * (dto.playbackRate || session.playbackRate) },
+        lastHeartbeatAt: now,
+        lastPositionSeconds: dto.currentPosition,
+        playbackRate: dto.playbackRate || session.playbackRate,
+        playQualifiedAt: (!session.playQualifiedAt && (session.validListeningSeconds + diffSeconds) >= this.QUALIFIED_PLAY_THRESHOLD_SECONDS) ? now : session.playQualifiedAt,
+      }
+    });
     
-    if (!session.playQualifiedAt && session.validListeningSeconds >= this.QUALIFIED_PLAY_THRESHOLD_SECONDS) {
-      session.playQualifiedAt = now;
-      await Promise.all([
-        this.storiesService.incrementListenCount(session.storyId),
-        this.storiesService.incrementChapterListenCount(session.storyId, session.chapterId),
-      ]).catch(err => console.error('Failed to increment listen counts:', err));
+    if (!session.playQualifiedAt && updatedSession.playQualifiedAt) {
+      if (session.storyId && session.chapterId) {
+        await Promise.all([
+          this.storiesService.incrementListenCount(session.storyId),
+          this.storiesService.incrementChapterListenCount(session.storyId, session.chapterId),
+        ]).catch(err => console.error('Failed to increment listen counts:', err));
+      }
     }
-    return session.save();
+    return updatedSession;
   }
 
   async completeSession(userId: string, sessionId: string) {
     if (this.isMemoryProvider) return { id: sessionId, status: ListeningSessionStatus.COMPLETED };
-    const session = await this.sessionModel.findOne({ _id: sessionId, userId }).exec();
-    if (!session) throw new NotFoundException('Session not found');
-    session.status = ListeningSessionStatus.COMPLETED;
-    session.endedAt = new Date();
-    session.completedAt = new Date();
-    return session.save();
+    const session = await this.prisma.listeningSession.findUnique({ where: { id: sessionId } });
+    if (!session || session.profileId !== userId) throw new NotFoundException('Session not found');
+    return this.prisma.listeningSession.update({
+      where: { id: sessionId },
+      data: {
+        status: ListeningSessionStatus.COMPLETED,
+        endedAt: new Date(),
+        completedAt: new Date(),
+      }
+    });
   }
 
   async getUserHistory(userId: string) {
     if (this.isMemoryProvider) return [];
-    return this.sessionModel.find({ userId }).sort({ updatedAt: -1 }).limit(50).populate('storyId').populate('chapterId').exec();
+    return this.prisma.listeningSession.findMany({
+      where: { profileId: userId },
+      orderBy: { updatedAt: 'desc' },
+      take: 50,
+    });
   }
 
   async getUserMetrics(userId: string) {
     if (this.isMemoryProvider) return { totalListeningSeconds: 0, totalPlays: 0, completedCount: 0 };
-    const stats = await this.sessionModel.aggregate([
-      { $match: { userId } },
-      { $group: { _id: null, totalSeconds: { $sum: '$validListeningSeconds' }, totalPlays: { $sum: { $cond: [{ $ifNull: ['$playQualifiedAt', false] }, 1, 0] } }, completedCount: { $sum: { $cond: [{ $eq: ['$status', ListeningSessionStatus.COMPLETED] }, 1, 0] } } } }
-    ]);
-    const result = stats[0] || { totalSeconds: 0, totalPlays: 0, completedCount: 0 };
-    return { totalListeningSeconds: result.totalSeconds, totalPlays: result.totalPlays, completedCount: result.completedCount };
+    const stats = await this.prisma.listeningSession.aggregate({
+      where: { profileId: userId },
+      _sum: { validListeningSeconds: true },
+    });
+    const totalPlays = await this.prisma.listeningSession.count({
+      where: { profileId: userId, playQualifiedAt: { not: null } }
+    });
+    const completedCount = await this.prisma.listeningSession.count({
+      where: { profileId: userId, status: ListeningSessionStatus.COMPLETED }
+    });
+    return { totalListeningSeconds: stats._sum.validListeningSeconds || 0, totalPlays, completedCount };
   }
 
   // --- Progress logic using InMemory or MongoDB ---
   async getListeningProgress(userId: string) {
     if (!isValidProgressId(userId)) return [];
     if (this.isMemoryProvider) return this.memoryRepo.find(userId);
-    return this.progressModel.find({ userId }).exec();
+    return this.prisma.listeningProgress.findMany({ where: { profileId: userId } });
   }
 
   async getListeningProgressByChapter(userId: string, chapterId: string) {
     if (!isValidProgressId(userId) || !isValidProgressId(chapterId)) return null;
     if (this.isMemoryProvider) return this.memoryRepo.findOne(userId, chapterId);
-    return this.progressModel.findOne({ userId, chapterId }).exec();
+    return this.prisma.listeningProgress.findFirst({ where: { profileId: userId, chapterId } });
   }
 
   async upsertListeningProgress(userId: string, chapterId: string, dto: UpsertListeningProgressDto) {
@@ -136,21 +156,21 @@ export class ListeningService {
     const remainingSeconds = dto.durationSeconds - dto.positionSeconds;
     const isCompleted = dto.completed || (dto.durationSeconds > 0 && (remainingSeconds <= 15 || progressPercent >= 95));
 
-    const existing = await this.progressModel.findOne({ userId, chapterId }).exec();
+    const existing = await this.prisma.listeningProgress.findFirst({ where: { profileId: userId, chapterId } });
     
     let nextVersion = 1;
     if (existing) {
-       if (dto.version && dto.version < (existing as any).version) {
+       if (dto.version && dto.version < existing.version) {
           return existing;
        }
-       nextVersion = ((existing as any).version || 1) + 1;
+       nextVersion = (existing.version || 1) + 1;
     }
 
-    return this.progressModel.findOneAndUpdate(
-      { userId, chapterId },
-      { $set: { storyId: dto.storyId, positionSeconds: dto.positionSeconds, durationSeconds: dto.durationSeconds, progressPercent, completed: isCompleted, playbackMode: dto.playbackMode, playbackRate: dto.playbackRate, lastPlayedAt: new Date(), version: nextVersion } },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    ).exec();
+    return this.prisma.listeningProgress.upsert({
+      where: { id: existing?.id || 'new_dummy_id_triggering_create' },
+      update: { storyId: dto.storyId, positionSeconds: dto.positionSeconds, durationSeconds: dto.durationSeconds, progressPercent, completed: isCompleted, playbackMode: dto.playbackMode as any, playbackRate: dto.playbackRate, lastPlayedAt: new Date(), version: nextVersion },
+      create: { profileId: userId, chapterId, storyId: dto.storyId, positionSeconds: dto.positionSeconds, durationSeconds: dto.durationSeconds, progressPercent, completed: isCompleted, playbackMode: dto.playbackMode as any, playbackRate: dto.playbackRate, lastPlayedAt: new Date(), version: nextVersion },
+    });
   }
 
   async clearListeningProgress(userId: string) {
@@ -159,7 +179,8 @@ export class ListeningService {
       await this.memoryRepo.deleteMany(userId);
       return { deletedCount: 1 };
     }
-    return this.progressModel.deleteMany({ userId }).exec();
+    const res = await this.prisma.listeningProgress.deleteMany({ where: { profileId: userId } });
+    return { deletedCount: res.count };
   }
 
   async deleteListeningProgress(userId: string, chapterId: string) {
@@ -168,6 +189,7 @@ export class ListeningService {
       await this.memoryRepo.deleteOne(userId, chapterId);
       return { deletedCount: 1 };
     }
-    return this.progressModel.deleteOne({ userId, chapterId }).exec();
+    const res = await this.prisma.listeningProgress.deleteMany({ where: { profileId: userId, chapterId } });
+    return { deletedCount: res.count };
   }
 }

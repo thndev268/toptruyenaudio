@@ -1,14 +1,11 @@
 import { Global, Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
-import { IdempotencyRecord, IdempotencyRecordSchema } from './schemas/idempotency-record.schema';
 import { IdempotencyService } from './idempotency.service';
+import { PrismaModule } from '../../prisma/prisma.module';
 
 @Global()
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: IdempotencyRecord.name, schema: IdempotencyRecordSchema },
-    ]),
+    PrismaModule,
   ],
   providers: [IdempotencyService],
   exports: [IdempotencyService],

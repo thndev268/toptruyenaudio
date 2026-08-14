@@ -4,16 +4,7 @@ import {
   ForbiddenException,
   BadRequestException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import {
-  SupportConversation,
-  SupportConversationDocument,
-} from './schemas/support-conversation.schema';
-import {
-  SupportMessage,
-  SupportMessageDocument,
-} from './schemas/support-message.schema';
+import { PrismaService } from '../../prisma/prisma.service';
 import {
   CreateConversationDto,
   CreateMessageDto,
@@ -24,10 +15,7 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 @Injectable()
 export class SupportService {
   constructor(
-    @InjectModel(SupportConversation.name)
-    private readonly conversationModel: Model<SupportConversationDocument>,
-    @InjectModel(SupportMessage.name)
-    private readonly messageModel: Model<SupportMessageDocument>,
+    private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
   ) {}
 
@@ -36,104 +24,88 @@ export class SupportService {
     userName: string,
     dto: CreateConversationDto,
   ) {
-    const conv = new this.conversationModel({
-      userId: new Types.ObjectId(userId),
-      userName,
-      subject: dto.subject,
-      category: dto.category || 'OTHER',
-      status: 'WAITING_FOR_ADMIN',
-      priority: dto.priority || 'NORMAL',
-      lastMessageAt: new Date(),
-      userUnreadCount: 0,
-      adminUnreadCount: 1,
+    const conv = await this.prisma.supportConversation.create({
+      data: {
+        userId,
+        userName,
+        subject: dto.subject,
+        category: dto.category || 'OTHER',
+        status: 'WAITING_FOR_ADMIN',
+        priority: dto.priority || 'NORMAL',
+        lastMessageAt: new Date(),
+        userUnreadCount: 0,
+        adminUnreadCount: 1,
+        messages: {
+          create: {
+            senderId: userId,
+            senderRole: 'USER',
+            senderName: userName,
+            content: dto.message,
+          }
+        }
+      },
+      include: {
+        messages: true
+      }
     });
-    const savedConv = await conv.save();
 
-    const msg = new this.messageModel({
-      conversationId: savedConv._id,
-      senderId: new Types.ObjectId(userId),
-      senderRole: 'USER',
-      senderName: userName,
-      content: dto.message,
-      createdAt: new Date(),
-    });
-    await msg.save();
-
-    return this.formatConversation(savedConv, [msg]);
+    return this.formatConversation(conv, conv.messages);
   }
 
   async getConversationsForUser(userId: string) {
-    const convs = await this.conversationModel
-      .find({ userId: new Types.ObjectId(userId) })
-      .sort({ lastMessageAt: -1 })
-      .exec();
-
-    // Reset user unread count for fetched items if needed
-    const convIds = convs.map((c) => c._id);
-    const messages = await this.messageModel
-      .find({ conversationId: { $in: convIds }, hiddenAt: { $exists: false } })
-      .sort({ createdAt: 1 })
-      .exec();
-
-    const msgMap = new Map<string, SupportMessageDocument[]>();
-    messages.forEach((m) => {
-      const cid = m.conversationId.toString();
-      if (!msgMap.has(cid)) msgMap.set(cid, []);
-      msgMap.get(cid)!.push(m);
+    const convs = await this.prisma.supportConversation.findMany({
+      where: { userId },
+      orderBy: { lastMessageAt: 'desc' },
+      include: {
+        messages: {
+          where: { hiddenAt: null },
+          orderBy: { createdAt: 'asc' }
+        }
+      }
     });
 
     return convs.map((c) =>
-      this.formatConversation(c, msgMap.get(c._id.toString()) || []),
+      this.formatConversation(c, c.messages),
     );
   }
 
   async getConversationByIdForUser(userId: string, conversationId: string) {
-    if (!Types.ObjectId.isValid(conversationId)) {
-      throw new BadRequestException('ID cuộc hội thoại không hợp lệ');
-    }
-
-    const conv = await this.conversationModel.findById(conversationId).exec();
+    let conv = await this.prisma.supportConversation.findUnique({ where: { id: conversationId } });
     if (!conv) {
       throw new NotFoundException('Không tìm thấy cuộc hội thoại');
     }
 
-    if (conv.userId.toString() !== userId) {
+    if (conv.userId !== userId) {
       throw new ForbiddenException('Bạn không có quyền xem cuộc hội thoại này');
     }
 
-    // Mark userUnreadCount as 0
     if (conv.userUnreadCount > 0) {
-      conv.userUnreadCount = 0;
-      await conv.save();
+      conv = await this.prisma.supportConversation.update({
+        where: { id: conversationId },
+        data: { userUnreadCount: 0 }
+      });
     }
 
-    const messages = await this.messageModel
-      .find({
-        conversationId: conv._id,
-        hiddenAt: { $exists: false },
-      })
-      .sort({ createdAt: 1 })
-      .exec();
+    const messages = await this.prisma.supportMessage.findMany({
+      where: { conversationId, hiddenAt: null },
+      orderBy: { createdAt: 'asc' }
+    });
 
     return this.formatConversation(conv, messages);
   }
 
-  async addMessageFromUser(
+  async addMessage(
     userId: string,
     userName: string,
     conversationId: string,
     dto: CreateMessageDto,
   ) {
-    if (!Types.ObjectId.isValid(conversationId)) {
-      throw new BadRequestException('ID cuộc hội thoại không hợp lệ');
-    }
-
-    const conv = await this.conversationModel.findById(conversationId).exec();
+    const conv = await this.prisma.supportConversation.findUnique({ where: { id: conversationId } });
     if (!conv) {
       throw new NotFoundException('Không tìm thấy cuộc hội thoại');
     }
 
-    if (conv.userId.toString() !== userId) {
+    if (conv.userId !== userId) {
       throw new ForbiddenException('Bạn không có quyền gửi tin nhắn vào hội thoại này');
     }
 
@@ -141,42 +113,39 @@ export class SupportService {
       throw new BadRequestException('Cuộc hội thoại đã đóng, không thể gửi thêm tin nhắn');
     }
 
-    // Check clientMessageId idempotency
     if (dto.clientMessageId) {
-      const existing = await this.messageModel
-        .findOne({ conversationId: conv._id, clientMessageId: dto.clientMessageId })
-        .exec();
+      const existing = await this.prisma.supportMessage.findFirst({
+        where: { conversationId, clientMessageId: dto.clientMessageId }
+      });
       if (existing) {
-        const messages = await this.messageModel
-          .find({ conversationId: conv._id, hiddenAt: { $exists: false } })
-          .sort({ createdAt: 1 })
-          .exec();
+        const messages = await this.prisma.supportMessage.findMany({
+          where: { conversationId, hiddenAt: null },
+          orderBy: { createdAt: 'asc' }
+        });
         return this.formatConversation(conv, messages);
       }
     }
 
-    const msg = new this.messageModel({
-      conversationId: conv._id,
-      senderId: new Types.ObjectId(userId),
-      senderRole: 'USER',
-      senderName: userName,
-      clientMessageId: dto.clientMessageId,
-      content: dto.content,
-      createdAt: new Date(),
+    const updatedConv = await this.prisma.supportConversation.update({
+      where: { id: conversationId },
+      data: {
+        lastMessageAt: new Date(),
+        status: 'WAITING_FOR_ADMIN',
+        adminUnreadCount: { increment: 1 },
+        messages: {
+          create: {
+            senderId: userId,
+            senderRole: 'USER',
+            senderName: userName,
+            clientMessageId: dto.clientMessageId,
+            content: dto.content,
+          }
+        }
+      },
+      include: { messages: { where: { hiddenAt: null }, orderBy: { createdAt: 'asc' } } }
     });
-    await msg.save();
 
-    conv.lastMessageAt = new Date();
-    conv.status = 'WAITING_FOR_ADMIN';
-    conv.adminUnreadCount += 1;
-    await conv.save();
-
-    const messages = await this.messageModel
-      .find({ conversationId: conv._id, hiddenAt: { $exists: false } })
-      .sort({ createdAt: 1 })
-      .exec();
-
-    return this.formatConversation(conv, messages);
+    return this.formatConversation(updatedConv, updatedConv.messages);
   }
 
   // --- Admin Methods ---
@@ -188,13 +157,13 @@ export class SupportService {
     category?: string;
     search?: string;
   }) {
-    const query: any = {};
-    if (params.status) query.status = params.status;
-    if (params.category) query.category = params.category;
+    const where: any = {};
+    if (params.status) where.status = params.status;
+    if (params.category) where.category = params.category;
     if (params.search) {
-      query.$or = [
-        { subject: { $regex: params.search, $options: 'i' } },
-        { userName: { $regex: params.search, $options: 'i' } },
+      where.OR = [
+        { subject: { contains: params.search, mode: 'insensitive' } },
+        { userName: { contains: params.search, mode: 'insensitive' } },
       ];
     }
 
@@ -203,31 +172,24 @@ export class SupportService {
     const skip = (page - 1) * limit;
 
     const [convs, total] = await Promise.all([
-      this.conversationModel
-        .find(query)
-        .sort({ lastMessageAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .exec(),
-      this.conversationModel.countDocuments(query).exec(),
+      this.prisma.supportConversation.findMany({
+        where,
+        orderBy: { lastMessageAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          messages: {
+            where: { hiddenAt: null },
+            orderBy: { createdAt: 'asc' }
+          }
+        }
+      }),
+      this.prisma.supportConversation.count({ where }),
     ]);
-
-    const convIds = convs.map((c) => c._id);
-    const messages = await this.messageModel
-      .find({ conversationId: { $in: convIds }, hiddenAt: { $exists: false } })
-      .sort({ createdAt: 1 })
-      .exec();
-
-    const msgMap = new Map<string, SupportMessageDocument[]>();
-    messages.forEach((m) => {
-      const cid = m.conversationId.toString();
-      if (!msgMap.has(cid)) msgMap.set(cid, []);
-      msgMap.get(cid)!.push(m);
-    });
 
     return {
       items: convs.map((c) =>
-        this.formatConversation(c, msgMap.get(c._id.toString()) || []),
+        this.formatConversation(c, c.messages),
       ),
       pagination: {
         page,
@@ -239,25 +201,22 @@ export class SupportService {
   }
 
   async getConversationByIdForAdmin(conversationId: string) {
-    if (!Types.ObjectId.isValid(conversationId)) {
-      throw new BadRequestException('ID cuộc hội thoại không hợp lệ');
-    }
-
-    const conv = await this.conversationModel.findById(conversationId).exec();
+    let conv = await this.prisma.supportConversation.findUnique({ where: { id: conversationId } });
     if (!conv) {
       throw new NotFoundException('Không tìm thấy cuộc hội thoại');
     }
 
-    // Reset adminUnreadCount
     if (conv.adminUnreadCount > 0) {
-      conv.adminUnreadCount = 0;
-      await conv.save();
+      conv = await this.prisma.supportConversation.update({
+        where: { id: conversationId },
+        data: { adminUnreadCount: 0 }
+      });
     }
 
-    const messages = await this.messageModel
-      .find({ conversationId: conv._id, hiddenAt: { $exists: false } })
-      .sort({ createdAt: 1 })
-      .exec();
+    const messages = await this.prisma.supportMessage.findMany({
+      where: { conversationId, hiddenAt: null },
+      orderBy: { createdAt: 'asc' }
+    });
 
     return this.formatConversation(conv, messages);
   }
@@ -268,50 +227,44 @@ export class SupportService {
     conversationId: string,
     dto: CreateMessageDto,
   ) {
-    if (!Types.ObjectId.isValid(conversationId)) {
-      throw new BadRequestException('ID cuộc hội thoại không hợp lệ');
-    }
-
-    const conv = await this.conversationModel.findById(conversationId).exec();
+    const conv = await this.prisma.supportConversation.findUnique({ where: { id: conversationId } });
     if (!conv) {
       throw new NotFoundException('Không tìm thấy cuộc hội thoại');
     }
 
     if (dto.clientMessageId) {
-      const existing = await this.messageModel
-        .findOne({ conversationId: conv._id, clientMessageId: dto.clientMessageId })
-        .exec();
+      const existing = await this.prisma.supportMessage.findFirst({
+        where: { conversationId, clientMessageId: dto.clientMessageId }
+      });
       if (existing) {
-        const messages = await this.messageModel
-          .find({ conversationId: conv._id, hiddenAt: { $exists: false } })
-          .sort({ createdAt: 1 })
-          .exec();
+        const messages = await this.prisma.supportMessage.findMany({
+          where: { conversationId, hiddenAt: null },
+          orderBy: { createdAt: 'asc' }
+        });
         return this.formatConversation(conv, messages);
       }
     }
 
-    const msg = new this.messageModel({
-      conversationId: conv._id,
-      senderId: new Types.ObjectId(adminId),
-      senderRole: 'OWNER_ADMIN',
-      senderName: adminName || 'Ban Quản Trị (OWNER_ADMIN)',
-      clientMessageId: dto.clientMessageId,
-      content: dto.content,
-      createdAt: new Date(),
+    const updatedConv = await this.prisma.supportConversation.update({
+      where: { id: conversationId },
+      data: {
+        lastMessageAt: new Date(),
+        status: 'WAITING_FOR_USER',
+        userUnreadCount: { increment: 1 },
+        messages: {
+          create: {
+            senderId: adminId,
+            senderRole: 'OWNER_ADMIN',
+            senderName: adminName || 'Ban Quản Trị (OWNER_ADMIN)',
+            clientMessageId: dto.clientMessageId,
+            content: dto.content,
+          }
+        }
+      },
+      include: { messages: { where: { hiddenAt: null }, orderBy: { createdAt: 'asc' } } }
     });
-    await msg.save();
 
-    conv.lastMessageAt = new Date();
-    conv.status = 'WAITING_FOR_USER';
-    conv.userUnreadCount += 1;
-    await conv.save();
-
-    const messages = await this.messageModel
-      .find({ conversationId: conv._id, hiddenAt: { $exists: false } })
-      .sort({ createdAt: 1 })
-      .exec();
-
-    return this.formatConversation(conv, messages);
+    return this.formatConversation(updatedConv, updatedConv.messages);
   }
 
   async updateConversationStatusByAdmin(
@@ -319,48 +272,48 @@ export class SupportService {
     conversationId: string,
     dto: UpdateSupportStatusDto,
   ) {
-    if (!Types.ObjectId.isValid(conversationId)) {
-      throw new BadRequestException('ID cuộc hội thoại không hợp lệ');
-    }
-
-    const conv = await this.conversationModel.findById(conversationId).exec();
+    const conv = await this.prisma.supportConversation.findUnique({ where: { id: conversationId } });
     if (!conv) {
       throw new NotFoundException('Không tìm thấy cuộc hội thoại');
     }
 
     const oldStatus = conv.status;
-    conv.status = dto.status;
+    const dataToUpdate: any = { status: dto.status };
     if (dto.status === 'RESOLVED') {
-      conv.resolvedAt = new Date();
+      dataToUpdate.resolvedAt = new Date();
     } else if (dto.status === 'CLOSED') {
-      conv.closedAt = new Date();
+      dataToUpdate.closedAt = new Date();
     }
-    await conv.save();
+
+    const updatedConv = await this.prisma.supportConversation.update({
+      where: { id: conversationId },
+      data: dataToUpdate
+    });
 
     await this.auditLogsService.log({
       performedByAdminId: adminId,
       action: 'UPDATE_SUPPORT_STATUS',
       resource: 'SupportConversation',
-      resourceId: conv._id.toString(),
-      entityName: conv.subject,
+      resourceId: updatedConv.id,
+      entityName: updatedConv.subject,
       reason: dto.reason || `Chuyển trạng thái từ ${oldStatus} sang ${dto.status}`,
     });
 
-    const messages = await this.messageModel
-      .find({ conversationId: conv._id, hiddenAt: { $exists: false } })
-      .sort({ createdAt: 1 })
-      .exec();
+    const messages = await this.prisma.supportMessage.findMany({
+      where: { conversationId, hiddenAt: null },
+      orderBy: { createdAt: 'asc' }
+    });
 
-    return this.formatConversation(conv, messages);
+    return this.formatConversation(updatedConv, messages);
   }
 
   private formatConversation(
-    conv: SupportConversationDocument,
-    messages: SupportMessageDocument[],
+    conv: any,
+    messages: any[],
   ) {
     return {
-      id: conv._id.toString(),
-      userId: conv.userId.toString(),
+      id: conv.id,
+      userId: conv.userId,
       userName: conv.userName,
       subject: conv.subject,
       category: conv.category,
@@ -371,12 +324,12 @@ export class SupportService {
       adminUnreadCount: conv.adminUnreadCount,
       resolvedAt: conv.resolvedAt ? conv.resolvedAt.toISOString() : undefined,
       closedAt: conv.closedAt ? conv.closedAt.toISOString() : undefined,
-      createdAt: (conv as any).createdAt ? (conv as any).createdAt.toISOString() : new Date().toISOString(),
-      updatedAt: (conv as any).updatedAt ? (conv as any).updatedAt.toISOString() : new Date().toISOString(),
+      createdAt: conv.createdAt ? conv.createdAt.toISOString() : new Date().toISOString(),
+      updatedAt: conv.updatedAt ? conv.updatedAt.toISOString() : new Date().toISOString(),
       messages: messages.map((m) => ({
-        id: m._id.toString(),
-        conversationId: m.conversationId.toString(),
-        senderId: m.senderId.toString(),
+        id: m.id,
+        conversationId: m.conversationId,
+        senderId: m.senderId,
         senderRole: m.senderRole,
         senderName: m.senderName,
         content: m.content,

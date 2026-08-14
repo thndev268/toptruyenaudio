@@ -1,12 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { PartnerApplication, PartnerApplicationDocument } from './schemas/partner-application.schema';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class PartnersService {
   constructor(
-    @InjectModel(PartnerApplication.name) private appModel: Model<PartnerApplicationDocument>,
+    private readonly prisma: PrismaService,
   ) {}
 
   async applyForPartner(creatorId: string, dto: any) {

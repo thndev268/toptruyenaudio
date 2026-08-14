@@ -1,7 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { SecurityEvent, SecurityEventDocument } from './schemas/security-event.schema';
+import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { SecurityEventType, SecurityEventStatus } from '../../common/enums';
 
@@ -31,7 +29,7 @@ const ALLOWED_TRANSITIONS: Record<SecurityEventStatus, SecurityEventStatus[]> = 
 @Injectable()
 export class SecurityEventsService {
   constructor(
-    @InjectModel(SecurityEvent.name) private readonly securityEventModel: Model<SecurityEventDocument>,
+    private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
   ) {}
 
@@ -68,20 +66,23 @@ export class SecurityEventsService {
     ];
 
     for (const sample of samples) {
-      await this.securityEventModel.updateOne({ title: sample.title }, { $setOnInsert: sample }, { upsert: true }).exec();
+      const existing = await this.prisma.securityEvent.findFirst({ where: { title: sample.title } });
+      if (!existing) {
+        await this.prisma.securityEvent.create({ data: sample as any });
+      }
     }
   }
 
   async getAllEvents(status?: SecurityEventStatus, severity?: string) {
-    const query: any = {};
-    if (status) query.status = status;
-    if (severity) query.severity = severity;
+    const where: any = {};
+    if (status) where.status = status;
+    if (severity) where.severity = severity;
 
-    const items = await this.securityEventModel
-      .find(query)
-      .sort({ detectedAt: -1 })
-      .populate('resolvedByAdminId', 'displayName email')
-      .exec();
+    const items = await this.prisma.securityEvent.findMany({
+      where,
+      orderBy: { detectedAt: 'desc' },
+      include: { profile: { select: { displayName: true, email: true } } },
+    });
 
     if (!items || items.length === 0) {
       await this.seedSampleEvents();
@@ -92,11 +93,10 @@ export class SecurityEventsService {
   }
 
   async getEventById(id: string) {
-    if (!Types.ObjectId.isValid(id)) {
-      throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Mã cảnh báo không hợp lệ.' });
-    }
-
-    const event = await this.securityEventModel.findById(id).populate('resolvedByAdminId', 'displayName email').exec();
+    const event = await this.prisma.securityEvent.findUnique({
+      where: { id },
+      include: { profile: { select: { displayName: true, email: true } } },
+    });
     if (!event) {
       throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy cảnh báo an ninh.' });
     }
@@ -105,54 +105,62 @@ export class SecurityEventsService {
   }
 
   async startInvestigation(id: string, adminId: string, requestId?: string) {
-    const event = await this.securityEventModel.findById(id).exec();
+    const event = await this.prisma.securityEvent.findUnique({ where: { id } });
     if (!event) {
       throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy cảnh báo an ninh.' });
     }
 
-    this.validateTransition(event.status, SecurityEventStatus.INVESTIGATING);
+    this.validateTransition(event.status as SecurityEventStatus, SecurityEventStatus.INVESTIGATING);
 
-    event.status = SecurityEventStatus.INVESTIGATING;
-    event.investigatedAt = new Date();
-    await event.save();
+    const updatedEvent = await this.prisma.securityEvent.update({
+      where: { id },
+      data: {
+        status: SecurityEventStatus.INVESTIGATING,
+        investigatedAt: new Date(),
+      }
+    });
 
     await this.auditLogsService.log({
       performedByAdminId: adminId,
       action: 'SECURITY_EVENT_INVESTIGATION_STARTED',
       resource: 'SecurityEvent',
-      resourceId: event._id.toString(),
-      entityName: event.title,
+      resourceId: updatedEvent.id,
+      entityName: updatedEvent.title,
       reason: 'Bắt đầu quá trình xác minh cảnh báo an ninh',
       requestId,
     });
 
-    return this.formatEvent(event);
+    return this.formatEvent(updatedEvent);
   }
 
   async executeAction(id: string, adminId: string, actionTaken: string, reason: string, requestId?: string) {
-    const event = await this.securityEventModel.findById(id).exec();
+    const event = await this.prisma.securityEvent.findUnique({ where: { id } });
     if (!event) {
       throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy cảnh báo an ninh.' });
     }
 
-    this.validateTransition(event.status, SecurityEventStatus.ACTION_REQUIRED);
+    this.validateTransition(event.status as SecurityEventStatus, SecurityEventStatus.ACTION_REQUIRED);
 
-    event.status = SecurityEventStatus.ACTION_REQUIRED;
-    event.actionTaken = actionTaken;
-    await event.save();
+    const updatedEvent = await this.prisma.securityEvent.update({
+      where: { id },
+      data: {
+        status: SecurityEventStatus.ACTION_REQUIRED,
+        actionTaken,
+      }
+    });
 
     await this.auditLogsService.log({
       performedByAdminId: adminId,
       action: 'SECURITY_EVENT_ACTION_EXECUTED',
       resource: 'SecurityEvent',
-      resourceId: event._id.toString(),
-      entityName: event.title,
+      resourceId: updatedEvent.id,
+      entityName: updatedEvent.title,
       reason,
       requestId,
       metadata: { actionTaken },
     });
 
-    return this.formatEvent(event);
+    return this.formatEvent(updatedEvent);
   }
 
   async resolveEvent(params: {
@@ -173,63 +181,71 @@ export class SecurityEventsService {
       });
     }
 
-    const event = await this.securityEventModel.findById(id).exec();
+    const event = await this.prisma.securityEvent.findUnique({ where: { id } });
     if (!event) {
       throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy cảnh báo an ninh.' });
     }
 
-    this.validateTransition(event.status, status);
+    this.validateTransition(event.status as SecurityEventStatus, status);
 
-    event.status = status;
-    event.resolutionNote = resolutionNote.trim();
-    event.actionTaken = actionTaken.trim();
-    event.resolvedAt = new Date();
-    (event as any).resolvedByAdminId = new Types.ObjectId(adminId);
-    event.reason = reason.trim();
-    await event.save();
+    const updatedEvent = await this.prisma.securityEvent.update({
+      where: { id },
+      data: {
+        status,
+        resolutionNote: resolutionNote.trim(),
+        actionTaken: actionTaken.trim(),
+        resolvedAt: new Date(),
+        resolvedByAdminId: adminId,
+        reason: reason.trim(),
+      }
+    });
 
     await this.auditLogsService.log({
       performedByAdminId: adminId,
       action: status === SecurityEventStatus.RESOLVED ? 'SECURITY_EVENT_RESOLVED' : 'SECURITY_EVENT_FALSE_POSITIVE',
       resource: 'SecurityEvent',
-      resourceId: event._id.toString(),
-      entityName: event.title,
+      resourceId: updatedEvent.id,
+      entityName: updatedEvent.title,
       reason,
       requestId,
       metadata: { resolutionNote, actionTaken },
     });
 
-    return this.formatEvent(event);
+    return this.formatEvent(updatedEvent);
   }
 
   async reopenEvent(id: string, adminId: string, reason: string, requestId?: string) {
-    const event = await this.securityEventModel.findById(id).exec();
+    const event = await this.prisma.securityEvent.findUnique({ where: { id } });
     if (!event) {
       throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy cảnh báo an ninh.' });
     }
 
-    this.validateTransition(event.status, SecurityEventStatus.REOPENED);
+    this.validateTransition(event.status as SecurityEventStatus, SecurityEventStatus.REOPENED);
 
-    event.status = SecurityEventStatus.REOPENED;
-    event.reason = reason;
-    await event.save();
+    const updatedEvent = await this.prisma.securityEvent.update({
+      where: { id },
+      data: {
+        status: SecurityEventStatus.REOPENED,
+        reason,
+      }
+    });
 
     await this.auditLogsService.log({
       performedByAdminId: adminId,
       action: 'SECURITY_EVENT_REOPENED',
       resource: 'SecurityEvent',
-      resourceId: event._id.toString(),
-      entityName: event.title,
+      resourceId: updatedEvent.id,
+      entityName: updatedEvent.title,
       reason,
       requestId,
     });
 
-    return this.formatEvent(event);
+    return this.formatEvent(updatedEvent);
   }
 
-  private formatEvent(event: SecurityEventDocument) {
+  private formatEvent(event: any) {
     return {
-      id: event._id.toString(),
+      id: event.id,
       title: event.title,
       type: event.type,
       status: event.status,
@@ -240,7 +256,7 @@ export class SecurityEventsService {
       investigatedAt: event.investigatedAt ? event.investigatedAt.toISOString() : null,
       actionTaken: event.actionTaken,
       resolvedAt: event.resolvedAt ? event.resolvedAt.toISOString() : null,
-      resolvedBy: (event.resolvedByAdminId as any)?.displayName || null,
+      resolvedBy: (event.profile as any)?.displayName || null,
       resolutionNote: event.resolutionNote,
       reason: event.reason,
     };

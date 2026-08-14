@@ -4,15 +4,13 @@ import {
   UnprocessableEntityException,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { FeatureFlag, FeatureFlagDocument } from './schemas/feature-flag.schema';
+import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 @Injectable()
 export class FeatureFlagsService {
   constructor(
-    @InjectModel(FeatureFlag.name) private readonly featureFlagModel: Model<FeatureFlagDocument>,
+    private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
   ) {}
 
@@ -77,15 +75,19 @@ export class FeatureFlagsService {
     ];
 
     for (const flag of defaults) {
-      await this.featureFlagModel.updateOne({ key: flag.key }, { $setOnInsert: flag }, { upsert: true }).exec();
+      await this.prisma.featureFlag.upsert({
+        where: { key: flag.key },
+        update: {},
+        create: flag,
+      });
     }
   }
 
   async getAllFlags() {
-    const flags = await this.featureFlagModel.find().exec();
+    const flags = await this.prisma.featureFlag.findMany();
     if (!flags || flags.length === 0) {
       await this.seedDefaultFlags();
-      return this.featureFlagModel.find().exec();
+      return this.prisma.featureFlag.findMany();
     }
     return flags.map((f) => this.formatFlag(f));
   }
@@ -99,7 +101,7 @@ export class FeatureFlagsService {
   }) {
     const { key, isEnabled, expectedVersion, adminId, requestId } = params;
 
-    const flag = await this.featureFlagModel.findOne({ key }).exec();
+    const flag = await this.prisma.featureFlag.findUnique({ where: { key } });
     if (!flag) {
       throw new NotFoundException({
         code: 'RESOURCE_NOT_FOUND',
@@ -125,26 +127,29 @@ export class FeatureFlagsService {
       });
     }
 
-    flag.isEnabled = isEnabled;
-    flag.version += 1;
-    (flag as any).lastModifiedByAdminId = new Types.ObjectId(adminId);
-    await flag.save();
+    const updatedFlag = await this.prisma.featureFlag.update({
+      where: { key },
+      data: {
+        isEnabled,
+        version: { increment: 1 },
+      },
+    });
 
     await this.auditLogsService.log({
       performedByAdminId: adminId,
       action: 'FEATURE_FLAG_UPDATED',
       resource: 'FeatureFlag',
-      resourceId: flag.key,
-      entityName: flag.name,
-      reason: `Thay đổi trạng thái ${flag.key} thành ${isEnabled}`,
+      resourceId: updatedFlag.key,
+      entityName: updatedFlag.name || '',
+      reason: `Thay đổi trạng thái ${updatedFlag.key} thành ${isEnabled}`,
       requestId,
-      metadata: { key: flag.key, isEnabled, newVersion: flag.version },
+      metadata: { key: updatedFlag.key, isEnabled, newVersion: updatedFlag.version },
     });
 
-    return this.formatFlag(flag);
+    return this.formatFlag(updatedFlag);
   }
 
-  private formatFlag(flag: FeatureFlagDocument) {
+  private formatFlag(flag: any) {
     return {
       key: flag.key,
       name: flag.name,
@@ -153,7 +158,7 @@ export class FeatureFlagsService {
       isEnabled: flag.isEnabled,
       isLocked: flag.isLocked,
       version: flag.version,
-      updatedAt: (flag as any).updatedAt ? (flag as any).updatedAt.toISOString() : new Date().toISOString(),
+      updatedAt: flag.updatedAt ? flag.updatedAt.toISOString() : new Date().toISOString(),
     };
   }
 }

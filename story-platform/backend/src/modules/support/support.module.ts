@@ -1,23 +1,12 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
 import { SupportController } from './support.controller';
 import { SupportService } from './support.service';
-import {
-  SupportConversation,
-  SupportConversationSchema,
-} from './schemas/support-conversation.schema';
-import {
-  SupportMessage,
-  SupportMessageSchema,
-} from './schemas/support-message.schema';
+import { PrismaModule } from '../../prisma/prisma.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: SupportConversation.name, schema: SupportConversationSchema },
-      { name: SupportMessage.name, schema: SupportMessageSchema },
-    ]),
+    PrismaModule,
     AuditLogsModule,
   ],
   controllers: [SupportController],

@@ -6,12 +6,7 @@ import {
   BadRequestException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { User, UserDocument } from './schemas/user.schema';
-import { UserProfile, UserProfileDocument } from './schemas/user-profile.schema';
-import { UserSubscription, UserSubscriptionDocument } from '../subscriptions/schemas/user-subscription.schema';
-import { RefreshSession, RefreshSessionDocument } from '../auth/schemas/refresh-session.schema';
+import { PrismaService } from '../../prisma/prisma.service';
 import { PasswordHasherService } from '../../common/services/password-hasher.service';
 import { AccountRole, AccountStatus, MembershipTier, SubscriptionStatus } from '../../common/enums';
 import { UpdateMyProfileDto, ChangeMyPasswordDto, UserProfileResponse } from './dto/users.dto';
@@ -19,23 +14,20 @@ import { UpdateMyProfileDto, ChangeMyPasswordDto, UserProfileResponse } from './
 @Injectable()
 export class UsersService {
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
-    @InjectModel(UserProfile.name) private readonly userProfileModel: Model<UserProfileDocument>,
-    @InjectModel(UserSubscription.name) private readonly subscriptionModel: Model<UserSubscriptionDocument>,
-    @InjectModel(RefreshSession.name) private readonly refreshSessionModel: Model<RefreshSessionDocument>,
+    private readonly prisma: PrismaService,
     private readonly passwordHasher: PasswordHasherService,
   ) {}
 
   async findByEmail(email: string) {
-    return this.userModel.findOne({ emailNormalized: email.trim().toLowerCase() }).exec();
+    return this.prisma.profile.findUnique({ where: { emailNormalized: email.trim().toLowerCase() } });
   }
 
   async findById(id: string) {
-    return this.userModel.findById(id).select('-passwordHash').exec();
+    return this.prisma.profile.findUnique({ where: { id } });
   }
 
   async getUserProfileResponse(userId: string): Promise<UserProfileResponse> {
-    const user = await this.userModel.findById(userId).exec();
+    const user = await this.prisma.profile.findUnique({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException({
         code: 'USER_NOT_FOUND',
@@ -57,13 +49,13 @@ export class UsersService {
       });
     }
 
-    const subscription = await this.subscriptionModel.findOne({ userId: user._id as any }).exec();
+    const subscription = await this.prisma.userSubscription.findFirst({ where: { profileId: userId } });
 
     return this.buildUserProfileResponse(user, subscription);
   }
 
   async updateProfile(userId: string, dto: UpdateMyProfileDto): Promise<UserProfileResponse> {
-    const user = await this.userModel.findById(userId).exec();
+    const user = await this.prisma.profile.findUnique({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException({
         code: 'USER_NOT_FOUND',
@@ -86,6 +78,7 @@ export class UsersService {
       });
     }
 
+    const updateData: any = {};
     let modified = false;
 
     if (dto.displayName !== undefined) {
@@ -96,7 +89,7 @@ export class UsersService {
           message: 'Tên hiển thị phải dài từ 2 đến 60 ký tự.',
         });
       }
-      user.displayName = trimmed;
+      updateData.displayName = trimmed;
       modified = true;
     }
 
@@ -110,10 +103,12 @@ export class UsersService {
           });
         }
         // Check uniqueness
-        const existing = await this.userModel.findOne({
-          username: trimmedUsername,
-          _id: { $ne: user._id },
-        }).exec();
+        const existing = await this.prisma.profile.findFirst({
+          where: {
+            username: trimmedUsername,
+            NOT: { id: userId },
+          },
+        });
 
         if (existing) {
           throw new ConflictException({
@@ -121,21 +116,24 @@ export class UsersService {
             message: 'Tên người dùng này đã được người khác sử dụng.',
           });
         }
-        user.username = trimmedUsername;
+        updateData.username = trimmedUsername;
         modified = true;
       }
     }
 
     if (modified) {
-      user.version += 1;
-      await user.save();
+      updateData.version = { increment: 1 };
+      await this.prisma.profile.update({
+        where: { id: userId },
+        data: updateData,
+      });
     }
 
     return this.getUserProfileResponse(userId);
   }
 
   async changePassword(userId: string, dto: ChangeMyPasswordDto): Promise<{ message: string }> {
-    const user = await this.userModel.findById(userId).exec();
+    const user = await this.prisma.profile.findUnique({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException({
         code: 'USER_NOT_FOUND',
@@ -157,7 +155,7 @@ export class UsersService {
       });
     }
 
-    const isMatch = await this.passwordHasher.verify(dto.currentPassword, user.passwordHash);
+    const isMatch = await this.passwordHasher.verify(dto.currentPassword, user.passwordHash!);
     if (!isMatch) {
       throw new UnauthorizedException({
         code: 'CURRENT_PASSWORD_INCORRECT',
@@ -165,7 +163,7 @@ export class UsersService {
       });
     }
 
-    const isSamePassword = await this.passwordHasher.verify(dto.newPassword, user.passwordHash);
+    const isSamePassword = await this.passwordHasher.verify(dto.newPassword, user.passwordHash!);
     if (isSamePassword) {
       throw new ConflictException({
         code: 'PASSWORD_REUSE_NOT_ALLOWED',
@@ -173,22 +171,27 @@ export class UsersService {
       });
     }
 
-    user.passwordHash = await this.passwordHasher.hash(dto.newPassword);
-    user.passwordChangedAt = new Date();
-    user.version += 1;
-    await user.save();
+    const newHash = await this.passwordHasher.hash(dto.newPassword);
+    await this.prisma.profile.update({
+      where: { id: userId },
+      data: {
+        passwordHash: newHash,
+        passwordChangedAt: new Date(),
+        version: { increment: 1 },
+      },
+    });
 
     // Revoke all refresh sessions for this user across all devices
-    await this.refreshSessionModel.updateMany(
-      { userId: user._id as any, isRevoked: false },
-      { isRevoked: true, revokedAt: new Date(), revokedReason: 'PASSWORD_CHANGED' },
-    );
+    await this.prisma.refreshSession.updateMany({
+      where: { userId, isRevoked: false },
+      data: { isRevoked: true, revokedAt: new Date(), revokedReason: 'PASSWORD_CHANGED' },
+    });
 
     return { message: 'Đổi mật khẩu thành công. Tất cả phiên đăng nhập khác đã được thu hồi.' };
   }
 
   async updateAvatar(userId: string, avatarUrl: string | null): Promise<UserProfileResponse> {
-    const user = await this.userModel.findById(userId).exec();
+    const user = await this.prisma.profile.findUnique({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException({
         code: 'USER_NOT_FOUND',
@@ -196,14 +199,18 @@ export class UsersService {
       });
     }
 
-    user.avatarUrl = avatarUrl || undefined;
-    user.version += 1;
-    await user.save();
+    await this.prisma.profile.update({
+      where: { id: userId },
+      data: {
+        avatarUrl: avatarUrl || null,
+        version: { increment: 1 },
+      },
+    });
 
     return this.getUserProfileResponse(userId);
   }
 
-  buildUserProfileResponse(user: UserDocument, subscription: UserSubscriptionDocument | null): UserProfileResponse {
+  buildUserProfileResponse(user: any, subscription: any | null): UserProfileResponse {
     const serverNow = new Date();
 
     const isPremiumActive =
@@ -220,7 +227,7 @@ export class UsersService {
     }
 
     return {
-      id: user._id.toString(),
+      id: user.id,
       email: user.email,
       displayName: user.displayName,
       username: user.username || undefined,
@@ -234,8 +241,8 @@ export class UsersService {
         startedAt: isPremiumActive && subscription?.startedAt ? subscription.startedAt.toISOString() : undefined,
         expiresAt: isPremiumActive && subscription?.expiresAt ? subscription.expiresAt.toISOString() : undefined,
       },
-      createdAt: (user as any).createdAt ? (user as any).createdAt.toISOString() : serverNow.toISOString(),
-      updatedAt: (user as any).updatedAt ? (user as any).updatedAt.toISOString() : serverNow.toISOString(),
+      createdAt: user.createdAt ? user.createdAt.toISOString() : serverNow.toISOString(),
+      updatedAt: user.updatedAt ? user.updatedAt.toISOString() : serverNow.toISOString(),
       version: user.version,
     };
   }

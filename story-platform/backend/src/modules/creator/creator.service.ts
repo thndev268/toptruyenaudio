@@ -1,12 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { CreatorApplication, CreatorApplicationDocument } from './schemas/creator-application.schema';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
 export class CreatorService {
   constructor(
-    @InjectModel(CreatorApplication.name) private appModel: Model<CreatorApplicationDocument>,
+    private readonly prisma: PrismaService,
   ) {}
 
   async submitApplication(userId: string, dto: any) {
@@ -14,6 +12,6 @@ export class CreatorService {
   }
 
   async getMyApplication(userId: string) {
-    return this.appModel.findOne({ userId }).exec();
+    return this.prisma.creatorApplication.findFirst({ where: { profileId: userId } });
   }
 }

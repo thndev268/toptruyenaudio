@@ -11,7 +11,7 @@ datasource db {
 // -----------------------------------------------------------------------------
 
 model Profile {
-  id              String   @id // Maps to Supabase auth.users.id
+  id              String   @id @default(cuid())
   email           String   @unique
   emailNormalized String?  @unique
   username        String?  @unique
@@ -168,9 +168,18 @@ model ListeningProgress {
   profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
   chapterId       String
   chapter         Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  storyId         String?
   progressSeconds Int      @default(0)
+  positionSeconds Int      @default(0)
+  durationSeconds Int      @default(0)
+  progressPercent Float    @default(0)
+  completed       Boolean  @default(false)
   isCompleted     Boolean  @default(false)
+  playbackMode    String?
+  playbackRate    Float    @default(1.0)
+  lastPlayedAt    DateTime @default(now())
   lastListenedAt  DateTime @default(now())
+  version         Int      @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -182,11 +191,22 @@ model ListeningSession {
   id              String   @id @default(cuid())
   profileId       String
   profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  storyId         String?
+  chapterId       String?
   deviceInfo      String?
   ipAddress       String?
   durationSeconds Int      @default(0)
+  validListeningSeconds Int @default(0)
+  audioContentSecondsPlayed Int @default(0)
+  playQualifiedAt DateTime?
+  lastHeartbeatAt DateTime?
+  lastPositionSeconds Int @default(0)
+  playbackRate    Float    @default(1.0)
+  status          String?
+  completedAt     DateTime?
   startedAt       DateTime @default(now())
   endedAt         DateTime?
+  updatedAt       DateTime @updatedAt
   createdAt       DateTime @default(now())
 
   @@map("listening_sessions")
@@ -218,12 +238,16 @@ model UserSubscription {
   id            String   @id @default(cuid())
   profileId     String
   profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  planId        String
-  plan          SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  planId        String?
+  plan          SubscriptionPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  membershipTier String   @default("FREE")
   status        String   @default("ACTIVE")
   startedAt     DateTime @default(now())
-  expiresAt     DateTime
+  expiresAt     DateTime @default(now())
   cancelledAt   DateTime?
+  autoRenew     Boolean  @default(false)
+  source        String?
+  version       Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -234,8 +258,15 @@ model PremiumGrantLedger {
   id            String   @id @default(cuid())
   profileId     String
   grantedBy     String
+  grantedByAdminId String?
   reason        String
   daysGranted   Int
+  idempotencyKey String?
+  action        String?
+  planId        String?
+  durationDays  Int?
+  previousExpiresAt DateTime?
+  newExpiresAt  DateTime?
   createdAt     DateTime @default(now())
 
   @@map("premium_grant_ledgers")
@@ -250,6 +281,7 @@ model PaymentPackage {
   price         Float
   currency      String   @default("VND")
   isActive      Boolean  @default(true)
+  status        Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -406,13 +438,21 @@ model Commission {
 // -----------------------------------------------------------------------------
 
 model SupportConversation {
-  id            String   @id @default(cuid())
-  profileId     String
-  profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  subject       String
-  status        String   @default("OPEN")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id               String   @id @default(cuid())
+  userId           String
+  profile          Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userName         String
+  subject          String
+  category         String   @default("OTHER")
+  status           String   @default("WAITING_FOR_ADMIN")
+  priority         String   @default("NORMAL")
+  lastMessageAt    DateTime @default(now())
+  userUnreadCount  Int      @default(0)
+  adminUnreadCount Int      @default(0)
+  resolvedAt       DateTime?
+  closedAt         DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   messages      SupportMessage[]
 
@@ -420,37 +460,54 @@ model SupportConversation {
 }
 
 model SupportMessage {
-  id             String   @id @default(cuid())
-  conversationId String
-  conversation   SupportConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  senderId       String
-  content        String
-  createdAt      DateTime @default(now())
+  id              String   @id @default(cuid())
+  conversationId  String
+  conversation    SupportConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId        String
+  senderRole      String   @default("USER")
+  senderName      String
+  clientMessageId String?
+  content         String
+  hiddenAt        DateTime?
+  createdAt       DateTime @default(now())
 
   @@map("support_messages")
 }
 
 model SecurityEvent {
-  id            String   @id @default(cuid())
-  profileId     String?
-  profile       Profile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
-  eventType     String
-  ipAddress     String?
-  userAgent     String?
-  details       String? // JSON string
-  createdAt     DateTime @default(now())
+  id                String   @id @default(cuid())
+  title             String
+  type              String
+  status            String   @default("NEW")
+  severity          String   @default("MEDIUM")
+  description       String
+  ipAddress         String?
+  detectedAt        DateTime @default(now())
+  investigatedAt    DateTime?
+  actionTaken       String?
+  resolvedAt        DateTime?
+  resolvedByAdminId String?
+  resolutionNote    String?
+  reason            String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  profile           Profile? @relation(fields: [resolvedByAdminId], references: [id], onDelete: SetNull)
 
   @@map("security_events")
 }
 
 model AuditLog {
-  id            String   @id @default(cuid())
-  actorId       String
-  action        String
-  entityType    String
-  entityId      String
-  details       String? // JSON string
-  createdAt     DateTime @default(now())
+  id                 String   @id @default(cuid())
+  timestamp          DateTime @default(now())
+  performedByAdminId String
+  action             String
+  resource           String
+  resourceId         String
+  entityName         String
+  reason             String
+  requestId          String
+  metadata           Json?
 
   @@map("audit_logs")
 }
@@ -471,8 +528,12 @@ model Report {
 model FeatureFlag {
   id            String   @id @default(cuid())
   key           String   @unique
+  name          String?
+  descriptionVi String?
+  category      String?
   isEnabled     Boolean  @default(false)
-  description   String?
+  isLocked      Boolean  @default(false)
+  version       Int      @default(0)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -481,11 +542,17 @@ model FeatureFlag {
 
 model IdempotencyRecord {
   id            String   @id @default(cuid())
-  key           String   @unique
-  response      String? // JSON string
-  status        String   @default("PROCESSING")
+  key           String
+  actorId       String
+  operation     String
+  resourceId    String?
+  requestHash   String
+  responseStatus Int
+  responseBody  Json?
+  expiresAt     DateTime
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  @@unique([actorId, operation, key])
   @@map("idempotency_records")
 }

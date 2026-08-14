@@ -67,9 +67,6 @@ describe('AuthService', () => {
     };
 
     authService = new AuthService(
-      mockUserModel,
-      mockRefreshSessionModel,
-      mockSubscriptionModel,
       mockJwtService,
       mockConfigService,
       mockPasswordHasher,
