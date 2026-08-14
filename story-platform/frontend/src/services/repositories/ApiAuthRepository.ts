@@ -1,49 +1,43 @@
-import { apiRequest, setAccessToken } from '../apiClient';
+import { apiRequest } from '../apiClient';
+import { supabase } from '../../lib/supabase';
 
 export class ApiAuthRepository {
   async register(email: string, password: string, displayName: string) {
-    const res = await apiRequest('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ email, password, displayName }),
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { displayName },
+      },
     });
-    if (res.tokens?.accessToken) {
-      setAccessToken(res.tokens.accessToken);
-    }
-    return res;
+    if (error) throw error;
+    return data;
   }
 
   async login(email: string, password: string) {
-    const res = await apiRequest('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     });
-    if (res.tokens?.accessToken) {
-      setAccessToken(res.tokens.accessToken);
-    }
-    return res;
+    if (error) throw error;
+    return data;
   }
 
   async getMe() {
-    return apiRequest('/auth/me', { method: 'GET' });
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    return user;
   }
 
-  async logout(refreshToken?: string) {
-    try {
-      await apiRequest('/auth/logout', {
-        method: 'POST',
-        body: JSON.stringify({ refreshToken: refreshToken || '' }),
-      });
-    } finally {
-      setAccessToken(null);
-    }
+  async logout() {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   }
 
   async logoutAll() {
-    try {
-      await apiRequest('/auth/logout-all', { method: 'POST' });
-    } finally {
-      setAccessToken(null);
-    }
+    // Supabase doesn't have logout-all, just sign out current session
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   }
 }
 

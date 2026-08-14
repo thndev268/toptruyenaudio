@@ -89,7 +89,7 @@ class AdminRepositoryService {
   private ownerProfile: OwnerAdminProfile = {
     id: 'owner-admin-01',
     name: 'Chủ Sở Hữu & Điều Hành Hệ Thống',
-    email: 'thndev26@gmail.com',
+    email: 'admin@toptruyenaudio.com',
     adminType: 'OWNER_ADMIN',
     title: 'Người Vận Hành Duy Nhất (Owner Admin)',
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',

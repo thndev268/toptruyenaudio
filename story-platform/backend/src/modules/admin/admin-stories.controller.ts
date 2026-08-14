@@ -7,6 +7,9 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  Get,
+  Query,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -16,6 +19,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { AccountRole } from '../../common/enums';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { ConfigService } from '@nestjs/config';
 
 @ApiTags('Admin Stories (ADMIN)')
 @Controller('admin/stories')
@@ -26,7 +30,100 @@ export class AdminStoriesController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly configService: ConfigService,
   ) {}
+
+  @Post('analyze-video')
+  @ApiOperation({ summary: 'Phân tích URL video từ YouTube hoặc các nền tảng khác' })
+  async analyzeVideo(@Body() body: { videoUrl: string }) {
+    if (!body.videoUrl) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'Video URL is required',
+      });
+    }
+
+    // Validate URL format
+    try {
+      new URL(body.videoUrl);
+    } catch {
+      throw new BadRequestException({
+        code: 'INVALID_URL',
+        message: 'Invalid URL format',
+      });
+    }
+
+    // YouTube URL analysis
+    const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+    const match = body.videoUrl.match(youtubeRegex);
+
+    if (match) {
+      const videoId = match[1];
+      const youtubeApiKey = this.configService.get<string>('YOUTUBE_API_KEY');
+
+      let title = '';
+      let description = '';
+      let thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+      let embedUrl = `https://www.youtube.com/embed/${videoId}`;
+
+      try {
+        // Fetch title and thumbnail from YouTube oEmbed (no API key required)
+        const oembedResponse = await fetch(
+          `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
+        );
+        
+        if (oembedResponse.ok) {
+          const oembedData = await oembedResponse.json();
+          title = oembedData.title || '';
+          thumbnail = oembedData.thumbnail_url || thumbnail;
+        }
+      } catch (error) {
+        console.error('Failed to fetch oEmbed data:', error);
+      }
+
+      // Fetch description from YouTube Data API (requires API key)
+      if (youtubeApiKey) {
+        try {
+          const dataApiResponse = await fetch(
+            `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet&key=${youtubeApiKey}`
+          );
+          
+          if (dataApiResponse.ok) {
+            const data = await dataApiResponse.json();
+            if (data.items && data.items.length > 0) {
+              description = data.items[0].snippet?.description || '';
+              if (!title) {
+                title = data.items[0].snippet?.title || '';
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Failed to fetch YouTube Data API:', error);
+        }
+      }
+
+      return {
+        platform: 'youtube',
+        videoId,
+        embedUrl,
+        thumbnail,
+        title,
+        description,
+        authorName: '', // Can be extracted from oEmbed if needed
+      };
+    }
+
+    // For other platforms, return basic info
+    return {
+      platform: 'unknown',
+      videoUrl: body.videoUrl,
+      embedUrl: body.videoUrl,
+      title: '',
+      description: '',
+      thumbnail: '',
+      authorName: '',
+    };
+  }
 
   @Post()
   @ApiOperation({ summary: 'Tạo truyện mới' })

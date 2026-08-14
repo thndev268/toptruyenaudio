@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { createClient } from '@supabase/supabase-js';
 import { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AccountStatus } from '../../common/enums';
 
 @Injectable()
 export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
@@ -15,15 +16,23 @@ export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
     private readonly prisma: PrismaService,
   ) {
     super();
-    const supabaseUrl = this.configService.get<string>('SUPABASE_URL') || process.env.SUPABASE_URL || 'https://placeholder.supabase.co';
-    const supabaseKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY') || process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder';
-    this.supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseUrl = this.configService.get<string>('SUPABASE_URL') || process.env.SUPABASE_URL;
+    const supabaseAnonKey = this.configService.get<string>('SUPABASE_ANON_KEY') || process.env.SUPABASE_ANON_KEY;
+    
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY must be configured');
+    }
+    
+    this.supabase = createClient(supabaseUrl, supabaseAnonKey);
   }
 
   async validate(req: Request): Promise<any> {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Missing or invalid Authorization header');
+      throw new UnauthorizedException({
+        code: 'MISSING_TOKEN',
+        message: 'Authorization header missing or invalid format.',
+      });
     }
 
     const token = authHeader.split(' ')[1];
@@ -32,7 +41,10 @@ export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
     const { data, error } = await this.supabase.auth.getUser(token);
     
     if (error || !data.user) {
-      throw new UnauthorizedException('Invalid Supabase token');
+      throw new UnauthorizedException({
+        code: 'INVALID_TOKEN',
+        message: 'Token không hợp lệ hoặc đã hết hạn.',
+      });
     }
 
     let user = await this.prisma.profile.findUnique({ where: { id: data.user.id } });
@@ -49,7 +61,7 @@ export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
           emailNormalized: data.user.email?.toLowerCase(),
           displayName: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'User',
           role: isOwnerAdmin ? 'OWNER_ADMIN' : 'USER',
-          status: 'ACTIVE',
+          status: AccountStatus.ACTIVE,
           membershipTier: 'FREE',
         }
       });
@@ -63,8 +75,13 @@ export class SupabaseStrategy extends PassportStrategy(Strategy, 'supabase') {
       }
     }
 
-    if (user.status !== 'ACTIVE') {
-      throw new UnauthorizedException('Account is not active');
+    if (user.status !== AccountStatus.ACTIVE) {
+      throw new UnauthorizedException({
+        code: 'ACCOUNT_INACTIVE',
+        message: user.status === AccountStatus.SUSPENDED 
+          ? 'Tài khoản của bạn đã bị tạm khóa.' 
+          : 'Tài khoản của bạn đã bị vô hiệu hóa.',
+      });
     }
 
     return {

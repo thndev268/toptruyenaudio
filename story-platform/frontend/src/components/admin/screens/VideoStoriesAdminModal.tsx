@@ -24,6 +24,7 @@ import {
 import { AdminStoryItem } from '../../../types/admin';
 import { adminRepository } from '../../../services/repositories/AdminRepository';
 import { AdminIframePreviewModal } from '../common/AdminIframePreviewModal';
+import { apiRequest } from '../../../services/apiClient';
 
 interface VideoStoriesAdminModalProps {
   isOpen: boolean;
@@ -63,25 +64,18 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
     setIsExtracting(true);
 
     try {
-      const res = await fetch('/api/v1/admin/analyze-video', {
+      const json = await apiRequest('/admin/stories/analyze-video', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ iframeInput: iframeInputText }),
+        body: JSON.stringify({ videoUrl: iframeInputText }),
       });
 
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && Array.isArray(json.data)) {
-          setExtractedItems(json.data);
-          setActiveTab('IMPORT');
-        }
-      } else {
-        // Fallback client side extractor if backend error
-        fallbackClientExtract(iframeInputText);
-      }
-    } catch (err) {
-      console.warn("Using client-side video parser fallback:", err);
-      fallbackClientExtract(iframeInputText);
+      // Backend returns single video object, wrap in array for consistency
+      const videoData = Array.isArray(json) ? json : [json];
+      setExtractedItems(videoData);
+      setActiveTab('IMPORT');
+    } catch (err: any) {
+      console.error("Video analysis error:", err);
+      alert(`Lỗi phân tích video: ${err.message || 'Không thể phân tích URL video'}`);
     } finally {
       setIsExtracting(false);
     }

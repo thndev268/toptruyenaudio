@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 
-const API_BASE_URL = ((import.meta as any).env?.VITE_API_URL as string) || '/api/v1';
+const API_BASE_URL = ((import.meta as any).env?.VITE_API_URL as string) || 'http://localhost:3001/api/v1';
 
 export class ApiError extends Error {
   code: string;
@@ -34,44 +34,7 @@ export function getDataSourceMode(): DataSourceMode {
   return 'API';
 }
 
-// In-Memory Token Store - Access token is NEVER stored in LocalStorage/SessionStorage
-let accessToken: string | null = null;
-let refreshPromise: Promise<string | null> | null = null;
-
-// One-time cleanup of legacy auth token from LocalStorage if present (Migration step)
-if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
-  if (localStorage.getItem('toptruyenaudio:token:v1')) {
-    localStorage.removeItem('toptruyenaudio:token:v1');
-  }
-}
-
-export const setAccessToken = (token: string | null) => {
-  accessToken = token;
-};
-
-export const getAccessToken = () => accessToken;
-
-export async function refreshAccessTokenSingleFlight(): Promise<string | null> {
-  if (!refreshPromise) {
-    refreshPromise = (async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (session?.access_token) {
-          setAccessToken(session.access_token);
-          return session.access_token;
-        }
-        setAccessToken(null);
-        return null;
-      } catch (err) {
-        setAccessToken(null);
-        return null;
-      } finally {
-        refreshPromise = null;
-      }
-    })();
-  }
-  return refreshPromise;
-}
+// No token cache - always get fresh session from Supabase
 
 export async function apiRequest<T = any>(
   endpoint: string,
@@ -90,24 +53,37 @@ export async function apiRequest<T = any>(
     headers['Content-Type'] = 'application/json';
   }
 
-  // Always try to get the latest token from Supabase if not set
-  if (!accessToken) {
-     const { data: { session } } = await supabase.auth.getSession();
-     if (session?.access_token) {
-        setAccessToken(session.access_token);
-     }
+  // Always get fresh session from Supabase before each request
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  
+  if (sessionError) {
+    console.error('[apiClient] Supabase session error:', sessionError);
+    throw new ApiError(
+      'Lỗi lấy session từ Supabase. Vui lòng đăng nhập lại.',
+      'SESSION_ERROR',
+      401
+    );
   }
 
-  if (accessToken && !headers['Authorization']) {
-    headers['Authorization'] = `Bearer ${accessToken}`;
+  if (!session || !session.access_token) {
+    console.error('[apiClient] No active session found');
+    throw new ApiError(
+      'Bạn chưa đăng nhập hoặc phiên đã hết hạn. Vui lòng đăng nhập lại.',
+      'NO_SESSION',
+      401
+    );
   }
+
+  // Set Authorization header with fresh token
+  headers['Authorization'] = `Bearer ${session.access_token}`;
+  console.log('[apiClient] Authorization header set:', headers['Authorization'].substring(0, 30) + '...');
 
   let response: Response;
   try {
     response = await fetch(url, {
       ...options,
       headers,
-      credentials: 'omit', // No longer using cookies for auth, using Bearer token from Supabase
+      credentials: 'omit',
     });
   } catch (err) {
     throw new ApiError(
@@ -130,13 +106,14 @@ export async function apiRequest<T = any>(
   }
 
   if (!response.ok) {
-    // 401 Unauthorized - Handle token refresh if not already retrying
-    if (response.status === 401 && !_isRetry && !endpoint.includes('auth/login')) {
-      const newAccessToken = await refreshAccessTokenSingleFlight();
-      if (newAccessToken) {
-        // Retry the original request exactly once
-        return apiRequest(endpoint, options, true);
-      }
+    // 401 Unauthorized - Session expired, redirect to login
+    if (response.status === 401) {
+      console.error('[apiClient] 401 Unauthorized - session may be expired');
+      throw new ApiError(
+        'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+        'SESSION_EXPIRED',
+        401
+      );
     }
 
     if (response.status === 403) {

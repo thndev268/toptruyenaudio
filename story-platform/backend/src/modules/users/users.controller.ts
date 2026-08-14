@@ -23,6 +23,7 @@ import { UsersService } from './users.service';
 import { UpdateMyProfileDto, ChangeMyPasswordDto } from './dto/users.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { SkipThrottle } from '@nestjs/throttler';
 
 const AVATARS_DIR = path.resolve(process.cwd(), 'uploads/avatars');
 
@@ -37,6 +38,7 @@ export class UsersController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
+  @SkipThrottle()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Lấy thông tin tài khoản & hồ sơ người dùng đang đăng nhập' })
   async getProfile(@CurrentUser('id') userId: string) {

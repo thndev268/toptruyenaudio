@@ -1,5 +1,5 @@
 import { storage } from '../storage';
-import { apiRequest, getAccessToken, getDataSourceMode } from '../apiClient';
+import { apiRequest, getDataSourceMode } from '../apiClient';
 
 export interface UserProfileInput {
   name?: string;
@@ -170,20 +170,12 @@ export class ApiUserProfileRepository implements UserProfileRepository {
     formData.append('file', file);
 
     try {
-      const token = getAccessToken();
-      const res = await fetch('/api/v1/users/me/avatar', {
+      const response = await apiRequest<{ data: any } | any>('/users/me/avatar', {
         method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData?.error?.message || 'UPLOAD_FAILED');
-      }
-
-      const json = await res.json();
-      const data = json.data || json;
+      const data = response.data || response;
       return { avatarUrl: data.avatarUrl };
     } catch (err) {
       if (getDataSourceMode() === 'API') {
