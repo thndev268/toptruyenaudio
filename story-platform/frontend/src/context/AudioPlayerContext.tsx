@@ -1091,8 +1091,20 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setCurrentStory(story);
     setCurrentChapter({ ...chapter, audioUrl: finalAudioUrl || chapter.audioUrl });
 
-    // If no audio source available, show error
+    // If no audio source available but story has iframe, iframe is the audio source
     if (!ytId && !hasWebAudio) {
+      const hasIframe = Boolean(
+        chapter.iframeCode || chapter.videoIframeUrl || chapter.iframeUrl ||
+        story.iframeCode || story.iframeUrl
+      );
+      
+      if (hasIframe) {
+        console.log('[AudioPlayerContext] Using iframe as audio source');
+        // Iframe is the audio source, return true without error
+        // The iframe will be rendered in the UI
+        return true;
+      }
+      
       console.error('[AudioPlayerContext] No audio source available:', {
         finalAudioUrl,
         ytId,
