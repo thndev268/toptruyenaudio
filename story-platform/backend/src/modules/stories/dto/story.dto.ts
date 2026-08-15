@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, IsEnum } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsEnum, IsBoolean } from 'class-validator';
 import { StoryStatus, PublishStatus, AgeRating } from '../../../common/enums';
 
 export class CreateStoryDto {
@@ -37,6 +37,62 @@ export class CreateStoryDto {
   @IsOptional()
   @IsEnum(AgeRating)
   ageRating?: AgeRating;
+}
+
+export class AdminCreateStoryDto {
+  @IsString()
+  title: string;
+
+  @IsOptional()
+  @IsString()
+  slug?: string;
+
+  @IsString()
+  authorName: string;
+
+  @IsOptional()
+  @IsString()
+  narratorName?: string;
+
+  @IsOptional()
+  @IsString()
+  summary?: string;
+
+  @IsOptional()
+  @IsString()
+  storyline?: string;
+
+  @IsOptional()
+  @IsString()
+  audioContent?: string;
+
+  @IsOptional()
+  @IsString()
+  coverUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  iframeUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  iframeCode?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isVideoStory?: boolean;
+
+  @IsOptional()
+  @IsEnum(StoryStatus)
+  storyStatus?: StoryStatus;
+
+  @IsOptional()
+  @IsEnum(PublishStatus)
+  publishStatus?: PublishStatus;
+
+  @IsOptional()
+  @IsString()
+  metadata?: string; // JSON string for transcript/description
 }
 
 export class UpdateStoryDto {

@@ -6,11 +6,15 @@ import {
   Body,
   UseGuards,
   UseInterceptors,
+  UsePipes,
   UploadedFile,
   Get,
   Query,
   BadRequestException,
+  ConflictException,
+  ValidationPipe,
 } from '@nestjs/common';
+import { AdminCreateStoryDto } from '../stories/dto/story.dto';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -34,37 +38,56 @@ export class AdminStoriesController {
   ) {}
 
   @Post('analyze-video')
-  @ApiOperation({ summary: 'Phân tích URL video từ YouTube hoặc các nền tảng khác' })
-  async analyzeVideo(@Body() body: { videoUrl: string }) {
-    if (!body.videoUrl) {
+  @ApiOperation({ summary: 'Phân tích mã iframe YouTube để lấy thông tin video' })
+  async analyzeVideo(@Body() body: { iframeCodes: string[] }) {
+    if (!body.iframeCodes || !Array.isArray(body.iframeCodes) || body.iframeCodes.length === 0) {
       throw new BadRequestException({
         code: 'VALIDATION_ERROR',
-        message: 'Video URL is required',
+        message: 'iframeCodes is required and must be a non-empty array',
       });
     }
 
-    // Validate URL format
-    try {
-      new URL(body.videoUrl);
-    } catch {
-      throw new BadRequestException({
-        code: 'INVALID_URL',
-        message: 'Invalid URL format',
-      });
-    }
+    const youtubeApiKey = this.configService.get<string>('YOUTUBE_API_KEY');
+    const results: any[] = [];
 
-    // YouTube URL analysis
-    const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-    const match = body.videoUrl.match(youtubeRegex);
+    for (let i = 0; i < body.iframeCodes.length; i++) {
+      const iframeCode = body.iframeCodes[i];
 
-    if (match) {
+      // Extract src attribute from iframe
+      const srcMatch = iframeCode.match(/src=["']([^"']+)["']/i);
+      if (!srcMatch) {
+        results.push({
+          error: `Iframe ${i + 1}: Không tìm thấy thuộc tính src`,
+          iframeCode,
+        });
+        continue;
+      }
+
+      const src = srcMatch[1];
+
+      // Extract YouTube video ID from embed URL
+      const youtubeRegex = /(?:youtube\.com\/embed\/|youtu\.be\/)([^"&?\/\s]{11})/;
+      const match = src.match(youtubeRegex);
+
+      if (!match) {
+        results.push({
+          error: `Iframe ${i + 1}: src không phải YouTube embed URL (${src})`,
+          iframeCode,
+        });
+        continue;
+      }
+
       const videoId = match[1];
-      const youtubeApiKey = this.configService.get<string>('YOUTUBE_API_KEY');
-
       let title = '';
       let description = '';
       let thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
       let embedUrl = `https://www.youtube.com/embed/${videoId}`;
+
+      // Extract title from iframe if available
+      const titleMatch = iframeCode.match(/title=["']([^"']+)["']/i);
+      if (titleMatch && titleMatch[1] && titleMatch[1] !== 'Video Player') {
+        title = titleMatch[1];
+      }
 
       try {
         // Fetch title and thumbnail from YouTube oEmbed (no API key required)
@@ -74,7 +97,7 @@ export class AdminStoriesController {
         
         if (oembedResponse.ok) {
           const oembedData = await oembedResponse.json();
-          title = oembedData.title || '';
+          title = oembedData.title || title;
           thumbnail = oembedData.thumbnail_url || thumbnail;
         }
       } catch (error) {
@@ -102,63 +125,148 @@ export class AdminStoriesController {
         }
       }
 
-      return {
+      results.push({
         platform: 'youtube',
         videoId,
         embedUrl,
         thumbnail,
-        title,
+        title: title || `Video YouTube #${i + 1}`,
         description,
-        authorName: '', // Can be extracted from oEmbed if needed
-      };
+        authorName: '',
+        iframeCode,
+      });
     }
 
-    // For other platforms, return basic info
-    return {
-      platform: 'unknown',
-      videoUrl: body.videoUrl,
-      embedUrl: body.videoUrl,
-      title: '',
-      description: '',
-      thumbnail: '',
-      authorName: '',
-    };
+    return results;
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Lấy danh sách tất cả truyện' })
+  async getAllStories() {
+    try {
+      const stories = await this.prisma.story.findMany({
+        include: {
+          chapters: true,
+          genres: {
+            include: {
+              genre: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      return {
+        success: true,
+        data: stories,
+        message: 'Đã lấy danh sách truyện thành công',
+      };
+    } catch (error) {
+      console.error('Error fetching stories:', error);
+      throw new BadRequestException({
+        code: 'FETCH_STORIES_ERROR',
+        message: error.message || 'Lỗi khi lấy danh sách truyện',
+      });
+    }
   }
 
   @Post()
   @ApiOperation({ summary: 'Tạo truyện mới' })
-  @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('coverFile'))
-  async createStory(
-    @Body() body: any,
-    @UploadedFile() coverFile?: Express.Multer.File,
-  ) {
-    let coverUrl = body.coverUrl;
+  @UsePipes(new ValidationPipe({ skipMissingProperties: true, whitelist: true, forbidNonWhitelisted: true }))
+  async createStory(@Body() dto: AdminCreateStoryDto) {
+    try {
+      console.log('[createStory] Received DTO:', dto);
 
-    if (coverFile) {
-      const ext = coverFile.originalname.split('.').pop();
-      const filename = `covers/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
-      coverUrl = await this.storage.uploadFile('media', filename, coverFile.buffer, coverFile.mimetype);
+      // Generate unique slug if not provided
+      let slug = dto.slug || dto.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      
+      // Check if slug already exists - return 409 Conflict if it does
+      const existingStory = await this.prisma.story.findUnique({ where: { slug } });
+      if (existingStory) {
+        throw new ConflictException({
+          code: 'SLUG_ALREADY_EXISTS',
+          message: `Slug '${slug}' đã tồn tại. Vui lòng chọn slug khác hoặc để hệ thống tự động tạo.`,
+          fields: { slug: 'Slug đã tồn tại' },
+        });
+      }
+      
+      // If slug was provided by user and conflicts, we don't auto-generate
+      // Only auto-generate if the slug was derived from title and conflicts
+      if (!dto.slug) {
+        let attempts = 0;
+        const maxAttempts = 10;
+        while (attempts < maxAttempts) {
+          const conflictStory = await this.prisma.story.findUnique({ where: { slug } });
+          if (!conflictStory) break;
+          slug = `${slug}-${Date.now()}-${attempts}`;
+          attempts++;
+        }
+
+        if (attempts >= maxAttempts) {
+          throw new BadRequestException({
+            code: 'SLUG_GENERATION_FAILED',
+            message: 'Could not generate unique slug',
+          });
+        }
+      }
+
+      // Extract iframeUrl from iframeCode if not provided
+      let iframeUrl = dto.iframeUrl;
+      let iframeCode = dto.iframeCode;
+      let thumbnailUrl = dto.coverUrl;
+
+      if (iframeCode && !iframeUrl) {
+        const srcMatch = iframeCode.match(/src=["']([^"']+)["']/i);
+        if (srcMatch) {
+          iframeUrl = srcMatch[1];
+        }
+      }
+
+      // Auto-extract YouTube thumbnail if video story and no coverUrl
+      if (iframeUrl && (!thumbnailUrl)) {
+        const youtubeRegex = /(?:youtube\.com\/embed\/|youtu\.be\/)([^"&?\/\s]{11})/;
+        const match = iframeUrl.match(youtubeRegex);
+        if (match) {
+          const videoId = match[1];
+          thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+        }
+      }
+
+      const story = await this.prisma.story.create({
+        data: {
+          title: dto.title.trim(),
+          slug,
+          authorName: dto.authorName.trim(),
+          narratorName: dto.narratorName?.trim() || '',
+          summary: dto.summary?.trim() || '',
+          storyline: dto.storyline?.trim() || dto.summary?.trim() || '',
+          audioContent: dto.audioContent?.trim() || 'Đang cập nhật',
+          coverUrl: thumbnailUrl,
+          storyStatus: dto.storyStatus || 'ONGOING',
+          publishStatus: dto.publishStatus || 'PUBLISHED',
+          iframeUrl,
+          iframeCode,
+          isVideoStory: typeof dto.isVideoStory === 'boolean' ? dto.isVideoStory : false,
+        },
+      });
+
+      return {
+        success: true,
+        data: story,
+        message: 'Đã tạo truyện thành công',
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      console.error('Error creating story:', error);
+      throw new BadRequestException({
+        code: 'CREATE_STORY_ERROR',
+        message: error.message || 'Lỗi khi tạo truyện',
+      });
     }
-
-    const generatedSlug = body.slug || (body.title ? body.title.toLowerCase().replace(/ /g, '-') : `story-${Date.now()}`);
-
-    return this.prisma.story.create({
-      data: {
-        title: body.title || 'Không có tiêu đề',
-        slug: generatedSlug,
-        authorName: body.authorName,
-        narratorName: body.narratorName,
-        summary: body.summary,
-        coverUrl,
-        storyStatus: body.storyStatus || 'ONGOING',
-        publishStatus: body.publishStatus || 'PUBLISHED',
-        iframeUrl: body.iframeUrl,
-        iframeCode: body.iframeCode,
-        audioContent: body.audioContent,
-        isVideoStory: body.isVideoStory === 'true' || body.isVideoStory === true,
-      },
-    });
   }
 
   @Put(':id')

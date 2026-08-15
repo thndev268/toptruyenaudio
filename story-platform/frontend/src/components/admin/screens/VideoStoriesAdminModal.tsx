@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Video,
   Sparkles,
@@ -53,29 +53,75 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
   const [previewIframe, setPreviewIframe] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  
+  // Ref to prevent concurrent calls
+  const isSubmittingRef = useRef(false);
 
   if (!isOpen) return null;
 
   const videoStories = stories.filter((s) => s.isVideoStory || !!s.iframeUrl || !!s.iframeCode);
 
+  // Validate and extract iframe codes from input text
+  const validateIframes = (text: string): { valid: string[]; errors: string[] } => {
+    const lines = text.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+    const valid: string[] = [];
+    const errors: string[] = [];
+
+    lines.forEach((line, idx) => {
+      if (!line.includes('<iframe')) {
+        errors.push(`Dòng ${idx + 1}: Không phải thẻ iframe HTML`);
+        return;
+      }
+
+      const srcMatch = line.match(/src=["']([^"']+)["']/i);
+      if (!srcMatch) {
+        errors.push(`Dòng ${idx + 1}: Không tìm thấy thuộc tính src trong iframe`);
+        return;
+      }
+
+      const src = srcMatch[1];
+      if (!src.includes('youtube.com') && !src.includes('youtu.be')) {
+        errors.push(`Dòng ${idx + 1}: src không phải YouTube (${src})`);
+        return;
+      }
+
+      valid.push(line);
+    });
+
+    return { valid, errors };
+  };
+
   // Call API to analyze video iframes
   const handleAnalyzeIframes = async () => {
     if (!iframeInputText.trim()) return;
+
+    const { valid, errors } = validateIframes(iframeInputText);
+    
+    if (errors.length > 0) {
+      alert(`Lỗi định dạng iframe:\n${errors.join('\n')}\n\nVui lòng dán nguyên mã <iframe> YouTube, mỗi iframe một dòng.`);
+      return;
+    }
+
+    if (valid.length === 0) {
+      alert('Không tìm thấy iframe hợp lệ. Vui lòng dán nguyên mã <iframe> YouTube.');
+      return;
+    }
+
     setIsExtracting(true);
 
     try {
       const json = await apiRequest('/admin/stories/analyze-video', {
         method: 'POST',
-        body: JSON.stringify({ videoUrl: iframeInputText }),
+        body: JSON.stringify({ iframeCodes: valid }),
       });
 
-      // Backend returns single video object, wrap in array for consistency
+      // Backend returns array of video objects
       const videoData = Array.isArray(json) ? json : [json];
       setExtractedItems(videoData);
       setActiveTab('IMPORT');
     } catch (err: any) {
       console.error("Video analysis error:", err);
-      alert(`Lỗi phân tích video: ${err.message || 'Không thể phân tích URL video'}`);
+      alert(`Lỗi phân tích video: ${err.message || 'Không thể phân tích iframe'}`);
     } finally {
       setIsExtracting(false);
     }
@@ -136,38 +182,57 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
   };
 
   const handleSaveAllExtracted = async () => {
-    if (!extractedItems.length || isSaving) return;
+    if (!extractedItems.length || isSaving || isSubmittingRef.current) return;
+    
+    isSubmittingRef.current = true;
     setIsSaving(true);
     setSaveError(null);
-    const res = await adminRepository.addBulkVideos(extractedItems as any);
-    setIsSaving(false);
-    if (res.success) {
-      setExtractedItems([]);
-      setIframeInputText('');
-      onRefreshData();
-      setActiveTab('LIST');
-    } else {
-      // In a real app we might want to show a toast, but here we can just alert or log
-      alert(res.message || 'Lỗi khi lưu video.');
+    
+    try {
+      const res = await adminRepository.addBulkVideos(extractedItems as any);
+      if (res.success) {
+        setExtractedItems([]);
+        setIframeInputText('');
+        onRefreshData();
+        setActiveTab('LIST');
+      } else {
+        alert(res.message || 'Lỗi khi lưu video.');
+      }
+    } catch (err) {
+      console.error('Error saving videos:', err);
+      alert('Lỗi khi lưu video: ' + (err as any)?.message || 'Unknown error');
+    } finally {
+      setIsSaving(false);
+      isSubmittingRef.current = false;
     }
   };
 
   const handleSaveSingleStory = async (storyData: Partial<AdminStoryItem>) => {
-    if (isSaving) return;
+    if (isSaving || isSubmittingRef.current) return;
+    
+    isSubmittingRef.current = true;
     setIsSaving(true);
     setSaveError(null);
-    let res;
-    if (storyData.id) {
-      res = await adminRepository.updateVideoStory(storyData.id, storyData);
-    } else {
-      res = await adminRepository.addVideoStory(storyData);
-    }
-    setIsSaving(false);
-    if (res.success) {
-      setEditingStory(null);
-      onRefreshData();
-    } else {
-      setSaveError(res.message);
+    
+    try {
+      let res;
+      if (storyData.id) {
+        res = await adminRepository.updateVideoStory(storyData.id, storyData);
+      } else {
+        res = await adminRepository.addVideoStory(storyData);
+      }
+      if (res.success) {
+        setEditingStory(null);
+        onRefreshData();
+      } else {
+        setSaveError(res.message);
+      }
+    } catch (err) {
+      console.error('Error saving story:', err);
+      setSaveError((err as any)?.message || 'Lỗi khi lưu truyện');
+    } finally {
+      setIsSaving(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -301,6 +366,7 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
                   </p>
 
                   <button
+                    type="button"
                     onClick={handleAnalyzeIframes}
                     disabled={isExtracting || !iframeInputText.trim()}
                     className="px-5 py-2.5 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-2 shrink-0 cursor-pointer"
@@ -330,6 +396,7 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
                     </h3>
 
                     <button
+                      type="button"
                       onClick={handleSaveAllExtracted}
                       disabled={isSaving}
                       className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
@@ -610,6 +677,7 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
                   </button>
 
                   <button
+                    type="button"
                     onClick={() => handleSaveSingleStory(editingStory || {})}
                     disabled={isSaving}
                     className="px-5 py-2 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-xl shadow-lg transition-all disabled:opacity-50 flex items-center gap-2"

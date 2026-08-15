@@ -142,22 +142,7 @@ class AdminRepositoryService {
   private loadPersistedState() {
     try {
       if (typeof window === 'undefined') return;
-      const savedStories = localStorage.getItem('toptruyenaudio:admin-stories:v1');
-      if (savedStories) {
-        const parsed = JSON.parse(savedStories);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          this.stories = parsed;
-        }
-      }
-
-      const savedChapters = localStorage.getItem('toptruyenaudio:admin-chapters:v1');
-      if (savedChapters) {
-        const parsedMap = JSON.parse(savedChapters);
-        if (parsedMap && typeof parsedMap === 'object') {
-          this.storyChapters = { ...this.storyChapters, ...parsedMap };
-        }
-      }
-
+      // Only load video settings from localStorage (UI preference, not data)
       const savedVideoSettings = localStorage.getItem('toptruyenaudio:video-settings:v1');
       if (savedVideoSettings) {
         const parsed = JSON.parse(savedVideoSettings);
@@ -166,56 +151,74 @@ class AdminRepositoryService {
         }
       }
 
+      // Always fetch from backend API - no localStorage fallback for data
       this.fetchFromBackendApi();
     } catch (e) {
-      console.warn('Error loading persisted admin state:', e);
+      console.error('Error loading persisted admin state:', e);
+      // Don't use localStorage as fallback - let the error propagate
     }
   }
 
+  // Cache for preventing duplicate fetch calls (React Strict Mode)
+  private fetchPromise: Promise<void> | null = null;
+
   private async fetchFromBackendApi() {
-    try {
-      const settingsRes = await fetch('/api/video-settings');
-      if (settingsRes.ok) {
-        const json = await settingsRes.json();
-        if (json.settings) {
-          this.videoSettings = { ...this.videoSettings, ...json.settings };
-          localStorage.setItem('toptruyenaudio:video-settings:v1', JSON.stringify(this.videoSettings));
-        }
-      }
-
-      const storiesRes = await fetch('/api/stories');
-      if (storiesRes.ok) {
-        const json = await storiesRes.json();
-        if (Array.isArray(json.stories) && json.stories.length > 0) {
-          json.stories.forEach((as: any) => {
-            const existingIdx = this.stories.findIndex((s) => s.id === as.id);
-            if (existingIdx !== -1) {
-              this.stories[existingIdx] = as;
-            } else {
-              this.stories.unshift(as);
-            }
-          });
-          localStorage.setItem('toptruyenaudio:admin-stories:v1', JSON.stringify(this.stories));
-        }
-      }
-
-      const genresRes = await fetch('/api/genres');
-      if (genresRes.ok) {
-        const json = await genresRes.json();
-        if (Array.isArray(json.genres) && json.genres.length > 0) {
-          this.genres = json.genres;
-          const oldDataRaw = localStorage.getItem('toptruyenaudio:admin-data:v1');
-          const oldData = oldDataRaw ? JSON.parse(oldDataRaw) : {};
-          localStorage.setItem('toptruyenaudio:admin-data:v1', JSON.stringify({
-            ...oldData,
-            genres: this.genres
-          }));
-          window.dispatchEvent(new Event('toptruyenaudio_admin_sync'));
-        }
-      }
-    } catch (err) {
-      console.warn('Backend API sync notice:', err);
+    // Return existing promise if already fetching (prevent duplicate calls)
+    if (this.fetchPromise) {
+      console.log('[fetchFromBackendApi] Already fetching, returning existing promise');
+      return this.fetchPromise;
     }
+
+    this.fetchPromise = (async () => {
+      try {
+        // Use apiRequest to ensure proper backend URL and authentication
+        try {
+          const settingsData = await apiRequest<any>('/video-settings');
+          if (settingsData?.settings) {
+            this.videoSettings = { ...this.videoSettings, ...settingsData.settings };
+            localStorage.setItem('toptruyenaudio:video-settings:v1', JSON.stringify(this.videoSettings));
+          }
+        } catch (err) {
+          console.warn('[fetchFromBackendApi] Failed to fetch video settings:', err);
+        }
+
+        try {
+          const storiesResponse = await apiRequest<{ success: boolean; data: any[] } | any[]>('/admin/stories');
+          
+          // Handle both response formats: { success, data } and direct array
+          let storiesData: any[] = [];
+          if (Array.isArray(storiesResponse)) {
+            storiesData = storiesResponse;
+          } else if (storiesResponse?.data && Array.isArray(storiesResponse.data)) {
+            storiesData = storiesResponse.data;
+          }
+
+          if (storiesData.length > 0) {
+            storiesData.forEach((as: any) => {
+              const existingIdx = this.stories.findIndex((s) => s.id === as.id);
+              if (existingIdx !== -1) {
+                this.stories[existingIdx] = as;
+              } else {
+                this.stories.unshift(as);
+              }
+            });
+            localStorage.setItem('toptruyenaudio:admin-stories:v1', JSON.stringify(this.stories));
+          }
+        } catch (err) {
+          console.warn('[fetchFromBackendApi] Failed to fetch stories:', err);
+        }
+
+        // Removed GET /genres call - route doesn't exist in backend
+        // Genres should be fetched from a different endpoint if needed
+      } catch (err) {
+        console.error('[fetchFromBackendApi] Backend API sync failed:', err);
+        // Don't fallback to localStorage - let the error propagate
+      } finally {
+        this.fetchPromise = null;
+      }
+    })();
+
+    return this.fetchPromise;
   }
 
   public persistState() {
@@ -225,21 +228,19 @@ class AdminRepositoryService {
       localStorage.setItem('toptruyenaudio:admin-chapters:v1', JSON.stringify(this.storyChapters));
       localStorage.setItem('toptruyenaudio:video-settings:v1', JSON.stringify(this.videoSettings));
 
-      fetch('/api/stories', {
+      // Use apiRequest for proper backend URL and authentication
+      apiRequest('/admin/stories/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stories: this.stories }),
       }).catch((e) => console.warn('Sync stories API:', e));
 
-      fetch('/api/video-settings', {
+      apiRequest('/video-settings/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ settings: this.videoSettings }),
       }).catch((e) => console.warn('Sync video-settings API:', e));
 
-      fetch('/api/genres', {
+      apiRequest('/genres/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ genres: this.genres }),
       }).catch((e) => console.warn('Sync genres API:', e));
     } catch (err) {
@@ -830,41 +831,85 @@ class AdminRepositoryService {
   // --- Video Story CRUD Methods ---
   async addVideoStory(item: Partial<AdminStoryItem>): Promise<{ success: boolean; message: string; story?: AdminStoryItem }> {
     try {
-      const formData = new FormData();
-      if (item.title) formData.append('title', item.title);
-      if (item.slug) formData.append('slug', item.slug);
-      if (item.authorName) formData.append('authorName', item.authorName);
-      if (item.narratorName) formData.append('narratorName', item.narratorName);
-      if (item.summary) formData.append('summary', item.summary);
-      if (item.storyStatus) formData.append('storyStatus', item.storyStatus);
-      if (item.publishStatus) formData.append('publishStatus', item.publishStatus);
-      if (item.iframeUrl) formData.append('iframeUrl', item.iframeUrl);
-      if (item.iframeCode) formData.append('iframeCode', item.iframeCode);
-      if (item.audioContent) formData.append('audioContent', item.audioContent);
-      if (item.isVideoStory) formData.append('isVideoStory', 'true');
-      
-      // We assume if it's a new video story, we just set the coverUrl as text for now
-      // since the backend can just store the URL.
-      if (item.coverUrl) formData.append('coverUrl', item.coverUrl);
+      // Extract iframeUrl from iframeCode if not provided
+      let iframeUrl = item.iframeUrl;
+      if (item.iframeCode && !iframeUrl) {
+        const srcMatch = item.iframeCode.match(/src=["']([^"']+)["']/i);
+        if (srcMatch) {
+          iframeUrl = srcMatch[1];
+        }
+      }
 
-      // Create story
-      const res = await apiRequest<{ id: string }>('/admin/stories', {
+      // Auto-extract YouTube thumbnail if iframeUrl exists
+      let coverUrl = item.coverUrl;
+      if (iframeUrl && !coverUrl) {
+        const youtubeRegex = /(?:youtube\.com\/embed\/|youtu\.be\/)([^"&?\/\s]{11})/;
+        const match = iframeUrl.match(youtubeRegex);
+        if (match) {
+          const videoId = match[1];
+          coverUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+        }
+      }
+
+      // Generate slug from title if not provided
+      const slug = item.slug || (item.title ? item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : `video-${Date.now()}`);
+
+      // Build payload matching backend AdminCreateStoryDto
+      const payload: any = {
+        title: item.title,
+        slug,
+        authorName: item.authorName || 'Top Truyện Audio',
+        narratorName: item.narratorName || 'AI Narrator',
+        summary: item.summary || 'Video truyện audio từ YouTube.',
+        storyline: item.storyline || item.summary || 'Video truyện audio từ YouTube.',
+        audioContent: item.audioContent || 'Đang cập nhật',
+        coverUrl,
+        iframeUrl,
+        iframeCode: item.iframeCode,
+        isVideoStory: true,
+        storyStatus: item.storyStatus || 'ONGOING',
+        publishStatus: item.publishStatus || 'PUBLISHED',
+      };
+
+      // Create story with JSON
+      const res = await apiRequest<{ success: boolean; data: { id: string } } | { id: string }>('/admin/stories', {
         method: 'POST',
-        body: formData,
+        body: JSON.stringify(payload),
       });
 
-      // Also create chapter for video
-      const chapterFormData = new FormData();
-      chapterFormData.append('number', '1');
-      chapterFormData.append('title', `Video Audio Full: ${item.title}`);
-      chapterFormData.append('durationSeconds', '1800');
-      chapterFormData.append('accessLevel', item.accessLevel || 'FREE');
-      if (item.iframeUrl) chapterFormData.append('audioUrl', item.iframeUrl);
+      // Extract storyId from response (handle both response formats)
+      const storyId = (res as any)?.data?.id || (res as any)?.id;
+      if (!storyId) {
+        console.error('[addVideoStory] No storyId in response:', res);
+        return { success: false, message: 'Không nhận được ID truyện từ server' };
+      }
 
-      await apiRequest(`/admin/stories/${res.id}/chapters`, {
-        method: 'POST',
-        body: chapterFormData,
-      });
+      console.log('[addVideoStory] Story created with ID:', storyId);
+
+      // Skip chapter creation if iframe is already stored in Story
+      // Video stories have iframeCode/iframeUrl directly on the Story model
+      if (item.iframeCode || item.iframeUrl) {
+        console.log('[addVideoStory] Skipping chapter creation - iframe already in Story');
+      } else {
+        // Create chapter only if no iframe in story
+        try {
+          const chapterFormData = new FormData();
+          chapterFormData.append('number', '1');
+          chapterFormData.append('title', `Video Audio Full: ${item.title}`);
+          chapterFormData.append('durationSeconds', '1800');
+          chapterFormData.append('accessLevel', item.accessLevel || 'FREE');
+          if (item.iframeUrl) chapterFormData.append('audioUrl', item.iframeUrl);
+
+          await apiRequest(`/admin/stories/${storyId}/chapters`, {
+            method: 'POST',
+            body: chapterFormData,
+          });
+          console.log('[addVideoStory] Chapter created successfully');
+        } catch (chapterError) {
+          console.warn('[addVideoStory] Chapter creation failed (non-critical):', chapterError);
+          // Don't fail the whole operation if chapter creation fails
+        }
+      }
 
       // Refetch stories to update local cache
       await this.fetchFromBackendApi();
@@ -905,13 +950,66 @@ class AdminRepositoryService {
   }
 
   async addBulkVideos(items: Partial<AdminStoryItem>[]): Promise<{ success: boolean; count: number; message: string }> {
+    const processedTitles = new Set<string>();
+    const processedSlugs = new Set<string>();
     let added = 0;
+    let skipped = 0;
+
     for (const item of items) {
+      // Skip if title is missing
+      if (!item.title) {
+        skipped++;
+        continue;
+      }
+
+      // Normalize title for comparison
+      const normalizedTitle = item.title.trim().toLowerCase();
+      
+      // Skip duplicate titles
+      if (processedTitles.has(normalizedTitle)) {
+        skipped++;
+        continue;
+      }
+
+      // Generate expected slug and check for duplicates
+      const expectedSlug = item.slug || item.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      if (processedSlugs.has(expectedSlug)) {
+        skipped++;
+        continue;
+      }
+
+      // Check if story already exists in local cache
+      const existingByTitle = this.stories.find(s => s.title.toLowerCase() === normalizedTitle);
+      if (existingByTitle) {
+        skipped++;
+        continue;
+      }
+
+      const existingBySlug = this.stories.find(s => s.slug === expectedSlug);
+      if (existingBySlug) {
+        skipped++;
+        continue;
+      }
+
+      // Mark as processed
+      processedTitles.add(normalizedTitle);
+      processedSlugs.add(expectedSlug);
+
       const res = await this.addVideoStory(item);
-      if (res.success) added++;
+      if (res.success) {
+        added++;
+      } else {
+        skipped++;
+      }
     }
+    
     await this.fetchFromBackendApi();
-    return { success: true, count: added, message: `Thêm thành công ${added} video` };
+    
+    const message = skipped > 0 
+      ? `Thêm thành công ${added} video, đã bỏ qua ${skipped} trùng lặp` 
+      : `Thêm thành công ${added} video`;
+    
+    return { success: true, count: added, message };
   }
 
   // --- Story Chapters Management ---

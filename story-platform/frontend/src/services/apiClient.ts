@@ -95,17 +95,53 @@ export async function apiRequest<T = any>(
 
   const contentType = response.headers.get('content-type');
   let body: any;
+  let isHtml = false;
+  
   try {
-    if (contentType && contentType.includes('application/json')) {
-      body = await response.json();
+    // First read as text to detect HTML responses
+    const textBody = await response.text();
+    
+    // Check if response is HTML (indicates wrong endpoint or server error)
+    if (textBody.trim().startsWith('<') && (textBody.includes('<!DOCTYPE') || textBody.includes('<html'))) {
+      isHtml = true;
+      console.error('[apiClient] Received HTML response instead of JSON:', {
+        url,
+        status: response.status,
+        contentType,
+        bodyPreview: textBody.substring(0, 200),
+      });
+      body = textBody;
+    } else if (contentType && contentType.includes('application/json')) {
+      // Parse as JSON if content-type says so
+      try {
+        body = JSON.parse(textBody);
+      } catch (parseError) {
+        console.error('[apiClient] Failed to parse JSON despite content-type:', parseError);
+        body = textBody;
+      }
     } else {
-      body = await response.text();
+      // Try to parse as JSON anyway (some APIs don't set content-type correctly)
+      try {
+        body = JSON.parse(textBody);
+      } catch {
+        body = textBody;
+      }
     }
   } catch (err) {
+    console.error('[apiClient] Error reading response body:', err);
     body = null;
   }
 
   if (!response.ok) {
+    // If we got HTML instead of JSON, it's likely a wrong endpoint
+    if (isHtml) {
+      throw new ApiError(
+        `Server trả HTML thay vì JSON. Endpoint có thể sai: ${url}. Kiểm tra VITE_API_URL trong .env file.`,
+        'HTML_RESPONSE_ERROR',
+        response.status
+      );
+    }
+    
     // 401 Unauthorized - Session expired, redirect to login
     if (response.status === 401) {
       console.error('[apiClient] 401 Unauthorized - session may be expired');

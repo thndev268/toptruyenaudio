@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { UserRole, UserTitle } from '../types';
 import { supabase } from '../lib/supabase';
 import { adminRepository } from '../services/repositories/AdminRepository';
@@ -49,6 +49,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [devModeRoleOverride, setDevModeRoleOverride] = useState<boolean>(false);
   const [isBanned, setIsBanned] = useState<boolean>(false);
   const [banReason, setBanReason] = useState<string>('');
+  
+  // Track last fetched session to prevent duplicate calls
+  const lastFetchedSessionRef = useRef<string | null>(null);
 
   const checkBannedStatus = useCallback((profile: UserProfile | null) => {
     if (!profile) {
@@ -68,11 +71,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const fetchProfile = async (userId: string, email: string): Promise<UserProfile | null> => {
+    // Prevent duplicate calls for the same session
+    const sessionKey = `${userId}-${email}`;
+    if (lastFetchedSessionRef.current === sessionKey) {
+      console.log('[AuthContext] Skipping duplicate profile fetch for:', sessionKey);
+      return authData.user;
+    }
+    
     try {
-      // Try to fetch from backend API first
+      // Fetch from backend API only
       const data = await apiRequest('/users/me');
       
       if (data) {
+        lastFetchedSessionRef.current = sessionKey;
+        
         let mappedRole: UserRole = UserRole.USER;
         if (data.role === 'OWNER_ADMIN' || data.role === 'ADMIN') mappedRole = UserRole.ADMIN;
         else if (data.role === 'CREATOR') mappedRole = UserRole.CREATOR;
@@ -95,46 +107,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return profile;
       }
     } catch (err) {
-      console.log('Backend API profile fetch failed, falling back to Supabase');
-      
-      // Fallback to Supabase if backend fails
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single();
-
-        if (error) {
-          console.error('Error fetching profile from Supabase:', error);
-          return null;
-        }
-
-        if (data) {
-          let mappedRole: UserRole = UserRole.USER;
-          if (data.role === 'ADMIN' || data.role === 'OWNER_ADMIN') mappedRole = UserRole.ADMIN;
-          else if (data.role === 'CREATOR') mappedRole = UserRole.CREATOR;
-          else if (data.role === 'PARTNER') mappedRole = UserRole.PARTNER;
-          else if (data.role === 'REVIEWER') mappedRole = UserRole.REVIEWER;
-
-          const profile: UserProfile = {
-            id: data.id,
-            name: data.full_name || data.username || email.split('@')[0],
-            email: data.email,
-            role: mappedRole,
-            avatarUrl: data.avatar_url,
-            accountStatus: data.status,
-            isPremium: data.membership_tier === 'PREMIUM',
-            membership: {
-              tier: data.membership_tier || 'FREE',
-              subscriptionStatus: 'ACTIVE',
-            }
-          };
-          return profile;
-        }
-      } catch (supabaseErr) {
-        console.error('Supabase profile fetch exception:', supabaseErr);
-      }
+      console.error('Backend API profile fetch failed:', err);
     }
     return null;
   };
@@ -251,11 +224,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
+    lastFetchedSessionRef.current = null;
     await supabase.auth.signOut();
     setAuthData({ role: 'GUEST', user: null });
   };
 
   const refreshUser = async () => {
+    // Reset the session ref to force a fresh fetch
+    lastFetchedSessionRef.current = null;
+    
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
       const profile = await fetchProfile(session.user.id, session.user.email || '');
