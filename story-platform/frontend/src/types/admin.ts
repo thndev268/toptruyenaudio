@@ -97,6 +97,7 @@ export interface AdminStoryItem {
   authorId?: string;
   narratorName: string;
   genres: string[];
+  genreIds?: string[]; // Array of genre IDs for API
   totalChapters: number;
   storyStatus: 'ONGOING' | 'COMPLETED' | 'PAUSED';
   publishStatus: 'PUBLISHED' | 'PENDING' | 'DRAFT' | 'REJECTED';

@@ -9,6 +9,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AccountStatus, AccountRole } from '../../common/enums';
 import { QueryUsersDto, UserMutationDto } from './dto/admin-users.dto';
+import { CreateGenreDto, UpdateGenreDto } from './dto/genre.dto';
 
 @Injectable()
 export class AdminService {
@@ -220,6 +221,80 @@ export class AdminService {
       lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
       createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString(),
       version: user.version,
+    };
+  }
+
+  // Genre Management
+  async getGenres() {
+    const genres = await this.prisma.genre.findMany({
+      orderBy: { name: 'asc' },
+    });
+    return {
+      success: true,
+      data: genres,
+      message: 'Đã lấy danh sách thể loại thành công',
+    };
+  }
+
+  async createGenre(dto: CreateGenreDto) {
+    const existing = await this.prisma.genre.findUnique({ where: { slug: dto.slug } });
+    if (existing) {
+      throw new ConflictException({
+        code: 'SLUG_ALREADY_EXISTS',
+        message: `Slug '${dto.slug}' đã tồn tại. Vui lòng chọn slug khác.`,
+      });
+    }
+
+    const genre = await this.prisma.genre.create({
+      data: dto,
+    });
+
+    return {
+      success: true,
+      data: genre,
+      message: 'Đã tạo thể loại thành công',
+    };
+  }
+
+  async updateGenre(id: string, dto: UpdateGenreDto) {
+    const existing = await this.prisma.genre.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'GENRE_NOT_FOUND',
+        message: 'Không tìm thấy thể loại.',
+      });
+    }
+
+    const updated = await this.prisma.genre.update({
+      where: { id },
+      data: dto,
+    });
+
+    return {
+      success: true,
+      data: updated,
+      message: 'Đã cập nhật thể loại thành công',
+    };
+  }
+
+  async deleteGenre(id: string) {
+    const existing = await this.prisma.genre.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'GENRE_NOT_FOUND',
+        message: 'Không tìm thấy thể loại.',
+      });
+    }
+
+    // Delete genre relations first
+    await this.prisma.genreToStory.deleteMany({ where: { genreId: id } });
+
+    // Delete genre
+    await this.prisma.genre.delete({ where: { id } });
+
+    return {
+      success: true,
+      message: 'Đã xóa thể loại thành công',
     };
   }
 }

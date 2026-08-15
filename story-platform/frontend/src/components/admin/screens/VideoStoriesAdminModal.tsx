@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Video,
   Sparkles,
@@ -21,7 +21,7 @@ import {
   EyeOff,
   Sliders
 } from 'lucide-react';
-import { AdminStoryItem } from '../../../types/admin';
+import { AdminStoryItem, AdminGenreItem } from '../../../types/admin';
 import { adminRepository } from '../../../services/repositories/AdminRepository';
 import { AdminIframePreviewModal } from '../common/AdminIframePreviewModal';
 import { apiRequest } from '../../../services/apiClient';
@@ -53,9 +53,26 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
   const [previewIframe, setPreviewIframe] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [genres, setGenres] = useState<AdminGenreItem[]>([]);
+  const [selectedGenreIds, setSelectedGenreIds] = useState<string[]>([]);
   
   // Ref to prevent concurrent calls
   const isSubmittingRef = useRef(false);
+
+  // Load genres when modal opens
+  useEffect(() => {
+    const loadedGenres = adminRepository.getGenres();
+    setGenres(loadedGenres);
+  }, [isOpen]);
+
+  // Update selected genres when editing story changes
+  useEffect(() => {
+    if (editingStory?.genreIds) {
+      setSelectedGenreIds(editingStory.genreIds);
+    } else {
+      setSelectedGenreIds([]);
+    }
+  }, [editingStory?.id]);
 
   if (!isOpen) return null;
 
@@ -620,6 +637,32 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-rose-500"
                   placeholder="Kịch bản lời thoại âm thanh chi tiết..."
                 />
+              </div>
+
+              {/* Genre Selection */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300">Thể Loại</label>
+                <select
+                  multiple
+                  value={selectedGenreIds}
+                  onChange={(e) => {
+                    const options = Array.from(e.target.selectedOptions, (option) => option.value);
+                    setSelectedGenreIds(options);
+                    setEditingStory({ ...editingStory, genreIds: options });
+                  }}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-rose-500 min-h-[80px]"
+                >
+                  {genres.length > 0 ? (
+                    genres.map((genre) => (
+                      <option key={genre.id} value={genre.id}>
+                        {genre.name}
+                      </option>
+                    ))
+                  ) : (
+                    <option disabled>Đang tải thể loại...</option>
+                  )}
+                </select>
+                <p className="text-[10px] text-slate-500">Giữ Ctrl/Cmd để chọn nhiều thể loại</p>
               </div>
 
               {/* Mã Iframe Code */}

@@ -2,6 +2,8 @@ import {
   Controller,
   Get,
   Post,
+  Put,
+  Delete,
   Param,
   Query,
   Body,
@@ -14,6 +16,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { AdminService } from './admin.service';
 import { QueryUsersDto, UserMutationDto } from './dto/admin-users.dto';
+import { CreateGenreDto, UpdateGenreDto } from './dto/genre.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -93,5 +96,30 @@ export class AdminController {
   ) {
     const requestId = (req.headers['x-request-id'] as string) || (req as any).id;
     return this.adminService.revokeUserSessions(userId, adminId, dto, requestId);
+  }
+
+  // Genre Management
+  @Get('genres')
+  @ApiOperation({ summary: 'Lấy danh sách tất cả thể loại' })
+  async getGenres() {
+    return this.adminService.getGenres();
+  }
+
+  @Post('genres')
+  @ApiOperation({ summary: 'Tạo thể loại mới' })
+  async createGenre(@Body() dto: CreateGenreDto) {
+    return this.adminService.createGenre(dto);
+  }
+
+  @Put('genres/:id')
+  @ApiOperation({ summary: 'Cập nhật thể loại' })
+  async updateGenre(@Param('id') id: string, @Body() dto: UpdateGenreDto) {
+    return this.adminService.updateGenre(id, dto);
+  }
+
+  @Delete('genres/:id')
+  @ApiOperation({ summary: 'Xóa thể loại' })
+  async deleteGenre(@Param('id') id: string) {
+    return this.adminService.deleteGenre(id);
   }
 }

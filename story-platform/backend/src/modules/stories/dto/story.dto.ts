@@ -83,6 +83,11 @@ export class AdminCreateStoryDto {
   isVideoStory?: boolean;
 
   @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  genreIds?: string[];
+
+  @IsOptional()
   @IsEnum(StoryStatus)
   storyStatus?: StoryStatus;
 

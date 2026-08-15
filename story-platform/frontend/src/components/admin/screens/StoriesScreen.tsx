@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Disc,
   Search,
@@ -35,6 +36,7 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({
   onDeleteStory,
   onOpenVideoModal,
 }) => {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PUBLISHED' | 'PENDING' | 'DRAFT'>('ALL');
   const [accessFilter, setAccessFilter] = useState<'ALL' | 'FREE' | 'PREMIUM'>('ALL');
@@ -173,6 +175,24 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({
                 <p className="text-[11px] text-slate-500 mt-0.5">
                   {story.authorName} • {story.narratorName}
                 </p>
+                {story.genres && story.genres.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {story.genres.slice(0, 3).map((genre, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => navigate(`/explore?genre=${encodeURIComponent(genre)}`)}
+                        className="px-2 py-0.5 bg-slate-800 text-slate-300 text-[10px] font-bold rounded-md border border-slate-700 hover:bg-slate-700 hover:text-cyan-400 hover:border-cyan-500/50 transition-colors cursor-pointer"
+                        title={`Xem tất cả truyện thể loại ${genre}`}
+                      >
+                        {genre}
+                      </button>
+                    ))}
+                    {story.genres.length > 3 && (
+                      <span className="text-[10px] text-slate-500">+{story.genres.length - 3}</span>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-slate-400">

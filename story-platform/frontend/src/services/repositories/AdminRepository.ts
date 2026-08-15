@@ -161,6 +161,10 @@ class AdminRepositoryService {
 
   // Cache for preventing duplicate fetch calls (React Strict Mode)
   private fetchPromise: Promise<void> | null = null;
+  
+  // Refs to prevent concurrent PUT/DELETE calls
+  private updatePromise: Map<string, Promise<any>> = new Map();
+  private deletePromise: Map<string, Promise<any>> = new Map();
 
   private async fetchFromBackendApi() {
     // Return existing promise if already fetching (prevent duplicate calls)
@@ -208,8 +212,15 @@ class AdminRepositoryService {
           console.warn('[fetchFromBackendApi] Failed to fetch stories:', err);
         }
 
-        // Removed GET /genres call - route doesn't exist in backend
-        // Genres should be fetched from a different endpoint if needed
+        try {
+          const genresResponse = await apiRequest<{ success: boolean; data: any[] }>('/admin/genres');
+          if (genresResponse?.data && Array.isArray(genresResponse.data)) {
+            this.genres = genresResponse.data;
+            window.dispatchEvent(new Event('toptruyenaudio_admin_sync'));
+          }
+        } catch (err) {
+          console.warn('[fetchFromBackendApi] Failed to fetch genres:', err);
+        }
       } catch (err) {
         console.error('[fetchFromBackendApi] Backend API sync failed:', err);
         // Don't fallback to localStorage - let the error propagate
@@ -227,22 +238,6 @@ class AdminRepositoryService {
       localStorage.setItem('toptruyenaudio:admin-stories:v1', JSON.stringify(this.stories));
       localStorage.setItem('toptruyenaudio:admin-chapters:v1', JSON.stringify(this.storyChapters));
       localStorage.setItem('toptruyenaudio:video-settings:v1', JSON.stringify(this.videoSettings));
-
-      // Use apiRequest for proper backend URL and authentication
-      apiRequest('/admin/stories/sync', {
-        method: 'POST',
-        body: JSON.stringify({ stories: this.stories }),
-      }).catch((e) => console.warn('Sync stories API:', e));
-
-      apiRequest('/video-settings/sync', {
-        method: 'POST',
-        body: JSON.stringify({ settings: this.videoSettings }),
-      }).catch((e) => console.warn('Sync video-settings API:', e));
-
-      apiRequest('/genres/sync', {
-        method: 'POST',
-        body: JSON.stringify({ genres: this.genres }),
-      }).catch((e) => console.warn('Sync genres API:', e));
     } catch (err) {
       console.warn('Failed to persist state:', err);
     }
@@ -538,7 +533,6 @@ class AdminRepositoryService {
       metadata,
     };
     this.auditLogs.unshift(newLog);
-    this.saveToStorage();
   }
 
   // --- Profile ---
@@ -803,29 +797,45 @@ class AdminRepositoryService {
   }
 
   async deleteStory(storyId: string, reason: string): Promise<{ success: boolean; message: string }> {
-    try {
-      const story = this.stories.find((s) => s.id === storyId);
-      await apiRequest(`/admin/stories/${storyId}`, {
-        method: 'DELETE',
-      });
-      
-      await this.fetchFromBackendApi();
-
-      if (story) {
-        this.recordAuditLog(
-          'GỠ_BỎ_BỘ_TRUYỆN',
-          'Story',
-          story.id,
-          story.title,
-          reason,
-          `Gỡ vĩnh viễn bộ truyện "${story.title}" khỏi nền tảng`
-        );
-      }
-
-      return { success: true, message: 'Đã gỡ bỏ bộ truyện thành công.' };
-    } catch (err: any) {
-      return { success: false, message: err.message || 'Lỗi khi xóa truyện' };
+    // Prevent concurrent delete for same story
+    if (this.deletePromise.has(storyId)) {
+      console.log('[deleteStory] Already deleting story, returning existing promise');
+      return this.deletePromise.get(storyId);
     }
+
+    const deletePromise = (async () => {
+      try {
+        const story = this.stories.find((s) => s.id === storyId);
+        await apiRequest(`/admin/stories/${storyId}`, {
+          method: 'DELETE',
+        });
+
+        if (story) {
+          this.recordAuditLog(
+            'GỠ_BỎ_BỘ_TRUYỆN',
+            'Story',
+            story.id,
+            story.title,
+            reason,
+            `Gỡ vĩnh viễn bộ truyện "${story.title}" khỏi nền tảng`
+          );
+        }
+
+        // Remove from local state immediately
+        this.stories = this.stories.filter((s) => s.id !== storyId);
+        localStorage.setItem('toptruyenaudio:admin-stories:v1', JSON.stringify(this.stories));
+
+        return { success: true, message: 'Đã xóa truyện thành công.' };
+      } catch (err: any) {
+        console.error('[deleteStory] Error:', err);
+        return { success: false, message: err.message || 'Lỗi khi xóa truyện' };
+      } finally {
+        this.deletePromise.delete(storyId);
+      }
+    })();
+
+    this.deletePromise.set(storyId, deletePromise);
+    return deletePromise;
   }
 
   // --- Video Story CRUD Methods ---
@@ -869,6 +879,7 @@ class AdminRepositoryService {
         isVideoStory: true,
         storyStatus: item.storyStatus || 'ONGOING',
         publishStatus: item.publishStatus || 'PUBLISHED',
+        genreIds: item.genreIds,
       };
 
       // Create story with JSON
@@ -911,8 +922,12 @@ class AdminRepositoryService {
         }
       }
 
-      // Refetch stories to update local cache
-      await this.fetchFromBackendApi();
+      // Update local state immediately instead of refetching
+      const storyIndex = this.stories.findIndex((s) => s.id === storyId);
+      if (storyIndex !== -1) {
+        // Story should already be in list from the POST response
+        // Just ensure it's there
+      }
 
       return { success: true, message: 'Đã thêm video story thành công.' };
     } catch (err: any) {
@@ -925,28 +940,56 @@ class AdminRepositoryService {
   }
 
   async updateStory(storyId: string, updated: Partial<AdminStoryItem>): Promise<{ success: boolean; message: string; story?: AdminStoryItem }> {
-    try {
-      const formData = new FormData();
-      if (updated.title) formData.append('title', updated.title);
-      if (updated.slug) formData.append('slug', updated.slug);
-      if (updated.authorName) formData.append('authorName', updated.authorName);
-      if (updated.narratorName) formData.append('narratorName', updated.narratorName);
-      if (updated.summary) formData.append('summary', updated.summary);
-      if (updated.storyStatus) formData.append('storyStatus', updated.storyStatus);
-      if (updated.publishStatus) formData.append('publishStatus', updated.publishStatus);
-      if (updated.coverUrl) formData.append('coverUrl', updated.coverUrl);
-
-      await apiRequest(`/admin/stories/${storyId}`, {
-        method: 'PUT',
-        body: formData,
-      });
-
-      await this.fetchFromBackendApi();
-
-      return { success: true, message: 'Cập nhật bộ truyện thành công.' };
-    } catch (err: any) {
-      return { success: false, message: err.message || 'Lỗi khi cập nhật truyện' };
+    // Prevent concurrent update for same story
+    if (this.updatePromise.has(storyId)) {
+      console.log('[updateStory] Already updating story, returning existing promise');
+      return this.updatePromise.get(storyId);
     }
+
+    const updatePromise = (async () => {
+      try {
+        const formData = new FormData();
+        if (updated.title) formData.append('title', updated.title);
+        if (updated.slug) formData.append('slug', updated.slug);
+        if (updated.authorName) formData.append('authorName', updated.authorName);
+        if (updated.narratorName) formData.append('narratorName', updated.narratorName);
+        if (updated.summary) formData.append('summary', updated.summary);
+        if (updated.storyline) formData.append('storyline', updated.storyline);
+        if (updated.storyStatus) formData.append('storyStatus', updated.storyStatus);
+        if (updated.publishStatus) formData.append('publishStatus', updated.publishStatus);
+        if (updated.accessLevel) formData.append('accessLevel', updated.accessLevel);
+        if (updated.coverUrl) formData.append('coverUrl', updated.coverUrl);
+        if (updated.iframeUrl !== undefined) formData.append('iframeUrl', updated.iframeUrl);
+        if (updated.iframeCode !== undefined) formData.append('iframeCode', updated.iframeCode);
+        if (updated.audioContent !== undefined) formData.append('audioContent', updated.audioContent);
+        if (updated.isVideoStory !== undefined) formData.append('isVideoStory', String(updated.isVideoStory));
+        if (updated.genreIds !== undefined) {
+          formData.append('genreIds', JSON.stringify(updated.genreIds));
+        }
+
+        const response = await apiRequest<{ success: boolean; data: any }>(`/admin/stories/${storyId}`, {
+          method: 'PUT',
+          body: formData,
+        });
+
+        // Update local state immediately
+        const storyIndex = this.stories.findIndex((s) => s.id === storyId);
+        if (storyIndex !== -1 && response?.data) {
+          this.stories[storyIndex] = { ...this.stories[storyIndex], ...response.data };
+          localStorage.setItem('toptruyenaudio:admin-stories:v1', JSON.stringify(this.stories));
+        }
+
+        return { success: true, message: 'Cập nhật bộ truyện thành công.', story: response?.data };
+      } catch (err: any) {
+        console.error('[updateStory] Error:', err);
+        return { success: false, message: err.message || 'Lỗi khi cập nhật truyện' };
+      } finally {
+        this.updatePromise.delete(storyId);
+      }
+    })();
+
+    this.updatePromise.set(storyId, updatePromise);
+    return updatePromise;
   }
 
   async addBulkVideos(items: Partial<AdminStoryItem>[]): Promise<{ success: boolean; count: number; message: string }> {

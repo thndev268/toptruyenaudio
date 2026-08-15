@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Put,
+  Delete,
   Param,
   Body,
   UseGuards,
@@ -12,6 +13,7 @@ import {
   Query,
   BadRequestException,
   ConflictException,
+  NotFoundException,
   ValidationPipe,
 } from '@nestjs/common';
 import { AdminCreateStoryDto } from '../stories/dto/story.dto';
@@ -234,22 +236,37 @@ export class AdminStoriesController {
         }
       }
 
-      const story = await this.prisma.story.create({
-        data: {
-          title: dto.title.trim(),
-          slug,
-          authorName: dto.authorName.trim(),
-          narratorName: dto.narratorName?.trim() || '',
-          summary: dto.summary?.trim() || '',
-          storyline: dto.storyline?.trim() || dto.summary?.trim() || '',
-          audioContent: dto.audioContent?.trim() || 'Đang cập nhật',
-          coverUrl: thumbnailUrl,
-          storyStatus: dto.storyStatus || 'ONGOING',
-          publishStatus: dto.publishStatus || 'PUBLISHED',
-          iframeUrl,
-          iframeCode,
-          isVideoStory: typeof dto.isVideoStory === 'boolean' ? dto.isVideoStory : false,
-        },
+      const story = await this.prisma.$transaction(async (tx) => {
+        const newStory = await tx.story.create({
+          data: {
+            title: dto.title.trim(),
+            slug,
+            authorName: dto.authorName.trim(),
+            narratorName: dto.narratorName?.trim() || '',
+            summary: dto.summary?.trim() || '',
+            storyline: dto.storyline?.trim() || dto.summary?.trim() || '',
+            audioContent: dto.audioContent?.trim() || 'Đang cập nhật',
+            coverUrl: thumbnailUrl,
+            storyStatus: dto.storyStatus || 'ONGOING',
+            publishStatus: dto.publishStatus || 'PUBLISHED',
+            iframeUrl,
+            iframeCode,
+            isVideoStory: typeof dto.isVideoStory === 'boolean' ? dto.isVideoStory : false,
+          },
+        });
+
+        // Create genre relations if genreIds provided
+        if (dto.genreIds && Array.isArray(dto.genreIds) && dto.genreIds.length > 0) {
+          const genreRelations = dto.genreIds.map((genreId) => ({
+            storyId: newStory.id,
+            genreId,
+          }));
+          await tx.genreToStory.createMany({
+            data: genreRelations,
+          });
+        }
+
+        return newStory;
       });
 
       return {
@@ -278,37 +295,99 @@ export class AdminStoriesController {
     @Body() body: any,
     @UploadedFile() coverFile?: Express.Multer.File,
   ) {
-    let coverUrl = body.coverUrl;
+    try {
+      // Check if story exists
+      const existingStory = await this.prisma.story.findUnique({ where: { id } });
+      if (!existingStory) {
+        throw new NotFoundException({
+          code: 'STORY_NOT_FOUND',
+          message: `Không tìm thấy truyện với ID: ${id}`,
+        });
+      }
 
-    if (coverFile) {
-      const ext = coverFile.originalname.split('.').pop();
-      const filename = `covers/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
-      coverUrl = await this.storage.uploadFile('media', filename, coverFile.buffer, coverFile.mimetype);
+      let coverUrl = body.coverUrl;
+
+      if (coverFile) {
+        const ext = coverFile.originalname.split('.').pop();
+        const filename = `covers/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+        coverUrl = await this.storage.uploadFile('media', filename, coverFile.buffer, coverFile.mimetype);
+      }
+
+      const dataToUpdate: any = {
+        title: body.title,
+        slug: body.slug,
+        authorName: body.authorName,
+        narratorName: body.narratorName,
+        summary: body.summary,
+        storyline: body.storyline,
+        storyStatus: body.storyStatus,
+        publishStatus: body.publishStatus,
+      };
+
+      if (body.iframeUrl !== undefined) dataToUpdate.iframeUrl = body.iframeUrl;
+      if (body.iframeCode !== undefined) dataToUpdate.iframeCode = body.iframeCode;
+      if (body.audioContent !== undefined) dataToUpdate.audioContent = body.audioContent;
+      if (body.isVideoStory !== undefined) dataToUpdate.isVideoStory = body.isVideoStory === 'true' || body.isVideoStory === true;
+      if (body.accessLevel !== undefined) dataToUpdate.accessLevel = body.accessLevel;
+
+      if (coverUrl) {
+        dataToUpdate.coverUrl = coverUrl;
+      }
+
+      // Check slug conflict if slug is being changed
+      if (body.slug && body.slug !== existingStory.slug) {
+        const slugConflict = await this.prisma.story.findUnique({ where: { slug: body.slug } });
+        if (slugConflict) {
+          throw new ConflictException({
+            code: 'SLUG_ALREADY_EXISTS',
+            message: `Slug '${body.slug}' đã tồn tại. Vui lòng chọn slug khác.`,
+            fields: { slug: 'Slug đã tồn tại' },
+          });
+        }
+      }
+
+      const updatedStory = await this.prisma.$transaction(async (tx) => {
+        // Update story
+        const story = await tx.story.update({
+          where: { id },
+          data: dataToUpdate,
+        });
+
+        // Handle genre relations if genreIds is provided in body
+        if (body.genreIds !== undefined) {
+          // Delete existing genre relations
+          await tx.genreToStory.deleteMany({ where: { storyId: id } });
+
+          // Create new genre relations if genreIds is not empty
+          if (Array.isArray(body.genreIds) && body.genreIds.length > 0) {
+            const genreRelations = body.genreIds.map((genreId: string) => ({
+              storyId: id,
+              genreId,
+            }));
+            await tx.genreToStory.createMany({
+              data: genreRelations,
+            });
+          }
+        }
+
+        return story;
+      });
+
+      return {
+        success: true,
+        data: updatedStory,
+        message: 'Đã cập nhật truyện thành công',
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof ConflictException) {
+        throw error;
+      }
+      console.error('Error updating story:', error);
+      throw new BadRequestException({
+        code: 'UPDATE_STORY_ERROR',
+        message: error.message || 'Lỗi khi cập nhật truyện',
+      });
     }
-
-    const dataToUpdate: any = {
-      title: body.title,
-      slug: body.slug,
-      authorName: body.authorName,
-      narratorName: body.narratorName,
-      summary: body.summary,
-      storyStatus: body.storyStatus,
-      publishStatus: body.publishStatus,
-    };
-
-    if (body.iframeUrl !== undefined) dataToUpdate.iframeUrl = body.iframeUrl;
-    if (body.iframeCode !== undefined) dataToUpdate.iframeCode = body.iframeCode;
-    if (body.audioContent !== undefined) dataToUpdate.audioContent = body.audioContent;
-    if (body.isVideoStory !== undefined) dataToUpdate.isVideoStory = body.isVideoStory === 'true' || body.isVideoStory === true;
-
-    if (coverUrl) {
-      dataToUpdate.coverUrl = coverUrl;
-    }
-
-    return this.prisma.story.update({
-      where: { id },
-      data: dataToUpdate,
-    });
   }
 
   @Post(':id/chapters')
@@ -338,5 +417,52 @@ export class AdminStoriesController {
         accessLevel: body.accessLevel || 'FREE',
       },
     });
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Xóa truyện' })
+  async deleteStory(@Param('id') id: string) {
+    try {
+      // Check if story exists
+      const existingStory = await this.prisma.story.findUnique({ where: { id } });
+      if (!existingStory) {
+        throw new NotFoundException({
+          code: 'STORY_NOT_FOUND',
+          message: `Không tìm thấy truyện với ID: ${id}`,
+        });
+      }
+
+      // Use transaction to delete all related records
+      await this.prisma.$transaction(async (tx) => {
+        // Delete chapters (has cascade, but explicit for clarity)
+        await tx.chapter.deleteMany({ where: { storyId: id } });
+        
+        // Delete listening progress (has cascade on chapter, but explicit for storyId)
+        await tx.listeningProgress.deleteMany({ where: { storyId: id } });
+        
+        // Delete story-genre relations (GenreToStory)
+        await tx.genreToStory.deleteMany({ where: { storyId: id } });
+        
+        // Delete content rights
+        await tx.contentRights.deleteMany({ where: { storyId: id } });
+        
+        // Delete the story itself (this will cascade delete chapters due to schema)
+        await tx.story.delete({ where: { id } });
+      });
+
+      return {
+        success: true,
+        message: 'Đã xóa truyện thành công',
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error('Error deleting story:', error);
+      throw new BadRequestException({
+        code: 'DELETE_STORY_ERROR',
+        message: error.message || 'Lỗi khi xóa truyện',
+      });
+    }
   }
 }

@@ -26,7 +26,7 @@ import {
   Video,
   Loader2,
 } from 'lucide-react';
-import { AdminStoryItem } from '../../../types/admin';
+import { AdminStoryItem, AdminGenreItem } from '../../../types/admin';
 import { AudioChapter } from '../../../types';
 import { FocusTrap } from '../../common/FocusTrap';
 import { adminRepository } from '../../../services/repositories/AdminRepository';
@@ -94,6 +94,8 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const [editStoryNarrator, setEditStoryNarrator] = useState('');
   const [editStoryCoverUrl, setEditStoryCoverUrl] = useState('');
   const [editStorySummary, setEditStorySummary] = useState('');
+  const [editStoryGenreIds, setEditStoryGenreIds] = useState<string[]>([]);
+  const [genres, setGenres] = useState<AdminGenreItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -287,8 +289,11 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     setEditStoryTitle(story.title);
     setEditStoryAuthor(story.authorName);
     setEditStoryNarrator(story.narratorName);
-    setEditStoryCoverUrl(story.coverUrl);
+    setEditStoryCoverUrl(story.coverUrl || '');
     setEditStorySummary(story.summary || story.storyline || '');
+    setEditStoryGenreIds(story.genreIds || []);
+    // Load genres
+    setGenres(adminRepository.getGenres());
   };
 
   const handleSaveEditStory = async () => {
@@ -301,7 +306,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
       narratorName: editStoryNarrator,
       coverUrl: editStoryCoverUrl,
       summary: editStorySummary,
-      storyline: editStorySummary,
+      genreIds: editStoryGenreIds,
     });
     setIsSaving(false);
     if (res.success) {
@@ -407,6 +412,21 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     Tác giả: <strong className="text-slate-200">{story.authorName}</strong> · MC: <strong className="text-slate-200">{story.narratorName}</strong>
                   </span>
                 </div>
+                {story.genres && story.genres.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {story.genres.slice(0, 3).map((genre, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2 py-0.5 bg-slate-800 text-slate-300 text-[10px] font-bold rounded-md border border-slate-700"
+                      >
+                        {genre}
+                      </span>
+                    ))}
+                    {story.genres.length > 3 && (
+                      <span className="text-[10px] text-slate-500">+{story.genres.length - 3}</span>
+                    )}
+                  </div>
+                )}
                 <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
                   {story.summary}
                 </p>
@@ -524,6 +544,30 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   onChange={(e) => setEditStorySummary(e.target.value)}
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
                 />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-300">Thể Loại</label>
+                <select
+                  multiple
+                  value={editStoryGenreIds}
+                  onChange={(e) => {
+                    const options = Array.from(e.target.selectedOptions, (option) => option.value);
+                    setEditStoryGenreIds(options);
+                  }}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-cyan-500 min-h-[80px]"
+                >
+                  {genres.length > 0 ? (
+                    genres.map((genre) => (
+                      <option key={genre.id} value={genre.id}>
+                        {genre.name}
+                      </option>
+                    ))
+                  ) : (
+                    <option disabled>Đang tải thể loại...</option>
+                  )}
+                </select>
+                <p className="text-[10px] text-slate-500">Giữ Ctrl/Cmd để chọn nhiều thể loại</p>
               </div>
 
               <div className="flex flex-col gap-2 pt-2 border-t border-slate-800">
