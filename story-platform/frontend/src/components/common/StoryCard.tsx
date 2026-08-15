@@ -135,9 +135,17 @@ export const StoryCard: React.FC<StoryCardProps> = ({
                 <Crown className="w-2.5 h-2.5 text-amber-400" /> VIP
               </span>
             ) : (
-              <span className="bg-slate-950/60 backdrop-blur-md text-cyan-300 font-bold text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-lg border border-cyan-500/20 shadow-lg truncate max-w-[100px]">
-                {story.genres[0] || 'Audio'}
-              </span>
+              <div className="flex gap-1 flex-wrap">
+                {story.genres?.slice(0, 2).map((genre) => (
+                  <span
+                    key={genre.id}
+                    className="px-2 py-0.5 bg-slate-800 text-slate-300 text-[10px] font-bold rounded-md border border-slate-700"
+                  >
+                    {genre.name}
+                  </span>
+                ))}
+                {story.genres?.length > 2 && <span>+{story.genres.length - 2}</span>}
+              </div>
             )}
           </div>
 

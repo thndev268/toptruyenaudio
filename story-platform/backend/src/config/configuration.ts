@@ -31,7 +31,7 @@ export default () => {
       },
       auth: {
         ttl: parseInt(process.env.RATE_LIMIT_TTL_AUTH || '60000', 10),
-        limit: parseInt(process.env.RATE_LIMIT_LIMIT_AUTH || '5', 10),
+        limit: parseInt(process.env.RATE_LIMIT_LIMIT_AUTH || '50', 10),
       },
       support: {
         ttl: parseInt(process.env.RATE_LIMIT_TTL_SUPPORT || '60000', 10),

@@ -413,19 +413,19 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                   </span>
                 </div>
                 {story.genres && story.genres.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {story.genres.slice(0, 3).map((genre, idx) => (
+                  <div className="flex flex-wrap gap-2">
+                    {story.genres?.map((genre) => (
                       <span
-                        key={idx}
-                        className="px-2 py-0.5 bg-slate-800 text-slate-300 text-[10px] font-bold rounded-md border border-slate-700"
+                        key={genre.id}
+                        className="px-3 py-1 bg-slate-800 text-slate-300 text-sm font-medium rounded-lg border border-slate-700"
                       >
-                        {genre}
+                        {genre.name}
                       </span>
                     ))}
-                    {story.genres.length > 3 && (
-                      <span className="text-[10px] text-slate-500">+{story.genres.length - 3}</span>
-                    )}
                   </div>
+                )}
+                {story.genres.length > 3 && (
+                  <span className="text-[10px] text-slate-500">+{story.genres.length - 3}</span>
                 )}
                 <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
                   {story.summary}

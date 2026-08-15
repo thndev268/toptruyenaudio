@@ -50,8 +50,8 @@ export const RecommendedStoriesSection: React.FC<RecommendedStoriesSectionProps>
     const authorCounts: Record<string, number> = {};
 
     interactedStories.forEach((s) => {
-      s.genres.forEach((g) => {
-        genreCounts[g] = (genreCounts[g] || 0) + 2;
+      s.genres?.forEach((genre) => {
+        genreCounts[genre.name] = (genreCounts[genre.name] || 0) + 2;
       });
       if (s.narratorName) {
         narratorCounts[s.narratorName] = (narratorCounts[s.narratorName] || 0) + 1;
@@ -76,11 +76,11 @@ export const RecommendedStoriesSection: React.FC<RecommendedStoriesSectionProps>
         // Genre match boost
         let matchedGenresCount = 0;
         let matchedGenreName = '';
-        s.genres.forEach((g) => {
-          if (genreCounts[g]) {
-            score += genreCounts[g] * 4;
+        s.genres?.forEach((genre) => {
+          if (genreCounts[genre.name]) {
+            score += genreCounts[genre.name] * 4;
             matchedGenresCount++;
-            if (!matchedGenreName) matchedGenreName = g;
+            if (!matchedGenreName) matchedGenreName = genre.name;
           }
         });
 
@@ -142,7 +142,9 @@ export const RecommendedStoriesSection: React.FC<RecommendedStoriesSectionProps>
     if (selectedGenreFilter === 'ALL') {
       return recommendedList;
     }
-    return recommendedList.filter((item) => item.story.genres.includes(selectedGenreFilter));
+    return recommendedList.filter((item) => 
+      item.story.genres?.some((genre) => genre.name === selectedGenreFilter)
+    );
   }, [recommendedList, selectedGenreFilter]);
 
   return (

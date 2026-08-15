@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, UseGuards, BadRequestException, Body } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { StoriesService } from './stories.service';
@@ -140,5 +140,60 @@ export class StoriesController {
     @CurrentUser() user: any
   ) {
     return this.storiesService.getChapterAccess(slug, chapterSlug, user);
+  }
+
+  @Post(':slug/chapters/first-from-iframe')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Tạo chapter đầu tiên từ iframe cho video story' })
+  async createFirstChapterFromIframe(
+    @Param('slug') slug: string,
+    @CurrentUser() user: any
+  ) {
+    const story = await this.prisma.story.findUnique({
+      where: { slug },
+      include: { chapters: true },
+    });
+
+    if (!story) {
+      throw new BadRequestException({
+        code: 'STORY_NOT_FOUND',
+        message: 'Không tìm thấy truyện',
+      });
+    }
+
+    if (story.chapters.length > 0) {
+      throw new BadRequestException({
+        code: 'CHAPTERS_ALREADY_EXIST',
+        message: 'Truyện này đã có chapters',
+      });
+    }
+
+    if (!story.iframeCode && !story.iframeUrl) {
+      throw new BadRequestException({
+        code: 'NO_IFRAME',
+        message: 'Truyện không có iframe',
+      });
+    }
+
+    const chapter = await this.prisma.chapter.create({
+      data: {
+        storyId: story.id,
+        number: 1,
+        title: `Tập 1: ${story.title}`,
+        slug: `${story.slug}-tap-1`,
+        videoIframeUrl: story.iframeUrl,
+        iframeCode: story.iframeCode,
+        durationSeconds: 1800,
+        accessLevel: 'FREE',
+        publishStatus: 'PUBLISHED',
+      },
+    });
+
+    return {
+      success: true,
+      data: chapter,
+      message: 'Đã tạo chapter đầu tiên từ iframe',
+    };
   }
 }

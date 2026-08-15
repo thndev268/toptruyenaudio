@@ -267,7 +267,7 @@ class AdminRepositoryService {
         audioContent: s.audioContent || s.summary,
         coverUrl: s.coverUrl,
         bannerUrl: s.coverUrl,
-        genres: s.genres,
+        genres: s.genres || [],
         storyStatus: s.storyStatus || 'COMPLETED',
         publishStatus: s.publishStatus || 'PUBLISHED',
         rating: s.rating || 5.0,
@@ -284,25 +284,7 @@ class AdminRepositoryService {
           listenCount: s.listenCount || 500,
           favoriteCount: Math.floor((s.listenCount || 500) / 10),
         },
-        chapters: chapters.length > 0 ? chapters : [
-          {
-            id: `cv-${s.id}-1`,
-            storyId: s.id,
-            number: 1,
-            title: `Video Audio Full: ${s.title}`,
-            slug: `full-video-${s.slug}`,
-            audioUrl: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
-            videoIframeUrl: s.iframeUrl,
-            iframeCode: s.iframeCode,
-            audioContent: s.audioContent,
-            durationSeconds: 1800,
-            accessLevel: (s.accessLevel as any) || 'FREE',
-            isEarlyAccess: false,
-            narrator: s.narratorName,
-            publishStatus: 'PUBLISHED' as any,
-            publishedAt: s.createdAt,
-          }
-        ],
+        chapters: chapters.length > 0 ? chapters : [],
       };
     });
   }

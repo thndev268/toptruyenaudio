@@ -18,6 +18,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { adminRepository } from '../../services/repositories/AdminRepository';
 import { useStories } from '../../hooks/useStories';
+import { apiRequest } from '../../services/apiClient';
 import { subscriptionRepository } from '../../services/repositories/SubscriptionRepository';
 
 import {
@@ -64,54 +65,12 @@ export const StoryDetailView: React.FC = () => {
   const story = publicStories.find((s) => s.slug === slug || s.id === slug) ;
   const videoSettings = adminRepository.getVideoSettings();
 
+  // ALL STATE HOOKS - MUST BE BEFORE ANY CONDITIONAL RETURNS
   const [isIframeVisible, setIsIframeVisible] = useState<boolean>(
     !videoSettings.hideIframeWithCSS || videoSettings.showIframeByDefault
   );
 
   const [selectedFilterGenre, setSelectedFilterGenre] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!story) {
-      return;
-    }
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    document.title = `${story.title} – TOP TRUYỆN AUDIO`;
-    return () => {
-      document.title = 'TOP TRUYỆN AUDIO - Nghe Truyện Audio Chuẩn HD';
-    };
-  }, [story]);
-
-  // Calculate recommended stories by genre, topic, author, or video format
-  const relatedStories = React.useMemo(() => {
-    if (!story) return [];
-    const allPublic = publicStories;
-    const combined = [...allPublic];
-    const others = combined.filter((s) => s.id !== story.id && s.slug !== story.slug);
-
-    const scored = others.map((s) => {
-      let score = 0;
-      const commonGenres = (s.genres || []).filter((g) => (story.genres || []).includes(g));
-      score += commonGenres.length * 10;
-      if (s.isVideoStory && story.isVideoStory) score += 15;
-      if (s.authorName && s.authorName === story.authorName) score += 20;
-      score += s.rating || 0;
-
-      return { story: s, score, commonGenres };
-    });
-
-    scored.sort((a, b) => b.score - a.score);
-    return scored.map((item) => item.story);
-  }, [story]);
-
-  const filteredRelatedStories = React.useMemo(() => {
-    if (!selectedFilterGenre) return relatedStories;
-    if (selectedFilterGenre === 'VIDEO_STORY') {
-      return relatedStories.filter((s) => s.isVideoStory);
-    }
-    return relatedStories.filter((s) => (s.genres || []).includes(selectedFilterGenre));
-  }, [relatedStories, selectedFilterGenre]);
-
-  const isFav = story ? favorites.includes(story.id) : false;
   const [activeTab, setActiveTab] = useState<'episodes' | 'reviews'>('episodes');
 
   // Reviews & Comments Data State
@@ -119,41 +78,6 @@ export const StoryDetailView: React.FC = () => {
   const [comments, setComments] = useState<StoryComment[]>([]);
   const [distribution, setDistribution] = useState<RatingDistribution | null>(null);
   const [userReview, setUserReview] = useState<StoryReview | null>(null);
-  const [eligibility, setEligibility] = useState<EligibilityResult>(() =>
-    story ? EligibilityService.checkEligibility(
-      story.id,
-      user?.id || null,
-      story.totalDurationSeconds,
-      listeningProgressMap,
-      listeningHistory
-    ) : {
-      canRate: false,
-      canComment: false,
-      validListeningSeconds: 0,
-      requiredListeningSeconds: 0,
-      remainingSeconds: 0,
-      verifiedListener: false,
-    }
-  );
-
-  if (!story) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 px-4 text-center space-y-6">
-        <div className="w-20 h-20 bg-slate-900 rounded-full flex items-center justify-center text-slate-500">
-          <Sparkles className="w-10 h-10" />
-        </div>
-        <h2 className="text-2xl font-bold text-white">Không tìm thấy truyện</h2>
-        <p className="text-slate-400 max-w-md">Xin lỗi, chúng tôi không tìm thấy tác phẩm audio mà bạn đang tìm kiếm hoặc nội dung này đã bị gỡ bỏ.</p>
-        <button
-          onClick={() => navigate('/explore')}
-          className="px-6 py-3 bg-cyan-500 text-slate-950 font-bold rounded-xl transition-all hover:bg-cyan-400"
-        >
-          Khám phá truyện khác
-        </button>
-      </div>
-    );
-  }
-
   const [votedReviewIds, setVotedReviewIds] = useState<string[]>([]);
   const [votedCommentIds, setVotedCommentIds] = useState<string[]>([]);
   const [isLoadingReviews, setIsLoadingReviews] = useState<boolean>(true);
@@ -186,13 +110,63 @@ export const StoryDetailView: React.FC = () => {
   const [isPlaylistMenuOpen, setIsPlaylistMenuOpen] = useState(false);
   const [selectedChapterForPlaylist, setSelectedChapterForPlaylist] = useState<any>(null);
 
-  const handleAddChapterToPlaylist = (chapter: any) => {
-    setSelectedChapterForPlaylist(chapter);
-    setIsPlaylistMenuOpen(true);
-  };
+  const [eligibility, setEligibility] = useState<EligibilityResult>({
+    canRate: false,
+    canComment: false,
+    validListeningSeconds: 0,
+    requiredListeningSeconds: 0,
+    remainingSeconds: 0,
+    verifiedListener: false,
+  });
+
+  // EFFECTS AND MEMOS - MUST BE BEFORE ANY CONDITIONAL RETURNS
+  useEffect(() => {
+    if (!story) {
+      return;
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.title = `${story.title} – TOP TRUYỆN AUDIO`;
+    return () => {
+      document.title = 'TOP TRUYỆN AUDIO - Nghe Truyện Audio Chuẩn HD';
+    };
+  }, [story]);
+
+  // Calculate recommended stories by genre, topic, author, or video format
+  const relatedStories = React.useMemo(() => {
+    if (!story) return [];
+    const allPublic = publicStories;
+    const combined = [...allPublic];
+    const others = combined.filter((s) => s.id !== story.id && s.slug !== story.slug);
+
+    const scored = others.map((s) => {
+      let score = 0;
+      const commonGenres = (s.genres || []).filter((g) => (story.genres || []).includes(g));
+      score += commonGenres.length * 10;
+      if (s.isVideoStory && story.isVideoStory) score += 15;
+      if (s.authorName && s.authorName === story.authorName) score += 20;
+      score += s.rating || 0;
+
+      return { story: s, score, commonGenres };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    return scored.map((item) => item.story);
+  }, [story, publicStories]);
+
+  const filteredRelatedStories = React.useMemo(() => {
+    if (!selectedFilterGenre) return relatedStories;
+    if (selectedFilterGenre === 'VIDEO_STORY') {
+      return relatedStories.filter((s) => s.isVideoStory);
+    }
+    return relatedStories.filter((s) => (s.genres || []).includes(selectedFilterGenre));
+  }, [relatedStories, selectedFilterGenre]);
+
+  const isFav = story ? favorites.includes(story.id) : false;
 
   // Load reviews, comments, and rating summary
   const refreshData = useCallback(async () => {
+    if (!story) return;
+    
     try {
       setIsLoadingReviews(true);
       setIsLoadingComments(true);
@@ -255,11 +229,50 @@ export const StoryDetailView: React.FC = () => {
       setIsLoadingReviews(false);
       setIsLoadingComments(false);
     }
-  }, [story.id, story.totalDurationSeconds, user?.id, listeningProgressMap, listeningHistory]);
+  }, [story?.id, story?.totalDurationSeconds, user?.id, listeningProgressMap, listeningHistory]);
 
   useEffect(() => {
     refreshData();
   }, [refreshData]);
+
+  // Update eligibility when story or user changes
+  useEffect(() => {
+    if (story) {
+      const el = EligibilityService.checkEligibility(
+        story.id,
+        user?.id || null,
+        story.totalDurationSeconds,
+        listeningProgressMap,
+        listeningHistory
+      );
+      setEligibility(el);
+    }
+  }, [story?.id, story?.totalDurationSeconds, user?.id, listeningProgressMap, listeningHistory]);
+
+  // HANDLERS - MUST BE BEFORE ANY CONDITIONAL RETURNS
+  const handleAddChapterToPlaylist = (chapter: any) => {
+    setSelectedChapterForPlaylist(chapter);
+    setIsPlaylistMenuOpen(true);
+  };
+
+  // NOW CONDITIONAL RETURN IS ALLOWED
+  if (!story) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 px-4 text-center space-y-6">
+        <div className="w-20 h-20 bg-slate-900 rounded-full flex items-center justify-center text-slate-500">
+          <Sparkles className="w-10 h-10" />
+        </div>
+        <h2 className="text-2xl font-bold text-white">Không tìm thấy truyện</h2>
+        <p className="text-slate-400 max-w-md">Xin lỗi, chúng tôi không tìm thấy tác phẩm audio mà bạn đang tìm kiếm hoặc nội dung này đã bị gỡ bỏ.</p>
+        <button
+          onClick={() => navigate('/explore')}
+          className="px-6 py-3 bg-cyan-500 text-slate-950 font-bold rounded-xl transition-all hover:bg-cyan-400"
+        >
+          Khám phá truyện khác
+        </button>
+      </div>
+    );
+  }
 
   // Handle Submit Review (Create / Edit)
   const handleSubmitReview = async (data: {
@@ -393,6 +406,11 @@ export const StoryDetailView: React.FC = () => {
   };
 
   const handlePlayChapter = async (chapter: any, startPos?: number) => {
+    if (!chapter) {
+      console.error('[StoryDetailView] handlePlayChapter called with undefined chapter');
+      showToast('error', 'Lỗi', 'Không tìm thấy tập audio');
+      return;
+    }
     const success = await playChapter(story, chapter, startPos);
     if (success) {
       navigate(`/listen/${story.slug}/${chapter.id}`);
@@ -400,16 +418,47 @@ export const StoryDetailView: React.FC = () => {
   };
 
   
-  const handleStartListening = () => {
+  const handleStartListening = async () => {
     const progresses = Object.values(listeningProgressMap).filter((p: any) => p.storyId === story.id);
     progresses.sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
     const progress = progresses[0];
     
     if (progress) {
       const chapter = story.chapters.find(c => c.id === progress.chapterId) || story.chapters[0];
-      handlePlayChapter(chapter);
+      if (chapter) {
+        handlePlayChapter(chapter);
+      } else {
+        showToast('error', 'Lỗi', 'Không tìm thấy tập audio');
+      }
     } else {
-      handlePlayChapter(story.chapters[0]);
+      // For video stories, prioritize chapter with iframe (usually Chapter 1)
+      let targetChapter = story.chapters[0];
+      if (story.isVideoStory || story.iframeCode || story.iframeUrl) {
+        targetChapter = story.chapters.find(c => c.iframeCode || c.videoIframeUrl) || story.chapters[0];
+      }
+      
+      if (targetChapter) {
+        handlePlayChapter(targetChapter);
+      } else if (story.isVideoStory || story.iframeCode || story.iframeUrl) {
+        // Story has iframe but no chapters in local cache
+        // Backend already creates Chapter 1 from iframe when admin creates story
+        // So just try to play by creating temp chapter from story's iframe data
+        const tempChapter = {
+          id: `temp-${story.id}`,
+          storyId: story.id,
+          number: 1,
+          title: `Tập 1: ${story.title}`,
+          slug: `${story.slug}-tap-1`,
+          videoIframeUrl: story.iframeUrl,
+          iframeCode: story.iframeCode,
+          durationSeconds: 1800,
+          accessLevel: 'FREE',
+          publishStatus: 'PUBLISHED',
+        };
+        handlePlayChapter(tempChapter);
+      } else {
+        showToast('error', 'Lỗi', 'Truyện này chưa có tập audio');
+      }
     }
   };
 
@@ -634,17 +683,17 @@ export const StoryDetailView: React.FC = () => {
                   >
                     Tất cả ({relatedStories.length})
                   </button>
-                  {(story.genres || []).map((g) => (
+                  {(story.genres || []).map((genre) => (
                     <button
-                      key={g}
-                      onClick={() => setSelectedFilterGenre(selectedFilterGenre === g ? null : g)}
+                      key={genre.id}
+                      onClick={() => setSelectedFilterGenre(selectedFilterGenre === genre.name ? null : genre.name)}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                        selectedFilterGenre === g
+                        selectedFilterGenre === genre.name
                           ? 'bg-cyan-500 text-slate-950 shadow-md'
                           : 'bg-slate-800/80 text-slate-400 hover:text-white hover:bg-slate-700'
                       }`}
                     >
-                      {g}
+                      {genre.name}
                     </button>
                   ))}
                   {relatedStories.some((s) => s.isVideoStory) && (

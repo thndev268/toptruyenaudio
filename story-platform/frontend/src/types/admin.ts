@@ -1,4 +1,5 @@
 // Domain types for TOP TRUYỆN AUDIO Admin Portal (Single Owner Admin System)
+import { Genre } from './index';
 
 export type AdminType = 'OWNER_ADMIN';
 
@@ -96,7 +97,7 @@ export interface AdminStoryItem {
   authorName: string;
   authorId?: string;
   narratorName: string;
-  genres: string[];
+  genres?: Genre[];
   genreIds?: string[]; // Array of genre IDs for API
   totalChapters: number;
   storyStatus: 'ONGOING' | 'COMPLETED' | 'PAUSED';

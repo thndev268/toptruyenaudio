@@ -89,7 +89,7 @@ export const AudioPlayerView: React.FC = () => {
           foundChapter = foundStory.chapters[0];
         }
 
-        if (currentStory?.id !== foundStory.id || currentChapter?.id !== foundChapter.id) {
+        if (foundChapter && (currentStory?.id !== foundStory.id || currentChapter?.id !== foundChapter.id)) {
           playChapter(foundStory, foundChapter);
         }
       }

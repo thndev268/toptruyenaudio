@@ -71,7 +71,7 @@ export interface AudioStory {
   audioContent?: string; // Nội dung âm thanh / transcript
   coverUrl: string;
   bannerUrl?: string;
-  genres: string[];
+  genres?: Genre[];
   storyStatus: StoryStatus;
   publishStatus: PublishStatus;
   rating: number; // e.g. 4.9

@@ -444,20 +444,9 @@ export const TrendingStoriesSection: React.FC<TrendingStoriesSectionProps> = ({ 
                   {isCenter ? (
                     <div className="p-4 sm:p-5 flex flex-col justify-between space-y-3 bg-slate-900/95">
                       <div className="space-y-1.5">
-                        <div className="flex items-center justify-between text-xs text-rose-400 font-bold font-mono">
-                          <span className="flex items-center gap-1.5 bg-rose-500/10 px-2.5 py-0.5 rounded-lg border border-rose-500/20">
-                            <Headphones className="w-3.5 h-3.5" />
-                            {formatCount(totalListenCount)} lượt nghe 24h
-                          </span>
-                          <span className="text-slate-400 font-normal">
-                            {story.genres[0] || 'Audio'}
-                          </span>
-                        </div>
-
-                        <h3 className="text-base sm:text-lg md:text-xl font-black text-white group-hover:text-cyan-400 transition-colors line-clamp-1 leading-snug">
+                        <h3 className="text-sm sm:text-base font-extrabold text-slate-100 group-hover:text-cyan-400 transition-colors line-clamp-2 leading-snug">
                           {story.title}
                         </h3>
-
                         <p className="text-xs sm:text-sm text-slate-300 truncate">
                           {story.narratorName
                             ? `MC: ${story.narratorName}`

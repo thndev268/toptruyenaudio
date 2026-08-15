@@ -177,20 +177,14 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({
                 </p>
                 {story.genres && story.genres.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-2">
-                    {story.genres.slice(0, 3).map((genre, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => navigate(`/explore?genre=${encodeURIComponent(genre)}`)}
-                        className="px-2 py-0.5 bg-slate-800 text-slate-300 text-[10px] font-bold rounded-md border border-slate-700 hover:bg-slate-700 hover:text-cyan-400 hover:border-cyan-500/50 transition-colors cursor-pointer"
-                        title={`Xem tất cả truyện thể loại ${genre}`}
+                    {story.genres.slice(0, 3).map((genre) => (
+                      <span
+                        key={genre.id}
+                        className="px-2 py-0.5 bg-slate-800 text-slate-300 text-[10px] font-bold rounded-md border border-slate-700"
                       >
-                        {genre}
-                      </button>
+                        {genre.name}
+                      </span>
                     ))}
-                    {story.genres.length > 3 && (
-                      <span className="text-[10px] text-slate-500">+{story.genres.length - 3}</span>
-                    )}
                   </div>
                 )}
               </div>

@@ -160,9 +160,15 @@ export class AdminStoriesController {
         },
       });
 
+      // Transform genres from GenreToStory[] to Genre[]
+      const transformedStories = stories.map(story => ({
+        ...story,
+        genres: story.genres.map(g => g.genre),
+      }));
+
       return {
         success: true,
-        data: stories,
+        data: transformedStories,
         message: 'Đã lấy danh sách truyện thành công',
       };
     } catch (error) {
@@ -266,12 +272,55 @@ export class AdminStoriesController {
           });
         }
 
+        // Create Chapter 1 if iframe is provided (video story)
+        if (iframeUrl || iframeCode) {
+          const chapter = await tx.chapter.create({
+            data: {
+              storyId: newStory.id,
+              number: 1,
+              title: `Tập 1: ${newStory.title}`,
+              slug: `${newStory.slug}-tap-1`,
+              videoIframeUrl: iframeUrl,
+              iframeCode: iframeCode,
+              durationSeconds: 1800, // Default 30 minutes
+              accessLevel: 'FREE',
+              publishStatus: 'PUBLISHED',
+            },
+          });
+          return { ...newStory, firstChapterId: chapter.id };
+        }
+
         return newStory;
       });
 
+      // Fetch story with genres for response
+      const storyWithGenres = await this.prisma.story.findUnique({
+        where: { id: story.id },
+        include: {
+          genres: {
+            include: {
+              genre: true,
+            },
+          },
+        },
+      });
+
+      if (!storyWithGenres) {
+        throw new NotFoundException({
+          code: 'STORY_NOT_FOUND',
+          message: `Không tìm thấy truyện vừa tạo với ID: ${story.id}`,
+        });
+      }
+
+      // Transform genres from GenreToStory[] to Genre[] in response
+      const transformedStory = storyWithGenres.genres ? {
+        ...storyWithGenres,
+        genres: storyWithGenres.genres.map(g => g.genre),
+      } : storyWithGenres;
+
       return {
         success: true,
-        data: story,
+        data: transformedStory,
         message: 'Đã tạo truyện thành công',
       };
     } catch (error) {
@@ -329,6 +378,17 @@ export class AdminStoriesController {
       if (body.audioContent !== undefined) dataToUpdate.audioContent = body.audioContent;
       if (body.isVideoStory !== undefined) dataToUpdate.isVideoStory = body.isVideoStory === 'true' || body.isVideoStory === true;
       if (body.accessLevel !== undefined) dataToUpdate.accessLevel = body.accessLevel;
+      
+      // Parse genreIds if sent as JSON string from FormData
+      let genreIds = body.genreIds;
+      if (typeof genreIds === 'string') {
+        try {
+          genreIds = JSON.parse(genreIds);
+        } catch (e) {
+          console.error('Failed to parse genreIds:', e);
+          genreIds = undefined;
+        }
+      }
 
       if (coverUrl) {
         dataToUpdate.coverUrl = coverUrl;
@@ -354,13 +414,13 @@ export class AdminStoriesController {
         });
 
         // Handle genre relations if genreIds is provided in body
-        if (body.genreIds !== undefined) {
+        if (genreIds !== undefined) {
           // Delete existing genre relations
           await tx.genreToStory.deleteMany({ where: { storyId: id } });
 
           // Create new genre relations if genreIds is not empty
-          if (Array.isArray(body.genreIds) && body.genreIds.length > 0) {
-            const genreRelations = body.genreIds.map((genreId: string) => ({
+          if (Array.isArray(genreIds) && genreIds.length > 0) {
+            const genreRelations = genreIds.map((genreId: string) => ({
               storyId: id,
               genreId,
             }));
@@ -370,7 +430,32 @@ export class AdminStoriesController {
           }
         }
 
-        return story;
+        // Fetch story with genres for response
+        const storyWithGenres = await tx.story.findUnique({
+          where: { id },
+          include: {
+            genres: {
+              include: {
+                genre: true,
+              },
+            },
+          },
+        });
+
+        if (!storyWithGenres) {
+          throw new NotFoundException({
+            code: 'STORY_NOT_FOUND',
+            message: `Không tìm thấy truyện với ID: ${id}`,
+          });
+        }
+
+        // Transform genres from GenreToStory[] to Genre[]
+        const transformedStory = {
+          ...storyWithGenres,
+          genres: storyWithGenres.genres ? storyWithGenres.genres.map(g => g.genre) : [],
+        };
+
+        return transformedStory;
       });
 
       return {
@@ -399,24 +484,50 @@ export class AdminStoriesController {
     @Body() body: any,
     @UploadedFile() audioFile?: Express.Multer.File,
   ) {
-    let audioUrl = body.audioUrl;
+    // Check if story exists
+    const story = await this.prisma.story.findUnique({ where: { id: storyId } });
+    if (!story) {
+      throw new NotFoundException({
+        code: 'STORY_NOT_FOUND',
+        message: `Không tìm thấy truyện với ID: ${storyId}`,
+      });
+    }
 
+    let audioUrl = body.audioUrl;
     if (audioFile) {
       const ext = audioFile.originalname.split('.').pop();
       const filename = `audio/${storyId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
       audioUrl = await this.storage.uploadFile('media', filename, audioFile.buffer, audioFile.mimetype);
     }
 
-    return this.prisma.chapter.create({
+    // Auto-increment chapter number if not provided
+    let chapterNumber = parseInt(body.number, 10);
+    if (!chapterNumber || chapterNumber <= 0) {
+      const lastChapter = await this.prisma.chapter.findFirst({
+        where: { storyId },
+        orderBy: { number: 'desc' },
+      });
+      chapterNumber = lastChapter ? lastChapter.number + 1 : 1;
+    }
+
+    const chapter = await this.prisma.chapter.create({
       data: {
         storyId,
-        number: parseInt(body.number, 10),
-        title: body.title,
+        number: chapterNumber,
+        title: body.title || `Tập ${chapterNumber}`,
+        slug: `${story.slug}-tap-${chapterNumber}`,
         audioUrl,
-        durationSeconds: parseInt(body.durationSeconds, 10) || 0,
+        durationSeconds: parseInt(body.durationSeconds, 10) || 1800,
         accessLevel: body.accessLevel || 'FREE',
+        publishStatus: 'PUBLISHED',
       },
     });
+
+    return {
+      success: true,
+      data: chapter,
+      message: 'Đã tạo chương thành công',
+    };
   }
 
   @Delete(':id')

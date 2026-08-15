@@ -227,11 +227,25 @@ export class AdminService {
   // Genre Management
   async getGenres() {
     const genres = await this.prisma.genre.findMany({
+      include: {
+        _count: {
+          select: {
+            stories: true,
+          },
+        },
+      },
       orderBy: { name: 'asc' },
     });
+    
+    // Map to include storyCount
+    const genresWithCount = genres.map(genre => ({
+      ...genre,
+      storyCount: genre._count.stories,
+    }));
+    
     return {
       success: true,
-      data: genres,
+      data: genresWithCount,
       message: 'Đã lấy danh sách thể loại thành công',
     };
   }
@@ -295,6 +309,32 @@ export class AdminService {
     return {
       success: true,
       message: 'Đã xóa thể loại thành công',
+    };
+  }
+
+  async getGenreWithStories(id: string) {
+    const genre = await this.prisma.genre.findUnique({
+      where: { id },
+      include: {
+        stories: {
+          include: {
+            story: true,
+          },
+        },
+      },
+    });
+
+    if (!genre) {
+      throw new NotFoundException({
+        code: 'GENRE_NOT_FOUND',
+        message: 'Không tìm thấy thể loại.',
+      });
+    }
+
+    return {
+      success: true,
+      data: genre,
+      message: 'Đã lấy thể loại và danh sách truyện thành công',
     };
   }
 }

@@ -16,6 +16,7 @@
     "seed-sample": "ts-node src/scripts/seed-sample-data.ts",
     "seed:dev": "ts-node src/scripts/seed-development.ts",
     "seed:genres": "ts-node src/scripts/seed-genres.ts",
+    "backfill:chapters": "ts-node src/scripts/backfill-video-chapters.ts",
     "lint": "tsc --noEmit",
     "type-check": "tsc --noEmit",
     "test": "jest",

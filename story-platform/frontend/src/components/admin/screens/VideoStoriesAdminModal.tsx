@@ -187,7 +187,7 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
         iframeCode: iframeCode,
         authorName: 'Kênh Video Production',
         narratorName: 'MC Giọng Đọc AI',
-        genres: ['Truyện Video', 'Podcast & Đêm Muộn'],
+        genres: undefined,
         accessLevel: 'FREE',
         publishStatus: 'PUBLISHED',
         isVideoStory: true,

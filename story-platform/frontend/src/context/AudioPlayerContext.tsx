@@ -1027,6 +1027,13 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       return false;
     }
 
+    // Check if chapter exists
+    if (!chapter) {
+      console.error('[AudioPlayerContext] playChapter called with undefined chapter');
+      setAudioError({ code: 'AUDIO_NOT_FOUND', message: 'Không tìm thấy tập audio' });
+      return false;
+    }
+
     // Check Access Level for FREE vs PREMIUM
     const isPremiumItem = chapter.accessLevel === 'PREMIUM';
     const userIsPremium = user?.membership?.tier === 'PREMIUM';
@@ -1083,6 +1090,23 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     setCurrentStory(story);
     setCurrentChapter({ ...chapter, audioUrl: finalAudioUrl || chapter.audioUrl });
+
+    // If no audio source available, show error
+    if (!ytId && !hasWebAudio) {
+      console.error('[AudioPlayerContext] No audio source available:', {
+        finalAudioUrl,
+        ytId,
+        shouldPreferIframeAudio,
+        hasWebAudio,
+        chapter: chapter.id,
+        story: story.id,
+      });
+      setAudioError({
+        code: 'AUDIO_NOT_FOUND',
+        message: 'Không tìm thấy nguồn âm thanh. Truyện này có thể cần cập nhật.',
+      });
+      return false;
+    }
 
     if (mode === 'API' && isAuthenticated) {
       // Fire session creation asynchronously to not block the play() user gesture

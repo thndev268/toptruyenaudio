@@ -11,6 +11,7 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request, Response } from 'express';
@@ -100,6 +101,7 @@ export class AdminController {
 
   // Genre Management
   @Get('genres')
+  @SkipThrottle()
   @ApiOperation({ summary: 'Lấy danh sách tất cả thể loại' })
   async getGenres() {
     return this.adminService.getGenres();
@@ -121,5 +123,11 @@ export class AdminController {
   @ApiOperation({ summary: 'Xóa thể loại' })
   async deleteGenre(@Param('id') id: string) {
     return this.adminService.deleteGenre(id);
+  }
+
+  @Get('genres/:id/stories')
+  @ApiOperation({ summary: 'Lấy thể loại và danh sách truyện' })
+  async getGenreWithStories(@Param('id') id: string) {
+    return this.adminService.getGenreWithStories(id);
   }
 }

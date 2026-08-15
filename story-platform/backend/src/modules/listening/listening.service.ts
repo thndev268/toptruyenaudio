@@ -146,6 +146,16 @@ export class ListeningService {
     if (!isValidProgressId(userId) || !isValidProgressId(chapterId)) {
       throw new BadRequestException('Invalid userId or chapterId for progress storage');
     }
+    
+    // Check if chapter exists
+    const chapter = await this.prisma.chapter.findUnique({ where: { id: chapterId } });
+    if (!chapter) {
+      throw new NotFoundException({
+        code: 'CHAPTER_NOT_FOUND',
+        message: `Không tìm thấy chương với ID: ${chapterId}`,
+      });
+    }
+    
     if (this.isMemoryProvider) return this.memoryRepo.upsert(userId, chapterId, dto);
 
     let progressPercent = 0;

@@ -104,11 +104,16 @@ export const StoryHero: React.FC<StoryHeroProps> = ({
               }`}>
                 {story.storyStatus === 'ONGOING' ? 'Đang cập nhật' : 'Trọn bộ audio'}
               </span>
-              {story.genres.map((genre) => (
-                <span key={genre} className="px-2.5 py-1 bg-slate-900/60 text-slate-400 border border-slate-800 rounded-lg text-[10px] font-bold uppercase tracking-wider backdrop-blur-md">
-                  {genre}
-                </span>
-              ))}
+              <div className="flex flex-wrap gap-2">
+                {story.genres?.map((genre) => (
+                  <span
+                    key={genre.id}
+                    className="px-3 py-1 bg-slate-800 text-slate-300 text-sm font-medium rounded-lg border border-slate-700"
+                  >
+                    {genre.name}
+                  </span>
+                ))}
+              </div>
             </div>
 
             {/* Title */}

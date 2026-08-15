@@ -12,6 +12,11 @@ export async function fetchProgress(): Promise<ListeningProgress[]> {
 }
 
 export async function saveProgress(chapterId: string, progress: any): Promise<ListeningProgress | null> {
+  // Skip saving progress for temporary chapters (created from iframe)
+  if (chapterId.startsWith('temp-')) {
+    console.log('Skipping progress save for temporary chapter:', chapterId);
+    return null;
+  }
   try {
     return await apiRequest(`/listening/me/progress/${chapterId}`, {
       method: 'PUT',

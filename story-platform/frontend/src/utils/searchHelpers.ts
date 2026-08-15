@@ -11,12 +11,20 @@ export function normalizeVietnamese(str: string): string {
     .trim();
 }
 
-export function matchesSearchKeyword(target: string | string[], keyword: string): boolean {
+export function matchesSearchKeyword(target: string | string[] | any[], keyword: string): boolean {
   if (!keyword || !keyword.trim()) return true;
   const normKeyword = normalizeVietnamese(keyword);
 
   if (Array.isArray(target)) {
-    return target.some((item) => normalizeVietnamese(item).includes(normKeyword));
+    return target.some((item) => {
+      if (typeof item === 'string') {
+        return normalizeVietnamese(item).includes(normKeyword);
+      }
+      if (item && item.name) {
+        return normalizeVietnamese(item.name).includes(normKeyword);
+      }
+      return false;
+    });
   }
 
   if (!target) return false;
@@ -82,20 +90,10 @@ export function filterStoryList<T extends {
 
     // 2. Genre
     if (filters.genre && filters.genre !== 'all') {
-      const targetGenreObj = adminRepository.getGenres().find(
-        (mg) =>
-          normalizeVietnamese(mg.name) === normalizeVietnamese(filters.genre) ||
-          mg.slug === filters.genre ||
-          mg.id === filters.genre
-      );
-      const targetGenreName = targetGenreObj ? targetGenreObj.name : filters.genre;
-
-      const hasGenre = story.genres.some(
-        (g) =>
-          normalizeVietnamese(g) === normalizeVietnamese(targetGenreName) ||
-          normalizeVietnamese(g) === normalizeVietnamese(filters.genre)
-      );
-      if (!hasGenre) return false;
+      const matchesGenre = (story: any) => {
+        return story.genres?.some((genre) => genre.name === filters.genre);
+      };
+      if (!matchesGenre(story)) return false;
     }
 
     // 3. Status
