@@ -172,17 +172,20 @@ export const TrendingStoriesSection: React.FC<TrendingStoriesSectionProps> = ({ 
     if (story.chapters && story.chapters.length > 0) {
       const success = await playChapter(story, story.chapters[0]);
       if (success) {
-        navigate(`/listen/${story.slug}/${story.chapters[0].id}`);
+        const storyIdentifier = story.slug || story.id;
+        navigate(`/listen/${storyIdentifier}/${story.chapters[0].id}`);
       }
     } else {
-      navigate(`/story/${story.slug}`);
+      const storyIdentifier = story.slug || story.id;
+      navigate(`/story/${storyIdentifier}`);
     }
   };
 
   const handleCardClick = (story: AudioStory, offset: number) => {
     markUserInteraction();
     if (offset === 0) {
-      navigate(`/story/${story.slug}`);
+      const storyIdentifier = story.slug || story.id;
+      navigate(`/story/${storyIdentifier}`);
     } else if (offset < 0) {
       handlePrev();
     } else if (offset > 0) {

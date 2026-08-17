@@ -47,7 +47,8 @@ export const StoryCard: React.FC<StoryCardProps> = ({
   const favorited = isFavorite(story.id);
 
   const handleCardClick = () => {
-    navigate(`/story/${story.slug}`);
+    const storyIdentifier = story.slug || story.id;
+    navigate(`/story/${storyIdentifier}`);
   };
 
   const handlePlayClick = async (e: React.MouseEvent) => {
@@ -57,7 +58,8 @@ export const StoryCard: React.FC<StoryCardProps> = ({
     } else if (story.chapters && story.chapters.length > 0) {
       const success = await playChapter(story, story.chapters[0]);
       if (success) {
-        navigate(`/listen/${story.slug}/${story.chapters[0].id}`);
+        const storyIdentifier = story.slug || story.id;
+        navigate(`/listen/${storyIdentifier}/${story.chapters[0].id}`);
       }
     }
   };

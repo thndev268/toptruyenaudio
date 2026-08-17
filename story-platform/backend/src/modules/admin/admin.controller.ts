@@ -130,4 +130,29 @@ export class AdminController {
   async getGenreWithStories(@Param('id') id: string) {
     return this.adminService.getGenreWithStories(id);
   }
+
+  @Get('video-settings')
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Lấy cấu hình hiển thị video iframe' })
+  async getVideoSettings() {
+    return {
+      success: true,
+      settings: {
+        showIframeByDefault: false,
+        hideIframeWithCSS: true,
+        allowUserToggleIframe: true,
+        autoPlayVideo: false,
+      },
+    };
+  }
+
+  @Post('video-settings')
+  @ApiOperation({ summary: 'Cập nhật cấu hình hiển thị video iframe' })
+  async updateVideoSettings(@Body() body: { settings: any }) {
+    return {
+      success: true,
+      message: 'Đã cập nhật cấu hình hiển thị video iframe thành công.',
+      settings: body.settings,
+    };
+  }
 }

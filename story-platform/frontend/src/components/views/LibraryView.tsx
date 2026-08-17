@@ -104,7 +104,7 @@ export const LibraryView: React.FC = () => {
                     key={prog.chapterId}
                     story={story}
                     chapterTitle={chapter.title}
-                    onPlayClick={() => { playChapter(story, chapter, prog.positionSeconds).then(success => { if(success) navigate(`/listen/${story.slug}/${chapter.id}`); }) }}
+                    onPlayClick={() => { playChapter(story, chapter, prog.positionSeconds).then(success => { if(success) { const storyIdentifier = story.slug || story.id; navigate(`/listen/${storyIdentifier}/${chapter.id}`); } }) }}
                     progressPercent={pct}
                     formattedTime={`${formatTime(prog.positionSeconds)} / ${formatTime(prog.durationSeconds)}`}
                   />

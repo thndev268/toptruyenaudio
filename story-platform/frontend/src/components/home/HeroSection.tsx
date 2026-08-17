@@ -79,7 +79,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ featuredStory }) => {
 
     // 3. Authorized Playback
     playChapter(featuredStory, firstChapter);
-    navigate(`/listen/${featuredStory.slug}/${firstChapter.id}`);
+    const storyIdentifier = featuredStory.slug || featuredStory.id;
+    navigate(`/listen/${storyIdentifier}/${firstChapter.id}`);
   };
 
   return (

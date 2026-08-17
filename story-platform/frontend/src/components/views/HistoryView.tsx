@@ -162,7 +162,7 @@ export const HistoryView: React.FC = () => {
                     return (
                       <StoryCard
                         key={`${item.storyId}-${item.chapterId}-${idx}`}
-                        onPlayClick={() => { playChapter(story, chapter).then(success => { if(success) navigate(`/listen/${story.slug}/${chapter.id}`); }) }}
+                        onPlayClick={() => { playChapter(story, chapter).then(success => { if(success) { const storyIdentifier = story.slug || story.id; navigate(`/listen/${storyIdentifier}/${chapter.id}`); } }) }}
                         story={story}
                         chapterTitle={chapter.title}
                         progressPercent={percent}

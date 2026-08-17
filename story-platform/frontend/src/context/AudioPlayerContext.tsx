@@ -16,10 +16,18 @@ declare global {
 export function extractYouTubeId(urlOrCode?: string): string | null {
   if (!urlOrCode) return null;
   let target = urlOrCode;
+  
+  // First try to extract from iframe src attribute if it's HTML code
   if (urlOrCode.includes('<iframe')) {
     const srcMatch = urlOrCode.match(/src=["']([^"']+)["']/i);
     if (srcMatch) target = srcMatch[1];
   }
+  
+  // Try YouTube embed URL pattern first (most common for iframe)
+  const embedMatch = target.match(/(?:youtube\.com\/embed\/|youtu\.be\/)([^"&?\/\s]{11})/);
+  if (embedMatch) return embedMatch[1];
+  
+  // Then try other YouTube URL patterns
   const match = target.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
   return match ? match[1] : null;
 }

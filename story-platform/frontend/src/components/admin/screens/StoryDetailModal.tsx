@@ -705,8 +705,9 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  setNewChapterNumber(rawChapters.length + 1);
-                  setNewChapterTitle(`Tập ${rawChapters.length + 1}`);
+                  const nextChapterNumber = rawChapters.length > 0 ? Math.max(...rawChapters.map(c => c.number)) + 1 : 1;
+                  setNewChapterNumber(nextChapterNumber);
+                  setNewChapterTitle(`Tập ${nextChapterNumber}`);
                   setIsAddingChapter(!isAddingChapter);
                 }}
                 className="px-3.5 py-1.5 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
@@ -724,65 +725,6 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     <Plus className="w-4 h-4" /> Thêm Tập Mới Cho Bộ Truyện
                   </h4>
                   <span className="text-[10px] text-slate-500 font-mono">Tự động tăng STT: Tập {newChapterNumber}</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-300">Số Tập (STT)</label>
-                    <input
-                      type="number"
-                      value={newChapterNumber}
-                      onChange={(e) => setNewChapterNumber(Number(e.target.value))}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
-                    />
-                  </div>
-
-                  <div className="space-y-1 sm:col-span-2">
-                    <label className="text-[11px] font-bold text-slate-300">Tên / Tiêu Đề Tập</label>
-                    <input
-                      type="text"
-                      value={newChapterTitle}
-                      onChange={(e) => setNewChapterTitle(e.target.value)}
-                      placeholder="VD: Tập 1: Khởi Đầu Mới"
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-300">MC / Giọng Đọc</label>
-                    <input
-                      type="text"
-                      value={newChapterNarrator}
-                      onChange={(e) => setNewChapterNarrator(e.target.value)}
-                      placeholder="Nhập tên MC..."
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-300">Gói Cước Mở Khóa</label>
-                    <select
-                      value={newChapterAccessLevel}
-                      onChange={(e) => setNewChapterAccessLevel(e.target.value as any)}
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
-                    >
-                      <option value="FREE">Miễn Phí (FREE)</option>
-                      <option value="PREMIUM">Gói VIP (PREMIUM)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-300">Link File Audio MP3 / HLS Streaming URL</label>
-                  <input
-                    type="text"
-                    value={newChapterAudioUrl}
-                    onChange={(e) => setNewChapterAudioUrl(e.target.value)}
-                    placeholder="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-rose-500"
-                  />
                 </div>
 
                 <div className="space-y-2">
@@ -803,33 +745,41 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     placeholder='<iframe width="100%" height="450" src="https://www.youtube.com/embed/..." title="Tiêu đề tập" frameborder="0" allowfullscreen></iframe> hoặc https://youtu.be/...'
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-rose-500"
                   />
+                </div>
 
-                  {/* Toggle Switch: Allow Video Display */}
-                  <div className="flex items-center justify-between bg-slate-900 border border-slate-800/80 rounded-xl p-2.5 px-3.5 mt-2">
-                    <div className="space-y-0.5">
-                      <span className="text-xs font-bold text-slate-200 block">Cho phép hiển thị / ẩn video</span>
-                      <span className="text-[10px] text-slate-400 block">
-                        {newChapterAllowVideoDisplay
-                          ? 'Bật: Người dùng có thể chọn Xem video 16:9 hoặc Tiết kiệm dữ liệu.'
-                          : 'Tắt: Ẩn hoàn toàn video, người dùng chỉ nghe phần âm thanh.'}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setNewChapterAllowVideoDisplay(!newChapterAllowVideoDisplay)}
-                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                        newChapterAllowVideoDisplay ? 'bg-cyan-500' : 'bg-slate-700'
-                      }`}
-                      role="switch"
-                      aria-checked={newChapterAllowVideoDisplay}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                          newChapterAllowVideoDisplay ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-300">Số Tập (STT)</label>
+                    <input
+                      type="number"
+                      value={newChapterNumber}
+                      onChange={(e) => setNewChapterNumber(Number(e.target.value))}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
+                    />
                   </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-300">Gói Cước Mở Khóa</label>
+                    <select
+                      value={newChapterAccessLevel}
+                      onChange={(e) => setNewChapterAccessLevel(e.target.value as any)}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
+                    >
+                      <option value="FREE">Miễn Phí (FREE)</option>
+                      <option value="PREMIUM">Gói VIP (PREMIUM)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-300">Tên / Tiêu Đề Tập (Tự động điền từ iframe)</label>
+                  <input
+                    type="text"
+                    value={newChapterTitle}
+                    onChange={(e) => setNewChapterTitle(e.target.value)}
+                    placeholder="VD: Tập 1: Khởi Đầu Mới"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
+                  />
                 </div>
 
                 <div className="space-y-1">

@@ -177,7 +177,7 @@ class AdminRepositoryService {
       try {
         // Use apiRequest to ensure proper backend URL and authentication
         try {
-          const settingsData = await apiRequest<any>('/video-settings');
+          const settingsData = await apiRequest<any>('/admin/video-settings');
           if (settingsData?.settings) {
             this.videoSettings = { ...this.videoSettings, ...settingsData.settings };
             localStorage.setItem('toptruyenaudio:video-settings:v1', JSON.stringify(this.videoSettings));
@@ -1053,6 +1053,9 @@ class AdminRepositoryService {
       if (chapterData.durationSeconds) formData.append('durationSeconds', chapterData.durationSeconds.toString());
       if (chapterData.accessLevel) formData.append('accessLevel', chapterData.accessLevel);
       if (chapterData.audioUrl) formData.append('audioUrl', chapterData.audioUrl);
+      if (chapterData.iframeCode) formData.append('iframeCode', chapterData.iframeCode);
+      if (chapterData.videoIframeUrl) formData.append('videoIframeUrl', chapterData.videoIframeUrl);
+      if (chapterData.audioContent) formData.append('audioContent', chapterData.audioContent);
 
       await apiRequest(`/admin/stories/${storyId}/chapters`, {
         method: 'POST',

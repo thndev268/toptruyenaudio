@@ -510,6 +510,16 @@ export class AdminStoriesController {
       chapterNumber = lastChapter ? lastChapter.number + 1 : 1;
     }
 
+    // Extract iframeUrl from iframeCode if provided
+    let iframeUrl = body.videoIframeUrl;
+    let iframeCode = body.iframeCode;
+    if (iframeCode && !iframeUrl) {
+      const srcMatch = iframeCode.match(/src=["']([^"']+)["']/i);
+      if (srcMatch) {
+        iframeUrl = srcMatch[1];
+      }
+    }
+
     const chapter = await this.prisma.chapter.create({
       data: {
         storyId,
@@ -517,9 +527,12 @@ export class AdminStoriesController {
         title: body.title || `Tập ${chapterNumber}`,
         slug: `${story.slug}-tap-${chapterNumber}`,
         audioUrl,
+        videoIframeUrl: iframeUrl,
+        iframeCode: iframeCode,
         durationSeconds: parseInt(body.durationSeconds, 10) || 1800,
         accessLevel: body.accessLevel || 'FREE',
         publishStatus: 'PUBLISHED',
+        audioContent: body.audioContent || '',
       },
     });
 

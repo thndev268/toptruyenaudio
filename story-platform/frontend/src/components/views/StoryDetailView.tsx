@@ -92,6 +92,13 @@ export const StoryDetailView: React.FC = () => {
 
   const navigate = useNavigate();
 
+  // Redirect if slug is empty
+  useEffect(() => {
+    if (!slug) {
+      navigate('/', { replace: true });
+    }
+  }, [slug, navigate]);
+
 
 
   const {
@@ -828,7 +835,8 @@ export const StoryDetailView: React.FC = () => {
 
     if (success) {
 
-      navigate(`/listen/${story.slug}/${chapter.id}`);
+      const storyIdentifier = story.slug || story.id;
+      navigate(`/listen/${storyIdentifier}/${chapter.id}`);
 
     }
 

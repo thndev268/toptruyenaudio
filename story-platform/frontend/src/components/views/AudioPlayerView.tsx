@@ -122,6 +122,16 @@ export const AudioPlayerView: React.FC = () => {
 
   const extractYouTubeId = (str?: string): string | null => {
     if (!str) return null;
+    
+    // First try to extract from iframe src attribute
+    const srcMatch = str.match(/src=["']([^"']+)["']/i);
+    if (srcMatch) {
+      const src = srcMatch[1];
+      const ytMatch = src.match(/(?:youtube\.com\/embed\/|youtu\.be\/)([^"&?\/\s]{11})/);
+      if (ytMatch) return ytMatch[1];
+    }
+    
+    // Then try direct URL patterns
     const match = str.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
     return match ? match[1] : null;
   };
@@ -565,13 +575,15 @@ export const AudioPlayerView: React.FC = () => {
                 tabIndex={0}
                 onClick={() => {
                   playChapter(currentStory, ch);
-                  navigate(`/listen/${currentStory.slug}/${ch.id}`);
+                  const storyIdentifier = currentStory.slug || currentStory.id;
+                  navigate(`/listen/${storyIdentifier}/${ch.id}`);
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
                     playChapter(currentStory, ch);
-                    navigate(`/listen/${currentStory.slug}/${ch.id}`);
+                    const storyIdentifier = currentStory.slug || currentStory.id;
+                    navigate(`/listen/${storyIdentifier}/${ch.id}`);
                   }
                 }}
                 className={`w-full text-left p-3.5 rounded-2xl flex items-center justify-between border transition-all cursor-pointer ${
