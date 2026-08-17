@@ -402,7 +402,7 @@ export const AudioPlayerView: React.FC = () => {
             </div>
             <div className="text-center md:text-left space-y-1">
               <div className="inline-block px-3 py-1 bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 text-xs font-mono font-bold rounded-full">
-                Tập {currentChapter.number} / {currentStory.totalChapters}
+                Tập {currentChapter.number} / {currentStory.chapters?.length || currentStory.totalChapters}
               </div>
               <h1 className="text-lg sm:text-xl font-black text-white tracking-tight">{currentChapter.title}</h1>
               <p className="text-xs text-slate-400">
@@ -425,7 +425,7 @@ export const AudioPlayerView: React.FC = () => {
             {/* Metadata & Description */}
             <div className="space-y-3 text-center md:text-left flex-1 min-w-0">
               <div className="inline-block px-3 py-1 bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 text-xs font-mono font-bold rounded-full">
-                Tập {currentChapter.number} / {currentStory.totalChapters}
+                Tập {currentChapter.number} / {currentStory.chapters?.length || currentStory.totalChapters}
               </div>
               <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">{currentChapter.title}</h1>
               <p className="text-sm font-semibold text-slate-300">{currentStory.title}</p>

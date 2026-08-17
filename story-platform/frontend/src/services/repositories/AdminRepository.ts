@@ -272,7 +272,7 @@ class AdminRepositoryService {
         publishStatus: s.publishStatus || 'PUBLISHED',
         rating: s.rating || 5.0,
         reviewCount: 88,
-        totalChapters: chapters.length || s.totalChapters || 1,
+        totalChapters: chapters.length > 0 ? chapters.length : (s.totalChapters || 0),
         totalDurationSeconds: chapters.reduce((acc, c) => acc + (c.durationSeconds || 1800), 0) || 1800,
         isExclusive: false,
         publishedAt: s.createdAt,

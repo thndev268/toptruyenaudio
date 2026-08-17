@@ -240,7 +240,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
             {formatListenCount(story.stats?.listenCount)}
           </span>
 
-          <span className="text-slate-500 font-mono">{story.totalChapters || story.chapters?.length || 1} tập</span>
+          <span className="text-slate-500 font-mono">{story.totalChapters || story.chapters?.length || 0} tập</span>
         </div>
       </div>
     </div>

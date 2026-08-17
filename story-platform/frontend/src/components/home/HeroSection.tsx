@@ -134,7 +134,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ featuredStory }) => {
             </span>
             <span className="hidden sm:inline text-slate-400 dark:text-slate-600">•</span>
             <span className="bg-slate-200 dark:bg-slate-800/90 px-2.5 py-1 rounded-md text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700/80 font-mono text-[11px]">
-              {featuredStory.totalChapters || featuredStory.chapters?.length || 1} Tập audio HD
+              {featuredStory.totalChapters || featuredStory.chapters?.length || 0} Tập audio HD
             </span>
           </div>
 
