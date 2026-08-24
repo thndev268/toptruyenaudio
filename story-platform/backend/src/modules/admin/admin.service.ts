@@ -469,7 +469,7 @@ export class AdminService {
       this.prisma.userSubscription.count({
         where: {
           status: 'ACTIVE',
-          expiresAt: { gte: now },
+          endAt: { gte: now },
         },
       }),
       this.prisma.transaction.aggregate({
