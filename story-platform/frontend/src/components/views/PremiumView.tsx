@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Sparkles, Check, AlertCircle, Headphones, LifeBuoy, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Sparkles, Check, AlertCircle, Headphones, LifeBuoy, X, Loader2, RefreshCw } from 'lucide-react';
 import { PremiumPlan, SubscriptionPlanId } from '../../types';
 import { subscriptionRepository } from '../../services/repositories/SubscriptionRepository';
+import { premiumRepository } from '../../services/repositories/PremiumRepository';
 import { useAuth } from '../../context/AuthContext';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { Portal } from '../common/filter/Portal';
@@ -23,7 +24,7 @@ const PLANS: PremiumPlan[] = [
     savingsVnd: 27000,
   },
   {
-    code: 'PREMIUM_SEMI_ANNUAL',
+    code: 'PREMIUM_SEMIANNUAL',
     name: 'Premium 6 tháng',
     priceVnd: 270000,
     durationDays: 180,
@@ -60,6 +61,10 @@ export const PremiumView: React.FC = () => {
   const [selectedPlan, setSelectedPlan] = useState<PremiumPlan | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentResponse, setPaymentResponse] = useState<any>(null);
+  const [paymentStatus, setPaymentStatus] = useState<string>('PENDING');
+  const [checkingStatus, setCheckingStatus] = useState(false);
 
   useBodyScrollLock(isModalOpen);
 
@@ -73,29 +78,106 @@ export const PremiumView: React.FC = () => {
     setIsSuccess(false);
   };
 
-  const handleSaveInterest = () => {
-    if (selectedPlan && user) {
-      const interestData = {
-        userId: user.id,
-        planCode: selectedPlan.code,
-        timestamp: new Date().toISOString(),
-      };
-      localStorage.setItem('toptruyenaudio:premium-interest:v1', JSON.stringify(interestData));
-      
-      subscriptionRepository.activateMockSubscription(user.id, selectedPlan.code as SubscriptionPlanId);
-      
-      // Update AuthContext user state immediately for instant feedback
-      updateUser({
-        membership: {
-          tier: 'PREMIUM',
-          subscriptionStatus: 'ACTIVE',
-          planId: selectedPlan.code as SubscriptionPlanId,
-          startedAt: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + 86400000 * selectedPlan.durationDays).toISOString()
-        }
-      });
+  const handleCreatePayment = async () => {
+    if (!selectedPlan || !user) return;
+
+    setPaymentLoading(true);
+    try {
+      const response = await premiumRepository.createPayment(selectedPlan.code);
+      if (response.success) {
+        setPaymentResponse(response.data);
+        setPaymentStatus('PENDING');
+        setIsSuccess(true);
+        
+        // Start checking payment status
+        startPaymentStatusCheck(response.data.orderCode);
+      } else {
+        alert(response.message || 'Không thể tạo thanh toán. Vui lòng thử lại.');
+      }
+    } catch (error) {
+      console.error('Payment creation error:', error);
+      alert('Có lỗi xảy ra khi tạo thanh toán. Vui lòng thử lại.');
+    } finally {
+      setPaymentLoading(false);
     }
-    setIsSuccess(true);
+  };
+
+  const startPaymentStatusCheck = (orderCode: string) => {
+    // Check payment status every 3 seconds
+    const checkInterval = setInterval(async () => {
+      if (!isModalOpen) {
+        clearInterval(checkInterval);
+        return;
+      }
+
+      try {
+        setCheckingStatus(true);
+        const response = await premiumRepository.checkPaymentStatus(orderCode);
+        if (response.success) {
+          setPaymentStatus(response.data.status);
+          
+          if (response.data.status === 'PAID') {
+            clearInterval(checkInterval);
+            setCheckingStatus(false);
+            
+            // Update user membership
+            await updateUser({
+              membership: {
+                tier: 'PREMIUM',
+                subscriptionStatus: 'ACTIVE',
+                planId: selectedPlan?.code as SubscriptionPlanId,
+                startedAt: new Date().toISOString(),
+                expiresAt: new Date(Date.now() + 86400000 * (selectedPlan?.durationDays || 30)).toISOString()
+              }
+            });
+            
+            // Close modal after short delay
+            setTimeout(() => {
+              setIsModalOpen(false);
+            }, 2000);
+          }
+        }
+      } catch (error) {
+        console.error('Payment status check error:', error);
+      } finally {
+        setCheckingStatus(false);
+      }
+    }, 3000);
+
+    // Store interval to clear it when modal closes
+    return () => clearInterval(checkInterval);
+  };
+
+  const handleRetryStatusCheck = async () => {
+    if (paymentResponse) {
+      setCheckingStatus(true);
+      try {
+        const response = await premiumRepository.checkPaymentStatus(paymentResponse.orderCode);
+        if (response.success) {
+          setPaymentStatus(response.data.status);
+          
+          if (response.data.status === 'PAID') {
+            await updateUser({
+              membership: {
+                tier: 'PREMIUM',
+                subscriptionStatus: 'ACTIVE',
+                planId: selectedPlan?.code as SubscriptionPlanId,
+                startedAt: new Date().toISOString(),
+                expiresAt: new Date(Date.now() + 86400000 * (selectedPlan?.durationDays || 30)).toISOString()
+              }
+            });
+            
+            setTimeout(() => {
+              setIsModalOpen(false);
+            }, 2000);
+          }
+        }
+      } catch (error) {
+        console.error('Payment status check error:', error);
+      } finally {
+        setCheckingStatus(false);
+      }
+    }
   };
 
   return (
@@ -221,21 +303,103 @@ export const PremiumView: React.FC = () => {
                 </div>
 
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-                  {isSuccess ? 'Đã lưu lựa chọn!' : 'Thanh toán Premium đang được chuẩn bị'}
+                  {paymentLoading ? 'Đang tạo thanh toán...' : 
+                   paymentStatus === 'PAID' ? 'Thanh toán thành công!' :
+                   paymentStatus === 'PENDING' ? 'Thanh toán đang chờ xử lý' :
+                   'Thanh toán Premium'}
                 </h2>
                 
-                {!isSuccess ? (
+                {paymentLoading ? (
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <Loader2 className="w-12 h-12 text-amber-500 animate-spin mb-4" />
+                    <p className="text-sm text-slate-600 dark:text-slate-400">Đang tạo yêu cầu thanh toán...</p>
+                  </div>
+                ) : paymentStatus === 'PAID' ? (
                   <>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
-                      Bạn đã chọn gói <strong className="text-slate-900 dark:text-white">{selectedPlan.name}</strong> với giá <strong className="text-slate-900 dark:text-white">{formatCurrency(selectedPlan.priceVnd)}</strong>.
-                      Chức năng thanh toán sẽ được bổ sung trong giai đoạn phát triển tiếp theo.
+                    <div className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/20 flex items-center justify-center mb-6">
+                      <Check className="w-8 h-8 text-green-500 dark:text-green-400" />
+                    </div>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-6 text-center">
+                      Chúc mừng! Bạn đã kích hoạt thành công gói <strong className="text-slate-900 dark:text-white">{selectedPlan.name}</strong>.
+                      Tài khoản của bạn giờ đã có quyền Premium.
                     </p>
+                    <button
+                      onClick={() => setIsModalOpen(false)}
+                      className="w-full py-3 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded-xl transition-colors min-h-[44px]"
+                    >
+                      Tiếp tục trải nghiệm
+                    </button>
+                  </>
+                ) : paymentResponse ? (
+                  <>
+                    <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 mb-6">
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-sm text-slate-600 dark:text-slate-400">Mã đơn hàng:</span>
+                        <span className="text-sm font-bold text-slate-900 dark:text-white">{paymentResponse.orderCode}</span>
+                      </div>
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-sm text-slate-600 dark:text-slate-400">Gói:</span>
+                        <span className="text-sm font-bold text-slate-900 dark:text-white">{paymentResponse.planName}</span>
+                      </div>
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="text-sm text-slate-600 dark:text-slate-400">Số tiền:</span>
+                        <span className="text-sm font-bold text-slate-900 dark:text-white">{formatCurrency(paymentResponse.amount)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-slate-600 dark:text-slate-400">Trạng thái:</span>
+                        <span className={`text-sm font-bold ${
+                          paymentStatus === 'PENDING' ? 'text-amber-600 dark:text-amber-400' :
+                          paymentStatus === 'PAID' ? 'text-green-600 dark:text-green-400' :
+                          'text-red-600 dark:text-red-400'
+                        }`}>
+                          {paymentStatus === 'PENDING' ? 'Chờ thanh toán' :
+                           paymentStatus === 'PAID' ? 'Đã thanh toán' :
+                           'Thất bại'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {paymentResponse.qrCode && (
+                      <div className="mb-6">
+                        <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 text-center">Quét mã QR để thanh toán:</p>
+                        <div className="flex justify-center">
+                          <img 
+                            src={paymentResponse.qrCode} 
+                            alt="QR Code thanh toán" 
+                            className="w-48 h-48 rounded-lg border border-slate-200 dark:border-slate-700"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {paymentResponse.checkoutUrl && (
+                      <a 
+                        href={paymentResponse.checkoutUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-full py-3 bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold rounded-xl transition-colors min-h-[44px] text-center mb-3"
+                      >
+                        Thanh toán qua cổng PayOS
+                      </a>
+                    )}
+
                     <div className="space-y-3">
                       <button
-                        onClick={handleSaveInterest}
-                        className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 text-sm font-bold rounded-xl transition-colors min-h-[44px]"
+                        onClick={handleRetryStatusCheck}
+                        disabled={checkingStatus}
+                        className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 text-sm font-bold rounded-xl transition-colors min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
-                        Nhận thông báo khi mở thanh toán
+                        {checkingStatus ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Đang kiểm tra...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="w-4 h-4" />
+                            Kiểm tra trạng thái
+                          </>
+                        )}
                       </button>
                       <button
                         onClick={() => setIsModalOpen(false)}
@@ -248,14 +412,22 @@ export const PremiumView: React.FC = () => {
                 ) : (
                   <>
                     <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
-                      Chúng tôi đã ghi nhận sự quan tâm của bạn với gói {selectedPlan.name}. Bạn sẽ nhận được thông báo ngay khi chức năng thanh toán chính thức ra mắt.
+                      Bạn đã chọn gói <strong className="text-slate-900 dark:text-white">{selectedPlan.name}</strong> với giá <strong className="text-slate-900 dark:text-white">{formatCurrency(selectedPlan.priceVnd)}</strong>.
                     </p>
-                    <button
-                      onClick={() => setIsModalOpen(false)}
-                      className="w-full py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-sm font-bold rounded-xl transition-colors min-h-[44px]"
-                    >
-                      Đóng
-                    </button>
+                    <div className="space-y-3">
+                      <button
+                        onClick={handleCreatePayment}
+                        className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-slate-950 text-sm font-bold rounded-xl transition-colors min-h-[44px]"
+                      >
+                        Tiến hành thanh toán
+                      </button>
+                      <button
+                        onClick={() => setIsModalOpen(false)}
+                        className="w-full py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-sm font-bold rounded-xl transition-colors min-h-[44px]"
+                      >
+                        Hủy
+                      </button>
+                    </div>
                   </>
                 )}
               </div>

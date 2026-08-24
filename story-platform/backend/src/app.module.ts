@@ -10,6 +10,7 @@ import { HealthModule } from './health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { PremiumModule } from './modules/premium/premium.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { FeatureFlagsModule } from './modules/feature-flags/feature-flags.module';
 import { SecurityEventsModule } from './modules/security-events/security-events.module';
@@ -53,6 +54,7 @@ import { StorageModule } from './modules/storage/storage.module';
     AuthModule,
     UsersModule,
     SubscriptionsModule,
+    PremiumModule,
     AdminModule,
     FeatureFlagsModule,
     SecurityEventsModule,
