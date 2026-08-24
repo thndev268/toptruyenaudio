@@ -63,6 +63,8 @@ async function bootstrap() {
   SwaggerModule.setup('api/v1/docs', app, document);
 
   const port = process.env.PORT || 3001;
+  console.log(`Environment PORT: ${process.env.PORT}`);
+  console.log(`Using port: ${port}`);
   await app.listen(port);
   console.log(`Backend REST API server listening on http://localhost:${port}/api/v1`);
   console.log(`OpenAPI / Swagger documentation available at http://localhost:${port}/api/v1/docs`);
