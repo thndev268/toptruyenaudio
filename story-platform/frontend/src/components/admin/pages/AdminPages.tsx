@@ -389,3 +389,12 @@ export const AdminProfilePage: React.FC = () => {
 };
 
 export const AdminHonoraryTitlesPage = () => <AdminPageContainer><HonoraryTitlesScreen /></AdminPageContainer>;
+
+// 19. PayOS Configuration Page
+export const AdminPayOSPage: React.FC = () => {
+  return (
+    <AdminPageContainer>
+      <PayOSScreen />
+    </AdminPageContainer>
+  );
+};
