@@ -35,13 +35,14 @@ model Profile {
   listeningProgress     ListeningProgress[]
   listeningSessions     ListeningSession[]
   userSubscriptions     UserSubscription[]
-  paymentOrders         PaymentOrder[]
   supportConversations  SupportConversation[]
   securityEvents        SecurityEvent[]
   wallets               Wallet[]
   creatorApplications   CreatorApplication[]
   partnerApplications   PartnerApplication[]
   userTitles            UserTitle[]
+  payments             Payment[]
+  paymentHistory        PaymentHistory[]
 
   @@map("profiles")
 }
@@ -218,19 +219,18 @@ model ListeningSession {
 // -----------------------------------------------------------------------------
 
 model SubscriptionPlan {
-  id            String   @id
-  name          String
+  id            String   @id @default(cuid())
   code          String   @unique
-  description   String?
+  name          String
   price         Float
   durationDays  Int
+  benefits      String[]
   isActive      Boolean  @default(true)
-  features      String[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   userSubscriptions UserSubscription[]
-  paymentPackages   PaymentPackage[]
+  payments          Payment[]
 
   @@map("subscription_plans")
 }
@@ -241,18 +241,52 @@ model UserSubscription {
   profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
   planId        String?
   plan          SubscriptionPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
-  membershipTier String   @default("FREE")
-  status        String   @default("ACTIVE")
-  startedAt     DateTime @default(now())
-  expiresAt     DateTime @default(now())
-  cancelledAt   DateTime?
-  autoRenew     Boolean  @default(false)
-  source        String?
-  version       Int      @default(0)
-  createdAt     DateTime @default(now())
+  status        String   @default("EXPIRED") // ACTIVE, EXPIRED, CANCELLED
+  startAt       DateTime?
+  endAt         DateTime?
   updatedAt     DateTime @updatedAt
 
   @@map("user_subscriptions")
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  orderCode     String   @unique
+  userId        String
+  profile       Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packageId     String
+  plan          SubscriptionPlan @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  planName      String
+  amount        Float
+  durationDays  Int
+  description   String
+  status        String   @default("PENDING") // PENDING, PAID, CANCELLED, EXPIRED, FAILED
+  checkoutUrl   String?
+  qrCode        String?
+  createdAt     DateTime @default(now())
+  paidAt        DateTime?
+  cancelledAt   DateTime?
+
+  @@index([userId])
+  @@index([orderCode])
+  @@map("payments")
+}
+
+model PaymentHistory {
+  id            String   @id @default(cuid())
+  userId        String
+  profile       Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentId     String
+  orderCode     String
+  type          String   @default("PREMIUM_PURCHASE")
+  amount        Float
+  packageId     String
+  status        String
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([orderCode])
+  @@map("payment_history")
 }
 
 model PremiumGrantLedger {
@@ -271,68 +305,6 @@ model PremiumGrantLedger {
   createdAt     DateTime @default(now())
 
   @@map("premium_grant_ledgers")
-}
-
-model PaymentPackage {
-  id            String   @id @default(cuid())
-  planId        String?
-  plan          SubscriptionPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
-  name          String
-  code          String   @unique
-  price         Float
-  currency      String   @default("VND")
-  isActive      Boolean  @default(true)
-  status        Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  paymentOrders PaymentOrder[]
-
-  @@map("payment_packages")
-}
-
-model PaymentOrder {
-  id            String   @id @default(cuid())
-  profileId     String
-  profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
-  packageId     String
-  package       PaymentPackage @relation(fields: [packageId], references: [id], onDelete: Restrict)
-  amount        Float
-  currency      String   @default("VND")
-  status        String   @default("PENDING")
-  paymentMethod String?
-  transactionId String?  @unique
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  transactions  Transaction[]
-
-  @@map("payment_orders")
-}
-
-model Transaction {
-  id            String   @id @default(cuid())
-  orderId       String
-  order         PaymentOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  gateway       String
-  gatewayTxId   String?
-  amount        Float
-  status        String   @default("SUCCESS")
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@map("transactions")
-}
-
-model WebhookEvent {
-  id            String   @id @default(cuid())
-  gateway       String
-  eventId       String   @unique
-  payload       String // JSON string
-  status        String   @default("PROCESSED")
-  createdAt     DateTime @default(now())
-
-  @@map("webhook_events")
 }
 
 // -----------------------------------------------------------------------------
@@ -585,4 +557,25 @@ model IdempotencyRecord {
 
   @@unique([actorId, operation, key])
   @@map("idempotency_records")
+}
+
+// -----------------------------------------------------------------------------
+// PAYMENT GATEWAY CONFIGURATION
+// -----------------------------------------------------------------------------
+
+model PayOSConfig {
+  id              String   @id @default(cuid())
+  clientId        String   @unique
+  clientSecret    String
+  isActive        Boolean  @default(true)
+  gatewayToken    String?  // JWT token from payment gateway (will be stored here)
+  tokenStatus     String   @default("NOT_CONFIGURED") // NOT_CONFIGURED, ACTIVE, EXPIRED, INVALID
+  lastValidatedAt DateTime?
+  lastValidatedBy String?  // Admin ID who last validated
+  isValid         Boolean  @default(false)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("payos_configs")
 }
