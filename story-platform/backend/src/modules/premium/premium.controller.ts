@@ -32,23 +32,23 @@ export class PremiumController {
     schema: {
       type: 'object',
       properties: {
-        packageId: {
+        packageCode: {
           type: 'string',
-          description: 'ID của gói Premium từ database',
-          example: 'clxxxxx',
+          description: 'Code của gói Premium (PREMIUM_MONTHLY, PREMIUM_QUARTERLY, v.v.)',
+          example: 'PREMIUM_MONTHLY',
         },
       },
-      required: ['packageId'],
+      required: ['packageCode'],
     },
   })
   @ApiResponse({ status: 200, description: 'Đã tạo yêu cầu thanh toán thành công' })
   @ApiResponse({ status: 404, description: 'Gói Premium không tồn tại' })
-  async createPayment(@Request() req, @Body() body: { packageId: string }) {
+  async createPayment(@Request() req, @Body() body: { packageCode: string }) {
     const userId = req.user?.sub || req.user?.id;
     if (!userId) {
       throw new Error('User ID not found in request');
     }
-    return this.premiumService.createPayment(userId, body.packageId, req.id);
+    return this.premiumService.createPayment(userId, body.packageCode, req.id);
   }
 
   /**

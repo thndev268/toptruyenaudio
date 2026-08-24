@@ -74,6 +74,10 @@ const ROUTE_LABELS: Record<string, BreadcrumbItem[]> = {
     { label: 'Tổng quan', path: '/admin/dashboard' },
     { label: 'Cài đặt và quản lý tính năng' },
   ],
+  '/admin/payos': [
+    { label: 'Tổng quan', path: '/admin/dashboard' },
+    { label: 'Cấu hình thanh toán PayOS' },
+  ],
   '/admin/profile': [
     { label: 'Tổng quan', path: '/admin/dashboard' },
     { label: 'Hồ sơ quản trị viên' },

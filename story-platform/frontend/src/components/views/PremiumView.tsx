@@ -11,13 +11,13 @@ import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 const PLANS: PremiumPlan[] = [
   {
     code: 'PREMIUM_MONTHLY',
-    name: 'Premium 1 tháng',
+    name: 'Premium Tháng',
     priceVnd: 59000,
     durationDays: 30,
   },
   {
     code: 'PREMIUM_QUARTERLY',
-    name: 'Premium 3 tháng',
+    name: 'Premium 3 Tháng',
     priceVnd: 150000,
     durationDays: 90,
     originalPriceVnd: 177000,
@@ -25,7 +25,7 @@ const PLANS: PremiumPlan[] = [
   },
   {
     code: 'PREMIUM_SEMIANNUAL',
-    name: 'Premium 6 tháng',
+    name: 'Premium 6 Tháng',
     priceVnd: 270000,
     durationDays: 180,
     originalPriceVnd: 354000,
@@ -34,7 +34,7 @@ const PLANS: PremiumPlan[] = [
   },
   {
     code: 'PREMIUM_ANNUAL',
-    name: 'Premium 1 năm',
+    name: 'Premium 12 Tháng',
     priceVnd: 480000,
     durationDays: 365,
     originalPriceVnd: 708000,
@@ -94,9 +94,17 @@ export const PremiumView: React.FC = () => {
       } else {
         alert(response.message || 'Không thể tạo thanh toán. Vui lòng thử lại.');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Payment creation error:', error);
-      alert('Có lỗi xảy ra khi tạo thanh toán. Vui lòng thử lại.');
+      if (error?.code === 'PAYOS_NOT_CONFIGURED') {
+        alert('Hệ thống thanh toán chưa được cấu hình. Vui lòng liên hệ quản trị viên.');
+      } else {
+        alert('Có lỗi xảy ra khi tạo thanh toán. Vui lòng thử lại.');
+      }
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
     } finally {
       setPaymentLoading(false);
     }
@@ -227,7 +235,7 @@ export const PremiumView: React.FC = () => {
                     </span>
                   </div>
                 )}
-                {plan.code === 'PREMIUM_SEMI_ANNUAL' && (
+                {plan.code === 'PREMIUM_SEMIANNUAL' && (
                   <p className="text-sm text-amber-600 dark:text-amber-400 mt-1 font-medium">Chỉ 45.000đ/tháng</p>
                 )}
                 {plan.code === 'PREMIUM_ANNUAL' && (

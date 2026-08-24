@@ -10,6 +10,7 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AccountStatus, AccountRole } from '../../common/enums';
 import { QueryUsersDto, UserMutationDto } from './dto/admin-users.dto';
 import { CreateGenreDto, UpdateGenreDto } from './dto/genre.dto';
+import { PayOSConfigDto } from './dto/payos-config.dto';
 
 @Injectable()
 export class AdminService {
@@ -716,5 +717,163 @@ export class AdminService {
       success: true,
       message: 'Đã thu hồi badge từ người dùng thành công',
     };
+  }
+
+  // PayOS Configuration Management
+  async getPayOSConfig() {
+    const config = await this.prisma.payOSConfig.findFirst({
+      where: { isActive: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    if (!config) {
+      return {
+        success: true,
+        data: null,
+        message: 'Chưa cấu hình PayOS',
+      };
+    }
+
+    // Return masked sensitive data
+    return {
+      success: true,
+      data: {
+        id: config.id,
+        clientId: config.clientId,
+        apiKey: this.maskSensitiveData(config.apiKey),
+        checksumKey: config.checksumKey ? this.maskSensitiveData(config.checksumKey) : null,
+        isActive: config.isActive,
+        configuredAt: config.configuredAt,
+        updatedAt: config.updatedAt,
+      },
+      message: 'Đã lấy cấu hình PayOS thành công',
+    };
+  }
+
+  async createPayOSConfig(adminId: string, dto: PayOSConfigDto, requestId?: string) {
+    // Deactivate existing configs
+    await this.prisma.payOSConfig.updateMany({
+      where: { isActive: true },
+      data: { isActive: false },
+    });
+
+    // Create new config
+    const config = await this.prisma.payOSConfig.create({
+      data: {
+        clientId: dto.clientId,
+        apiKey: dto.apiKey,
+        checksumKey: dto.checksumKey,
+        isActive: true,
+        configuredBy: adminId,
+      },
+    });
+
+    await this.auditLogsService.log({
+      performedByAdminId: adminId,
+      action: 'PAYOS_CONFIG_CREATED',
+      resource: 'PayOSConfig',
+      resourceId: config.id,
+      entityName: 'PayOS Configuration',
+      reason: 'Admin configured PayOS credentials',
+      requestId,
+    });
+
+    return {
+      success: true,
+      data: {
+        id: config.id,
+        clientId: config.clientId,
+        apiKey: this.maskSensitiveData(config.apiKey),
+        checksumKey: config.checksumKey ? this.maskSensitiveData(config.checksumKey) : null,
+        isActive: config.isActive,
+        configuredAt: config.configuredAt,
+      },
+      message: 'Đã cấu hình PayOS thành công',
+    };
+  }
+
+  async updatePayOSConfig(id: string, adminId: string, dto: PayOSConfigDto, requestId?: string) {
+    const existing = await this.prisma.payOSConfig.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'PAYOS_CONFIG_NOT_FOUND',
+        message: 'Không tìm thấy cấu hình PayOS.',
+      });
+    }
+
+    const updated = await this.prisma.payOSConfig.update({
+      where: { id },
+      data: {
+        clientId: dto.clientId,
+        apiKey: dto.apiKey,
+        checksumKey: dto.checksumKey,
+        updatedAt: new Date(),
+      },
+    });
+
+    await this.auditLogsService.log({
+      performedByAdminId: adminId,
+      action: 'PAYOS_CONFIG_UPDATED',
+      resource: 'PayOSConfig',
+      resourceId: id,
+      entityName: 'PayOS Configuration',
+      reason: 'Admin updated PayOS credentials',
+      requestId,
+    });
+
+    return {
+      success: true,
+      data: {
+        id: updated.id,
+        clientId: updated.clientId,
+        apiKey: this.maskSensitiveData(updated.apiKey),
+        checksumKey: updated.checksumKey ? this.maskSensitiveData(updated.checksumKey) : null,
+        isActive: updated.isActive,
+        updatedAt: updated.updatedAt,
+      },
+      message: 'Đã cập nhật cấu hình PayOS thành công',
+    };
+  }
+
+  async deletePayOSConfig(id: string, adminId: string, requestId?: string) {
+    const existing = await this.prisma.payOSConfig.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      throw new NotFoundException({
+        code: 'PAYOS_CONFIG_NOT_FOUND',
+        message: 'Không tìm thấy cấu hình PayOS.',
+      });
+    }
+
+    await this.prisma.payOSConfig.delete({
+      where: { id },
+    });
+
+    await this.auditLogsService.log({
+      performedByAdminId: adminId,
+      action: 'PAYOS_CONFIG_DELETED',
+      resource: 'PayOSConfig',
+      resourceId: id,
+      entityName: 'PayOS Configuration',
+      reason: 'Admin deleted PayOS credentials',
+      requestId,
+    });
+
+    return {
+      success: true,
+      message: 'Đã xóa cấu hình PayOS thành công',
+    };
+  }
+
+  private maskSensitiveData(data: string): string {
+    if (!data || data.length <= 8) {
+      return '****';
+    }
+    return data.substring(0, 4) + '****' + data.substring(data.length - 4);
   }
 }

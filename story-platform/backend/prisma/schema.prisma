@@ -558,3 +558,16 @@ model IdempotencyRecord {
   @@unique([actorId, operation, key])
   @@map("idempotency_records")
 }
+
+model PayOSConfig {
+  id          String   @id @default(cuid())
+  clientId    String   @unique
+  apiKey      String
+  checksumKey String?
+  isActive    Boolean  @default(true)
+  configuredBy String
+  configuredAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("payos_configs")
+}

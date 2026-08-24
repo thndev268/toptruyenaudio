@@ -25,6 +25,7 @@ import {
   Radio,
   ExternalLink,
   ShieldCheck,
+  CreditCard,
 } from 'lucide-react';
 import { FocusTrap } from '../../common/FocusTrap';
 import { OwnerAdminProfile } from '../../../types/admin';
@@ -57,7 +58,7 @@ export const AdminMobileMenu: React.FC<AdminMobileMenuProps> = ({
     community: false,
     operations: false,
     system: false,
-    settings: false,
+    settings: true,
   });
 
   // Lock body scroll when open
@@ -213,6 +214,11 @@ export const AdminMobileMenu: React.FC<AdminMobileMenuProps> = ({
           label: 'Cài đặt và quản lý tính năng',
           route: '/admin/settings',
           icon: Sliders,
+        },
+        {
+          label: 'Cấu hình thanh toán PayOS',
+          route: '/admin/payos',
+          icon: CreditCard,
         },
         {
           label: 'Hồ sơ quản trị viên',

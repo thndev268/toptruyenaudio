@@ -65,7 +65,7 @@ export class PremiumService {
    * Tạo payment request mới
    * Frontend chỉ gửi packageId, backend tự xác định giá và thời hạn từ database
    */
-  async createPayment(userId: string, packageId: string, requestId?: string) {
+  async createPayment(userId: string, packageCode: string, requestId?: string) {
     // 1. Xác thực user
     const user = await this.prisma.profile.findUnique({
       where: { id: userId },
@@ -74,9 +74,9 @@ export class PremiumService {
       throw new NotFoundException({ code: 'USER_NOT_FOUND', message: 'Không tìm thấy người dùng.' });
     }
 
-    // 2. Tìm SubscriptionPlan từ database
+    // 2. Tìm SubscriptionPlan từ database bằng code
     const plan = await this.prisma.subscriptionPlan.findUnique({
-      where: { id: packageId },
+      where: { code: packageCode },
     });
     if (!plan || !plan.isActive) {
       throw new NotFoundException({ code: 'PLAN_NOT_FOUND', message: 'Gói Premium không tồn tại hoặc đã bị vô hiệu hóa.' });
@@ -473,11 +473,24 @@ export class PremiumService {
   }
 
   private async callPayOSAPI(endpoint: string, data: any, method = 'POST'): Promise<any> {
+    // Get PayOS config from database
+    const payOSConfig = await this.prisma.payOSConfig.findFirst({
+      where: { isActive: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    if (!payOSConfig) {
+      throw new BadRequestException({ 
+        code: 'PAYOS_NOT_CONFIGURED', 
+        message: 'PayOS chưa được cấu hình. Vui lòng liên hệ quản trị viên.' 
+      });
+    }
+
     const url = `${this.payOSBaseUrl}${endpoint}`;
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'x-client-id': process.env.PAYOS_CLIENT_ID || '',
-      'x-api-key': process.env.PAYOS_API_KEY || '',
+      'x-client-id': payOSConfig.clientId,
+      'x-api-key': payOSConfig.apiKey,
     };
 
     const response = await fetch(url, {

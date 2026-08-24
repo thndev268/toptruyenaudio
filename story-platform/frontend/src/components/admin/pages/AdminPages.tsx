@@ -30,6 +30,7 @@ import { AuditLogsScreen } from '../screens/AuditLogsScreen';
 import { AdminProfileScreen } from '../screens/AdminProfileScreen';
 import { AdminBadgesScreen } from '../screens/AdminBadgesScreen';
 import { AdminBadgesPage } from './AdminBadgesPage';
+import { PayOSScreen } from '../screens/PayOSScreen';
 
 export { AdminBadgesPage };
 
@@ -388,3 +389,12 @@ export const AdminProfilePage: React.FC = () => {
 };
 
 export const AdminHonoraryTitlesPage = () => <AdminPageContainer><HonoraryTitlesScreen /></AdminPageContainer>;
+
+// 19. PayOS Configuration Page
+export const AdminPayOSPage: React.FC = () => {
+  return (
+    <AdminPageContainer>
+      <PayOSScreen />
+    </AdminPageContainer>
+  );
+};
