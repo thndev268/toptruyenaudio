@@ -217,6 +217,10 @@ export class PremiumService {
         where: { id: payment.id },
       });
 
+      if (!updatedPayment) {
+        throw new NotFoundException({ code: 'PAYMENT_NOT_FOUND', message: 'Không tìm thấy thanh toán.' });
+      }
+
       return {
         success: true,
         data: {
@@ -429,8 +433,8 @@ export class PremiumService {
    * Lấy subscription hiện tại của user
    */
   async getUserSubscription(userId: string) {
-    const subscription = await this.prisma.userSubscription.findUnique({
-      where: { userId },
+    const subscription = await this.prisma.userSubscription.findFirst({
+      where: { profileId: userId },
       include: {
         plan: true,
       },
@@ -470,10 +474,10 @@ export class PremiumService {
 
   private async callPayOSAPI(endpoint: string, data: any, method = 'POST'): Promise<any> {
     const url = `${this.payOSBaseUrl}${endpoint}`;
-    const headers = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'x-client-id': process.env.PAYOS_CLIENT_ID,
-      'x-api-key': process.env.PAYOS_API_KEY,
+      'x-client-id': process.env.PAYOS_CLIENT_ID || '',
+      'x-api-key': process.env.PAYOS_API_KEY || '',
     };
 
     const response = await fetch(url, {

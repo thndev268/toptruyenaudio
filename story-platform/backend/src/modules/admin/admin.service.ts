@@ -235,7 +235,7 @@ export class AdminService {
       await tx.listeningProgress.deleteMany({ where: { profileId: userId } });
       await tx.listeningSession.deleteMany({ where: { profileId: userId } });
       await tx.userSubscription.deleteMany({ where: { profileId: userId } });
-      await tx.paymentOrder.deleteMany({ where: { profileId: userId } });
+      await tx.payment.deleteMany({ where: { userId } });
       await tx.supportConversation.deleteMany({ where: { userId } });
       await tx.securityEvent.deleteMany({ where: { resolvedByAdminId: userId } });
       await tx.wallet.deleteMany({ where: { profileId: userId } });
@@ -472,9 +472,9 @@ export class AdminService {
           endAt: { gte: now },
         },
       }),
-      this.prisma.transaction.aggregate({
+      this.prisma.payment.aggregate({
         where: {
-          status: 'SUCCESS',
+          status: 'PAID',
           createdAt: { gte: dateFrom, lte: dateTo },
         },
         _sum: {
@@ -549,7 +549,7 @@ export class AdminService {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { updatedAt: 'desc' },
         skip,
         take: limit,
       }),
@@ -558,7 +558,7 @@ export class AdminService {
 
     // Get payment orders for revenue calculation
     const subscriptionIds = subscriptions.map(s => s.id);
-    const paymentOrders = await this.prisma.paymentOrder.findMany({
+    const paymentOrders = await this.prisma.payment.findMany({
       where: {
         // Note: This might need adjustment based on your actual data model
         // Assuming there's a relation between subscriptions and payments
@@ -567,13 +567,13 @@ export class AdminService {
 
     const formattedSubscriptions = subscriptions.map(sub => ({
       id: sub.id,
-      userName: sub.profile.displayName || sub.profile.email,
-      userEmail: sub.profile.email,
+      userName: sub.profile?.displayName || sub.profile?.email || 'Unknown',
+      userEmail: sub.profile?.email || 'unknown@example.com',
       planName: sub.plan?.name || 'Unknown Plan',
       amountVnd: sub.plan?.price || 0,
       paymentMethod: 'VietQR', // Default, could be enhanced
-      startedAt: sub.startedAt.toISOString().split('T')[0],
-      expiresAt: sub.expiresAt.toISOString().split('T')[0],
+      startedAt: sub.startAt ? sub.startAt.toISOString().split('T')[0] : 'N/A',
+      expiresAt: sub.endAt ? sub.endAt.toISOString().split('T')[0] : 'N/A',
       status: sub.status,
     }));
 

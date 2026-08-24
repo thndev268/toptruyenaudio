@@ -332,7 +332,7 @@ export class SubscriptionsService {
         entityName: user.displayName || undefined,
         reason,
         requestId,
-        metadata: { previousExpiresAt: previousExpiresAt.toISOString() },
+        metadata: { previousExpiresAt: previousExpiresAt ? previousExpiresAt.toISOString() : null },
       });
 
       const responsePayload = {
