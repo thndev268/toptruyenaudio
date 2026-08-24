@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, HttpException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
@@ -12,19 +12,35 @@ interface PayOSPaymentRequest {
 }
 
 interface PayOSPaymentResponse {
-  orderCode: number;
-  amount: number;
-  description: string;
-  qrCode: string;
-  checkoutUrl: string;
-  status: string;
+  error: number;
+  message: string;
+  data: {
+    bin: string;
+    accountNumber: string;
+    accountName: string;
+    amount: number;
+    description: string;
+    orderCode: number;
+    currency: string;
+    paymentLinkId: string;
+    status: string;
+    expiredAt: string | null;
+    checkoutUrl: string;
+    qrCode: string;
+  };
+  timestamp: string;
 }
 
 interface PayOSPaymentStatus {
-  orderCode: number;
-  amount: number;
-  status: string; // PENDING, PAID, CANCELLED, EXPIRED
-  transactionCode?: string;
+  error: number;
+  message: string;
+  data: {
+    orderCode: number;
+    amount: number;
+    status: string; // PENDING, PAID, CANCELLED, EXPIRED
+    transactionCode?: string;
+  };
+  timestamp: string;
 }
 
 @Injectable()
@@ -35,6 +51,33 @@ export class PremiumService {
     private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
   ) {}
+
+  /**
+   * Get JWT token from database (configured by admin)
+   * Admin manually logs into PayOS, gets token, and pastes it in admin panel
+   */
+  private async getPayOSToken(): Promise<string> {
+    // Get the active PayOS config from database
+    const config = await this.prisma.payOSConfig.findFirst({
+      where: { isActive: true },
+    });
+
+    if (!config || !config.gatewayToken) {
+      throw new BadRequestException({ 
+        code: 'PAYOS_TOKEN_NOT_CONFIGURED', 
+        message: 'PayOS Gateway Token chưa được cấu hình. Admin cần đăng nhập vào PayOS và dán token vào phần cấu hình thanh toán.' 
+      });
+    }
+
+    if (config.tokenStatus !== 'ACTIVE' || !config.isValid) {
+      throw new BadRequestException({ 
+        code: 'PAYOS_TOKEN_INVALID', 
+        message: 'PayOS Gateway Token không hợp lệ hoặc đã hết hạn. Admin cần cập nhật token mới.' 
+      });
+    }
+
+    return config.gatewayToken;
+  }
 
   /**
    * Lấy danh sách các gói Premium đang active
@@ -109,14 +152,14 @@ export class PremiumService {
         returnUrl: `${process.env.FRONTEND_URL}/premium/success`,
       };
 
-      const payOSResponse = await this.callPayOSAPI('/payment-requests', payOSRequest);
+      const payOSResponse = await this.callPayOSAPI('/api/v1/payment/create', payOSRequest);
 
       // 6. Cập nhật Payment với thông tin từ PayOS
       const updatedPayment = await this.prisma.payment.update({
         where: { id: payment.id },
         data: {
-          checkoutUrl: payOSResponse.checkoutUrl,
-          qrCode: payOSResponse.qrCode,
+          checkoutUrl: payOSResponse.data.checkoutUrl,
+          qrCode: payOSResponse.data.qrCode,
         },
       });
 
@@ -138,9 +181,9 @@ export class PremiumService {
           planName: updatedPayment.planName,
           amount: updatedPayment.amount,
           durationDays: updatedPayment.durationDays,
-          qrCode: updatedPayment.qrCode,
-          checkoutUrl: updatedPayment.checkoutUrl,
-          status: updatedPayment.status,
+          qrCode: payOSResponse.data.qrCode,
+          checkoutUrl: payOSResponse.data.checkoutUrl,
+          status: payOSResponse.data.status,
         },
         message: 'Đã tạo yêu cầu thanh toán thành công',
       };
@@ -149,7 +192,18 @@ export class PremiumService {
       await this.prisma.payment.delete({
         where: { id: payment.id },
       });
-      throw new BadRequestException({ code: 'PAYOS_ERROR', message: 'Không thể tạo yêu cầu thanh toán. Vui lòng thử lại.' });
+      
+      // Check if it's a specific PayOS error
+      if (error instanceof BadRequestException || error instanceof HttpException) {
+        throw error; // Re-throw specific errors
+      }
+      
+      console.error('PayOS API call failed:', error);
+      throw new BadRequestException({ 
+        code: 'PAYOS_ERROR', 
+        message: 'Không thể tạo yêu cầu thanh toán. Vui lòng thử lại.',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 
@@ -193,9 +247,9 @@ export class PremiumService {
       const payOSStatus = await this.getPayOSPaymentStatus(parseInt(orderCode));
 
       // 4. Nếu PayOS trả về PAID, xử lý business logic trong transaction
-      if (payOSStatus.status === 'PAID') {
+      if (payOSStatus.data.status === 'PAID') {
         await this.processSuccessfulPayment(payment, userId, requestId);
-      } else if (payOSStatus.status === 'CANCELLED') {
+      } else if (payOSStatus.data.status === 'CANCELLED') {
         await this.prisma.payment.update({
           where: { id: payment.id },
           data: {
@@ -203,7 +257,7 @@ export class PremiumService {
             cancelledAt: new Date(),
           },
         });
-      } else if (payOSStatus.status === 'EXPIRED') {
+      } else if (payOSStatus.data.status === 'EXPIRED') {
         await this.prisma.payment.update({
           where: { id: payment.id },
           data: {
@@ -225,12 +279,12 @@ export class PremiumService {
         success: true,
         data: {
           orderCode: updatedPayment.orderCode,
-          status: updatedPayment.status,
+          status: payOSStatus.data.status,
           planName: updatedPayment.planName,
           amount: updatedPayment.amount,
           paidAt: updatedPayment.paidAt,
         },
-        message: `Trạng thái thanh toán: ${updatedPayment.status}`,
+        message: `Trạng thái thanh toán: ${payOSStatus.data.status}`,
       };
     } catch (error) {
       throw new BadRequestException({ code: 'PAYOS_CHECK_ERROR', message: 'Không thể kiểm tra trạng thái thanh toán.' });
@@ -255,7 +309,7 @@ export class PremiumService {
 
     try {
       // Gọi PayOS để hủy
-      await this.callPayOSAPI(`/payment-requests/${parseInt(orderCode)}/cancel`, {}, 'PATCH');
+      await this.callPayOSAPI(`/api/v1/payment/${parseInt(orderCode)}/cancel`, {}, 'PATCH');
 
       // Cập nhật status
       await this.prisma.payment.update({
@@ -473,24 +527,13 @@ export class PremiumService {
   }
 
   private async callPayOSAPI(endpoint: string, data: any, method = 'POST'): Promise<any> {
-    // Get PayOS config from database
-    const payOSConfig = await this.prisma.payOSConfig.findFirst({
-      where: { isActive: true },
-      orderBy: { updatedAt: 'desc' },
-    });
-
-    if (!payOSConfig) {
-      throw new BadRequestException({ 
-        code: 'PAYOS_NOT_CONFIGURED', 
-        message: 'PayOS chưa được cấu hình. Vui lòng liên hệ quản trị viên.' 
-      });
-    }
+    // Get JWT token (cached server-side)
+    const token = await this.getPayOSToken();
 
     const url = `${this.payOSBaseUrl}${endpoint}`;
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'x-client-id': payOSConfig.clientId,
-      'x-api-key': payOSConfig.apiKey,
+      'Authorization': `Bearer ${token}`,
     };
 
     const response = await fetch(url, {
@@ -503,10 +546,190 @@ export class PremiumService {
       throw new Error(`PayOS API error: ${response.status}`);
     }
 
-    return response.json();
+    const result = await response.json();
+    
+    // Check if PayOS response has error field
+    if (result.error !== 0 && result.error !== undefined) {
+      throw new Error(`PayOS API error: ${result.message || 'Unknown error'}`);
+    }
+    
+    return result;
   }
 
   private async getPayOSPaymentStatus(orderCode: number): Promise<PayOSPaymentStatus> {
-    return this.callPayOSAPI(`/payment-requests/${orderCode}`, {}, 'GET');
+    return this.callPayOSAPI(`/api/v1/payment/${orderCode}/status`, {}, 'GET');
+  }
+
+  /**
+   * Kiểm tra trạng thái cổng thanh toán PayOS
+   * Dùng cho admin dashboard để kiểm tra xem token có cấu hình và gateway có reachable không
+   */
+  async getGatewayStatus() {
+    const config = await this.prisma.payOSConfig.findFirst({
+      where: { isActive: true },
+    });
+
+    const configured = !!(config && config.gatewayToken);
+    let reachable = false;
+    let tokenStatus = 'NOT_CONFIGURED';
+    let lastCheckedAt: string | null = null;
+
+    if (configured && config && config.gatewayToken) {
+      tokenStatus = config.tokenStatus;
+      lastCheckedAt = config.lastValidatedAt?.toISOString() || null;
+      
+      if (config.tokenStatus === 'ACTIVE' && config.isValid) {
+        try {
+          // Test token by making a simple call to gateway
+          await this.testGatewayToken(config.gatewayToken);
+          reachable = true;
+        } catch (error) {
+          reachable = false;
+          // Update status if token is invalid
+          await this.prisma.payOSConfig.update({
+            where: { id: config.id },
+            data: { isValid: false, tokenStatus: 'INVALID' },
+          });
+        }
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        configured,
+        reachable,
+        tokenStatus,
+        lastCheckedAt,
+      },
+    };
+  }
+
+  /**
+   * Admin lưu Gateway Token vào database
+   */
+  async saveGatewayToken(token: string, adminId: string) {
+    // Delete existing config if any
+    await this.prisma.payOSConfig.deleteMany();
+
+    // Test token validity before saving
+    const isValid = await this.testGatewayToken(token);
+
+    // Create new config
+    const config = await this.prisma.payOSConfig.create({
+      data: {
+        clientId: 'MANUAL_CONFIG', // Placeholder since we're using token directly
+        clientSecret: 'MANUAL_CONFIG', // Placeholder
+        gatewayToken: token,
+        tokenStatus: isValid ? 'ACTIVE' : 'INVALID',
+        isValid: isValid,
+        lastValidatedAt: new Date(),
+        lastValidatedBy: adminId,
+        isActive: true,
+      },
+    });
+
+    // Log audit
+    await this.auditLogsService.log({
+      performedByAdminId: adminId,
+      action: 'PAYOS_TOKEN_CONFIGURED',
+      resource: 'PayOSConfig',
+      resourceId: config.id,
+      entityName: 'PayOS Gateway Token',
+      reason: isValid ? 'Token hợp lệ đã được cấu hình' : 'Token không hợp lệ nhưng đã được lưu',
+    });
+
+    return {
+      success: true,
+      data: {
+        id: config.id,
+        tokenStatus: config.tokenStatus,
+        isValid: config.isValid,
+        lastValidatedAt: config.lastValidatedAt?.toISOString() || null,
+      },
+      message: isValid ? 'Đã lưu Gateway Token thành công' : 'Đã lưu token nhưng token không hợp lệ',
+    };
+  }
+
+  /**
+   * Test validity of a gateway token
+   */
+  private async testGatewayToken(token: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.payOSBaseUrl}/api/v1/payment/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          orderCode: 999999999999, // Test order code
+          amount: 1,
+          description: 'TEST_TOKEN_VALIDITY',
+          cancelUrl: 'https://test.com/cancel',
+          returnUrl: 'https://test.com/success',
+        }),
+      });
+
+      // If we get 401, token is invalid/expired
+      if (response.status === 401) {
+        return false;
+      }
+
+      // Other errors might still mean token is valid (e.g., validation errors)
+      return true;
+    } catch (error) {
+      console.error('Error testing gateway token:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Admin test current gateway token
+   */
+  async testCurrentGatewayToken(adminId: string) {
+    const config = await this.prisma.payOSConfig.findFirst({
+      where: { isActive: true },
+    });
+
+    if (!config || !config.gatewayToken) {
+      throw new BadRequestException({ 
+        code: 'PAYOS_TOKEN_NOT_CONFIGURED', 
+        message: 'Chưa cấu hình Gateway Token' 
+      });
+    }
+
+    const isValid = await this.testGatewayToken(config.gatewayToken);
+
+    // Update config status
+    await this.prisma.payOSConfig.update({
+      where: { id: config.id },
+      data: {
+        isValid: isValid,
+        tokenStatus: isValid ? 'ACTIVE' : 'INVALID',
+        lastValidatedAt: new Date(),
+        lastValidatedBy: adminId,
+      },
+    });
+
+    // Log audit
+    await this.auditLogsService.log({
+      performedByAdminId: adminId,
+      action: 'PAYOS_TOKEN_TESTED',
+      resource: 'PayOSConfig',
+      resourceId: config.id,
+      entityName: 'PayOS Gateway Token',
+      reason: isValid ? 'Token hợp lệ' : 'Token không hợp lệ',
+    });
+
+    return {
+      success: true,
+      data: {
+        isValid,
+        tokenStatus: isValid ? 'ACTIVE' : 'INVALID',
+        lastValidatedAt: new Date().toISOString(),
+      },
+      message: isValid ? 'Gateway Token hợp lệ' : 'Gateway Token không hợp lệ hoặc đã hết hạn',
+    };
   }
 }

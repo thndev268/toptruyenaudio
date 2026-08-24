@@ -559,15 +559,23 @@ model IdempotencyRecord {
   @@map("idempotency_records")
 }
 
+// -----------------------------------------------------------------------------
+// PAYMENT GATEWAY CONFIGURATION
+// -----------------------------------------------------------------------------
+
 model PayOSConfig {
-  id          String   @id @default(cuid())
-  clientId    String   @unique
-  apiKey      String
-  checksumKey String?
-  isActive    Boolean  @default(true)
-  configuredBy String
-  configuredAt DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              String   @id @default(cuid())
+  clientId        String   @unique
+  clientSecret    String
+  isActive        Boolean  @default(true)
+  gatewayToken    String?  // JWT token from payment gateway (will be stored here)
+  tokenStatus     String   @default("NOT_CONFIGURED") // NOT_CONFIGURED, ACTIVE, EXPIRED, INVALID
+  lastValidatedAt DateTime?
+  lastValidatedBy String?  // Admin ID who last validated
+  isValid         Boolean  @default(false)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@map("payos_configs")
 }

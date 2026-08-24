@@ -18,7 +18,6 @@ import { Request, Response } from 'express';
 import { AdminService } from './admin.service';
 import { QueryUsersDto, UserMutationDto } from './dto/admin-users.dto';
 import { CreateGenreDto, UpdateGenreDto } from './dto/genre.dto';
-import { PayOSConfigDto } from './dto/payos-config.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -241,47 +240,5 @@ export class AdminController {
   @ApiOperation({ summary: 'Thu hồi badge từ người dùng' })
   async revokeBadgeFromUser(@Param('badgeId') badgeId: string, @Param('userId') userId: string) {
     return this.adminService.revokeBadgeFromUser(badgeId, userId);
-  }
-
-  // PayOS Configuration Management
-  @Get('payos-config')
-  @SkipThrottle()
-  @ApiOperation({ summary: 'Lấy cấu hình PayOS hiện tại' })
-  async getPayOSConfig() {
-    return this.adminService.getPayOSConfig();
-  }
-
-  @Post('payos-config')
-  @ApiOperation({ summary: 'Tạo cấu hình PayOS mới' })
-  async createPayOSConfig(
-    @CurrentUser('id') adminId: string,
-    @Body() dto: PayOSConfigDto,
-    @Req() req: Request,
-  ) {
-    const requestId = (req.headers['x-request-id'] as string) || (req as any).id;
-    return this.adminService.createPayOSConfig(adminId, dto, requestId);
-  }
-
-  @Put('payos-config/:id')
-  @ApiOperation({ summary: 'Cập nhật cấu hình PayOS' })
-  async updatePayOSConfig(
-    @Param('id') id: string,
-    @CurrentUser('id') adminId: string,
-    @Body() dto: PayOSConfigDto,
-    @Req() req: Request,
-  ) {
-    const requestId = (req.headers['x-request-id'] as string) || (req as any).id;
-    return this.adminService.updatePayOSConfig(id, adminId, dto, requestId);
-  }
-
-  @Delete('payos-config/:id')
-  @ApiOperation({ summary: 'Xóa cấu hình PayOS' })
-  async deletePayOSConfig(
-    @Param('id') id: string,
-    @CurrentUser('id') adminId: string,
-    @Req() req: Request,
-  ) {
-    const requestId = (req.headers['x-request-id'] as string) || (req as any).id;
-    return this.adminService.deletePayOSConfig(id, adminId, requestId);
   }
 }

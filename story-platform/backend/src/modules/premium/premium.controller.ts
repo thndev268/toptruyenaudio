@@ -114,4 +114,58 @@ export class PremiumController {
     }
     return this.premiumService.getUserSubscription(userId);
   }
+
+  /**
+   * Kiểm tra trạng thái cổng thanh toán PayOS (Admin only)
+   * Endpoint này kiểm tra xem token có cấu hình và gateway có reachable không
+   */
+  @Get('gateway/status')
+  @ApiOperation({ summary: 'Kiểm tra trạng thái cổng thanh toán PayOS' })
+  @ApiResponse({ status: 200, description: 'Kiểm tra trạng thái thành công' })
+  async getGatewayStatus() {
+    return this.premiumService.getGatewayStatus();
+  }
+
+  /**
+   * Lưu Gateway Token (Admin only)
+   * Admin dán token từ PayOS vào đây
+   */
+  @Post('gateway/token')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Lưu Gateway Token PayOS' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        token: {
+          type: 'string',
+          description: 'JWT Token từ PayOS Gateway',
+        },
+      },
+      required: ['token'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Lưu token thành công' })
+  async saveGatewayToken(@Request() req, @Body() body: { token: string }) {
+    const adminId = req.user?.sub || req.user?.id;
+    if (!adminId) {
+      throw new Error('Admin ID not found in request');
+    }
+    return this.premiumService.saveGatewayToken(body.token, adminId);
+  }
+
+  /**
+   * Test Gateway Token hiện tại (Admin only)
+   */
+  @Post('gateway/token/test')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Test Gateway Token hiện tại' })
+  @ApiResponse({ status: 200, description: 'Test token thành công' })
+  async testCurrentGatewayToken(@Request() req) {
+    const adminId = req.user?.sub || req.user?.id;
+    if (!adminId) {
+      throw new Error('Admin ID not found in request');
+    }
+    return this.premiumService.testCurrentGatewayToken(adminId);
+  }
 }

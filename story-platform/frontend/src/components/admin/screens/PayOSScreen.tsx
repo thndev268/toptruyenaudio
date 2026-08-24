@@ -1,291 +1,348 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   CreditCard,
-  Settings,
-  Eye,
-  EyeOff,
   CheckCircle2,
-  AlertCircle,
-  Save,
+  XCircle,
+  AlertTriangle,
   RefreshCw,
-  Trash2,
+  ShieldCheck,
+  Info,
+  Save,
+  Key,
 } from 'lucide-react';
 import { apiRequest } from '../../../services/apiClient';
+import { useToast } from '../../../context/ToastContext';
 
-interface PayOSConfig {
-  id?: string;
-  clientId: string;
-  apiKey: string;
-  checksumKey?: string;
-  isActive: boolean;
-  configuredAt?: string;
-  updatedAt?: string;
+/**
+ * Kiểu trả về từ backend khi kiểm tra trạng thái cổng thanh toán.
+ * Backend đọc Gateway Token từ database — frontend
+ * KHÔNG bao giờ nhận, hiển thị hay nhập token cũ.
+ */
+interface GatewayStatus {
+  configured: boolean;   // Gateway Token có tồn tại không
+  reachable: boolean;    // Có kết nối được tới pay-8dip.onrender.com không
+  tokenStatus: string;   // NOT_CONFIGURED, ACTIVE, EXPIRED, INVALID
+  lastCheckedAt: string | null;
 }
 
-export const PayOSScreen: React.FC = () => {
-  const [config, setConfig] = useState<PayOSConfig | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [showApiKeys, setShowApiKeys] = useState(false);
-  const [formData, setFormData] = useState({
-    clientId: '',
-    apiKey: '',
-    checksumKey: '',
-  });
+type CheckState = 'idle' | 'loading' | 'success' | 'error';
+type SaveState = 'idle' | 'saving' | 'success' | 'error';
 
-  useEffect(() => {
-    fetchConfig();
+export const PayOSScreen: React.FC = () => {
+  const { showToast } = useToast();
+  const [status, setStatus] = useState<GatewayStatus | null>(null);
+  const [checkState, setCheckState] = useState<CheckState>('idle');
+  const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [tokenInput, setTokenInput] = useState('');
+
+  const fetchStatus = useCallback(async () => {
+    setCheckState('loading');
+    try {
+      const res = await apiRequest<{ success: boolean; data: GatewayStatus }>(
+        '/premium/gateway/status',
+      );
+      if (res?.success && res.data) {
+        setStatus(res.data);
+        setCheckState('success');
+      } else {
+        setCheckState('error');
+      }
+    } catch {
+      setCheckState('error');
+    }
   }, []);
 
-  const fetchConfig = async () => {
+  useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
+
+  const handleRecheck = async () => {
+    await fetchStatus();
+    showToast('info', 'Đã kiểm tra lại', 'Đã cập nhật trạng thái cổng thanh toán.');
+  };
+
+  const handleTestToken = async () => {
     try {
-      setLoading(true);
-      const response = await apiRequest<{ success: boolean; data: PayOSConfig | null; message: string }>('/admin/payos-config');
-      if (response?.data) {
-        setConfig(response.data);
-        setFormData({
-          clientId: response.data.clientId || '',
-          apiKey: response.data.apiKey || '',
-          checksumKey: response.data.checksumKey || '',
-        });
+      const res = await apiRequest<{ success: boolean; data: any; message: string }>(
+        '/premium/gateway/token/test',
+        {
+          method: 'POST',
+        },
+      );
+      if (res?.success) {
+        showToast('success', 'Kiểm tra token', res.message);
+        await fetchStatus(); // Refresh status
       }
-    } catch (error) {
-      console.error('Failed to fetch PayOS config:', error);
-    } finally {
-      setLoading(false);
+    } catch (error: any) {
+      showToast('error', 'Lỗi kiểm tra', error.message || 'Không thể kiểm tra token');
     }
   };
 
-  const handleSave = async () => {
-    if (!formData.clientId || !formData.apiKey) {
-      alert('Vui lòng nhập Client ID và API Key');
+  const handleSaveToken = async () => {
+    if (!tokenInput.trim()) {
+      showToast('error', 'Lỗi', 'Vui lòng nhập Gateway Token');
       return;
     }
 
-    setSaving(true);
+    setSaveState('saving');
     try {
-      const endpoint = config?.id ? `/admin/payos-config/${config.id}` : '/admin/payos-config';
-      const method = config?.id ? 'PUT' : 'POST';
-      
-      const response = await apiRequest(endpoint, {
-        method,
-        body: JSON.stringify(formData),
-      });
-
-      if (response?.success) {
-        alert('Đã lưu cấu hình PayOS thành công');
-        await fetchConfig();
+      const res = await apiRequest<{ success: boolean; data: any; message: string }>(
+        '/premium/gateway/token',
+        {
+          method: 'POST',
+          body: JSON.stringify({ token: tokenInput.trim() }),
+        },
+      );
+      if (res?.success) {
+        showToast('success', 'Lưu token thành công', res.message);
+        setTokenInput(''); // Clear input after save
+        await fetchStatus(); // Refresh status
+        setSaveState('success');
       }
-    } catch (error) {
-      console.error('Failed to save PayOS config:', error);
-      alert('Không thể lưu cấu hình PayOS. Vui lòng thử lại.');
-    } finally {
-      setSaving(false);
+    } catch (error: any) {
+      showToast('error', 'Lỗi lưu token', error.message || 'Không thể lưu token');
+      setSaveState('error');
     }
   };
 
-  const handleDelete = async () => {
-    if (!config?.id) return;
-    
-    if (!confirm('Bạn có chắc chắn muốn xóa cấu hình PayOS? Hành động này sẽ làm hệ thống thanh toán không hoạt động.')) {
-      return;
+  /* ─── helpers ─── */
+  const dot = (ok: boolean) =>
+    ok ? (
+      <span className="flex items-center gap-1.5 text-green-400 text-sm font-semibold">
+        <CheckCircle2 className="w-4 h-4 shrink-0" /> Hoạt động
+      </span>
+    ) : (
+      <span className="flex items-center gap-1.5 text-rose-400 text-sm font-semibold">
+        <XCircle className="w-4 h-4 shrink-0" /> Không khả dụng
+      </span>
+    );
+
+  const tokenStatusBadge = (status: string) => {
+    switch (status) {
+      case 'ACTIVE':
+        return <span className="px-2 py-1 bg-green-500/10 text-green-400 text-xs font-semibold rounded-full">Đang hoạt động</span>;
+      case 'EXPIRED':
+        return <span className="px-2 py-1 bg-amber-500/10 text-amber-400 text-xs font-semibold rounded-full">Đã hết hạn</span>;
+      case 'INVALID':
+        return <span className="px-2 py-1 bg-rose-500/10 text-rose-400 text-xs font-semibold rounded-full">Không hợp lệ</span>;
+      default:
+        return <span className="px-2 py-1 bg-slate-500/10 text-slate-400 text-xs font-semibold rounded-full">Chưa cấu hình</span>;
     }
-
-    try {
-      const response = await apiRequest(`/admin/payos-config/${config.id}`, {
-        method: 'DELETE',
-      });
-
-      if (response?.success) {
-        alert('Đã xóa cấu hình PayOS thành công');
-        setConfig(null);
-        setFormData({ clientId: '', apiKey: '', checksumKey: '' });
-      }
-    } catch (error) {
-      console.error('Failed to delete PayOS config:', error);
-      alert('Không thể xóa cấu hình PayOS. Vui lòng thử lại.');
-    }
-  };
-
-  const maskValue = (value: string) => {
-    if (!value || value.length <= 8) return '****';
-    return value.substring(0, 4) + '****' + value.substring(value.length - 4);
   };
 
   return (
-    <div className="space-y-5 animate-fadeIn">
+    <div className="space-y-6 max-w-2xl">
       {/* Header */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-            <CreditCard className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black text-white">
-              Cấu Hình Thanh Toán PayOS
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-400">
-              Quản lý thông tin xác thực với cổng thanh toán PayOS
-            </p>
-          </div>
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+          <CreditCard className="w-5 h-5 text-amber-400" />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-white">Cấu hình Thanh Toán PayOS</h2>
+          <p className="text-xs text-slate-400">
+            Quản lý Gateway Token — Admin tự đăng nhập vào PayOS và dán token vào đây.
+          </p>
         </div>
       </div>
 
-      {/* Configuration Form */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Settings className="w-4 h-4 text-slate-400" />
-            <span className="text-sm font-bold text-slate-300">
-              {config ? 'Cập nhật cấu hình' : 'Tạo cấu hình mới'}
-            </span>
-          </div>
-          <button
-            onClick={fetchConfig}
-            disabled={loading}
-            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
+      {/* Security notice */}
+      <div className="flex items-start gap-3 bg-blue-500/5 border border-blue-500/20 rounded-2xl p-4">
+        <ShieldCheck className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+        <p className="text-xs text-slate-300 leading-relaxed">
+          <span className="font-semibold text-blue-300">Bảo mật:</span> Admin tự đăng nhập vào{' '}
+          <a href="https://pay-8dip.onrender.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 underline">
+            PayOS Gateway
+          </a>{' '}
+          để lấy JWT Token, sau đó dán vào ô dưới đây. Token được lưu an toàn trong database
+          backend và không bao giờ hiển thị lại. Frontend không lưu trữ token.
+        </p>
+      </div>
+
+      {/* Token Input Card */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Key className="w-4 h-4 text-amber-400" />
+          <h3 className="text-sm font-bold text-slate-200">Cấu hình Gateway Token</h3>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Status Indicator */}
-          {config ? (
-            <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4">
-              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-              <div>
-                <div className="text-sm font-bold text-emerald-300">Đã cấu hình</div>
-                <div className="text-xs text-emerald-400/70">
-                  Cập nhật lần cuối: {new Date(config.updatedAt || '').toLocaleString('vi-VN')}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/30 rounded-xl p-4">
-              <AlertCircle className="w-5 h-5 text-amber-400" />
-              <div>
-                <div className="text-sm font-bold text-amber-300">Chưa cấu hình</div>
-                <div className="text-xs text-amber-400/70">
-                  Hệ thống thanh toán sẽ không hoạt động cho đến khi cấu hình
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Form Fields */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-bold text-slate-300 mb-2">
-                Client ID
-              </label>
-              <input
-                type="text"
-                value={formData.clientId}
-                onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
-                placeholder="Nhập Client ID từ PayOS"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-slate-300 mb-2">
-                API Key
-              </label>
-              <div className="relative">
-                <input
-                  type={showApiKeys ? 'text' : 'password'}
-                  value={formData.apiKey}
-                  onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
-                  placeholder="Nhập API Key từ PayOS"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors pr-12"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowApiKeys(!showApiKeys)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
-                >
-                  {showApiKeys ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-slate-300 mb-2">
-                Checksum Key (Optional)
-              </label>
-              <div className="relative">
-                <input
-                  type={showApiKeys ? 'text' : 'password'}
-                  value={formData.checksumKey}
-                  onChange={(e) => setFormData({ ...formData, checksumKey: e.target.value })}
-                  placeholder="Nhập Checksum Key từ PayOS (nếu có)"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors pr-12"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowApiKeys(!showApiKeys)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
-                >
-                  {showApiKeys ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">
+              Gateway Token (JWT từ PayOS)
+            </label>
+            <textarea
+              value={tokenInput}
+              onChange={(e) => setTokenInput(e.target.value)}
+              placeholder="Dán JWT Token từ PayOS Gateway vào đây..."
+              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 resize-none h-24"
+              disabled={saveState === 'saving'}
+            />
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t border-slate-800">
+          <div className="flex items-center gap-2">
             <button
-              onClick={handleSave}
-              disabled={saving || !formData.clientId || !formData.apiKey}
-              className="flex-1 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-h-[44px]"
+              onClick={handleSaveToken}
+              disabled={saveState === 'saving' || !tokenInput.trim()}
+              className="flex items-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {saving ? (
+              {saveState === 'saving' ? (
                 <>
-                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                   Đang lưu...
                 </>
               ) : (
                 <>
-                  <Save className="w-4 h-4" />
-                  {config ? 'Cập nhật cấu hình' : 'Lưu cấu hình'}
+                  <Save className="w-3.5 h-3.5" />
+                  Lưu Token
                 </>
               )}
             </button>
 
-            {config && (
+            {status?.configured && (
               <button
-                onClick={handleDelete}
-                className="px-4 py-3 bg-red-500/10 text-red-400 border border-red-500/30 text-sm font-bold rounded-xl hover:bg-red-500/20 transition-colors min-h-[44px]"
+                onClick={handleTestToken}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-750 text-slate-200 text-xs font-semibold rounded-xl transition-colors"
               >
-                <Trash2 className="w-4 h-4" />
+                <RefreshCw className="w-3.5 h-3.5" />
+                Kiểm tra Token
               </button>
             )}
           </div>
         </div>
+
+        {saveState === 'success' && (
+          <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-xl p-3 text-green-400 text-xs">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            Đã lưu Gateway Token thành công.
+          </div>
+        )}
+
+        {saveState === 'error' && (
+          <div className="flex items-center gap-2 bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 text-rose-400 text-xs">
+            <XCircle className="w-4 h-4 shrink-0" />
+            Không thể lưu Gateway Token. Vui lòng thử lại.
+          </div>
+        )}
       </div>
 
-      {/* Instructions */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-        <h3 className="text-lg font-bold text-white mb-4">Hướng dẫn lấy thông tin PayOS</h3>
-        <ol className="space-y-3 text-sm text-slate-300">
-          <li className="flex gap-3">
-            <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-xs shrink-0">1</span>
-            <span>Đăng nhập vào tài khoản PayOS tại <a href="https://payos.vn" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">payos.vn</a></span>
-          </li>
-          <li className="flex gap-3">
-            <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-xs shrink-0">2</span>
-            <span>Đi đến mục API Keys hoặc Integration trong cài đặt</span>
-          </li>
-          <li className="flex gap-3">
-            <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-xs shrink-0">3</span>
-            <span>Sao chép Client ID, API Key và Checksum Key (nếu có)</span>
-          </li>
-          <li className="flex gap-3">
-            <span className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-xs shrink-0">4</span>
-            <span>Dán thông tin vào form trên và lưu cấu hình</span>
-          </li>
-        </ol>
+      {/* Status card */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-5">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-bold text-slate-200">Trạng thái hiện tại</span>
+          <button
+            onClick={handleRecheck}
+            disabled={checkState === 'loading'}
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${checkState === 'loading' ? 'animate-spin' : ''}`} />
+            Kiểm tra lại
+          </button>
+        </div>
+
+        {checkState === 'loading' && (
+          <div className="flex items-center gap-2 text-slate-400 text-sm py-4 justify-center">
+            <RefreshCw className="w-4 h-4 animate-spin" />
+            Đang kiểm tra kết nối...
+          </div>
+        )}
+
+        {checkState === 'error' && (
+          <div className="flex items-center gap-2 bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 text-rose-400 text-xs">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            Không thể lấy trạng thái từ backend. Vui lòng thử lại.
+          </div>
+        )}
+
+        {checkState === 'success' && status && (
+          <div className="divide-y divide-slate-800">
+            {/* Token configured */}
+            <div className="flex items-center justify-between py-3">
+              <div>
+                <p className="text-sm text-slate-300 font-medium">Gateway Token</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Token đã được cấu hình bởi Admin
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {tokenStatusBadge(status.tokenStatus)}
+                {dot(status.configured)}
+              </div>
+            </div>
+
+            {/* Reachable */}
+            <div className="flex items-center justify-between py-3">
+              <div>
+                <p className="text-sm text-slate-300 font-medium">Kết nối cổng thanh toán</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  pay-8dip.onrender.com
+                </p>
+              </div>
+              {dot(status.reachable)}
+            </div>
+
+            {/* Last checked */}
+            <div className="flex items-center justify-between py-3">
+              <p className="text-sm text-slate-400">Lần kiểm tra cuối</p>
+              <span className="text-xs text-slate-500">
+                {status.lastCheckedAt
+                  ? new Date(status.lastCheckedAt).toLocaleString('vi-VN')
+                  : '—'}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Overall badge */}
+      {checkState === 'success' && status && (
+        <div
+          className={`flex items-center gap-3 rounded-2xl px-5 py-4 border ${
+            status.configured && status.reachable && status.tokenStatus === 'ACTIVE'
+              ? 'bg-green-500/5 border-green-500/20'
+              : 'bg-rose-500/5 border-rose-500/20'
+          }`}
+        >
+          {status.configured && status.reachable && status.tokenStatus === 'ACTIVE' ? (
+            <CheckCircle2 className="w-6 h-6 text-green-400 shrink-0" />
+          ) : (
+            <AlertTriangle className="w-6 h-6 text-amber-400 shrink-0" />
+          )}
+          <div>
+            <p
+              className={`text-sm font-bold ${
+                status.configured && status.reachable && status.tokenStatus === 'ACTIVE'
+                  ? 'text-green-300'
+                  : 'text-amber-300'
+              }`}
+            >
+              {status.configured && status.reachable && status.tokenStatus === 'ACTIVE'
+                ? 'Cổng thanh toán đang hoạt động bình thường'
+                : 'Cổng thanh toán chưa sẵn sàng'}
+            </p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {status.configured && status.reachable && status.tokenStatus === 'ACTIVE'
+                ? 'User có thể thực hiện thanh toán Premium.'
+                : status.tokenStatus === 'EXPIRED'
+                ? 'Gateway Token đã hết hạn. Admin cần cập nhật token mới.'
+                : status.tokenStatus === 'INVALID'
+                ? 'Gateway Token không hợp lệ. Admin cần kiểm tra lại.'
+                : 'Chưa cấu hình Gateway Token. Admin cần đăng nhập vào PayOS và dán token.'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Info footer */}
+      <div className="flex items-start gap-2 text-xs text-slate-500">
+        <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+        <p>
+          <strong>Hướng dẫn:</strong> Truy cập{' '}
+          <a href="https://pay-8dip.onrender.com" target="_blank" rel="noopener noreferrer" className="text-amber-400 underline">
+            PayOS Gateway
+          </a>
+          , đăng nhập tài khoản, copy JWT Token và dán vào ô trên. Token được lưu an toàn
+          trong database backend. Nếu token hết hạn (401 error), Admin cần lấy token mới và cập nhật.
+        </p>
       </div>
     </div>
   );

@@ -26,11 +26,11 @@ import { ServiceHealthScreen } from '../screens/ServiceHealthScreen';
 import { SecurityAlertsScreen } from '../screens/SecurityAlertsScreen';
 import { FeatureFlagsScreen } from '../screens/FeatureFlagsScreen';
 import { ZaloSettingsScreen } from '../screens/ZaloSettingsScreen';
+import { PayOSScreen } from '../screens/PayOSScreen';
 import { AuditLogsScreen } from '../screens/AuditLogsScreen';
 import { AdminProfileScreen } from '../screens/AdminProfileScreen';
 import { AdminBadgesScreen } from '../screens/AdminBadgesScreen';
 import { AdminBadgesPage } from './AdminBadgesPage';
-import { PayOSScreen } from '../screens/PayOSScreen';
 
 export { AdminBadgesPage };
 
