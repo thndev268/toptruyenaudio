@@ -105,10 +105,6 @@ export const PremiumView: React.FC = () => {
       setPaymentLoading(false);
     }
   };
-    } finally {
-      setPaymentLoading(false);
-    }
-  };
 
   const startPaymentStatusCheck = (orderCode: string) => {
     // Check payment status every 3 seconds
