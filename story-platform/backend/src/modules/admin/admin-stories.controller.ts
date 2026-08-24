@@ -297,6 +297,7 @@ export class AdminStoriesController {
       const storyWithGenres = await this.prisma.story.findUnique({
         where: { id: story.id },
         include: {
+          chapters: true,
           genres: {
             include: {
               genre: true,
@@ -586,6 +587,76 @@ export class AdminStoriesController {
       throw new BadRequestException({
         code: 'DELETE_STORY_ERROR',
         message: error.message || 'Lỗi khi xóa truyện',
+      });
+    }
+  }
+
+  @Delete(':storyId/chapters/:chapterId')
+  @ApiOperation({ summary: 'Xóa một chapter' })
+  async deleteChapter(@Param('storyId') storyId: string, @Param('chapterId') chapterId: string) {
+    try {
+      // Check if chapter exists
+      const chapter = await this.prisma.chapter.findUnique({ where: { id: chapterId } });
+      if (!chapter) {
+        throw new NotFoundException({
+          code: 'CHAPTER_NOT_FOUND',
+          message: `Không tìm thấy chapter với ID: ${chapterId}`,
+        });
+      }
+
+      // Delete chapter (listening progress will cascade delete)
+      await this.prisma.chapter.delete({ where: { id: chapterId } });
+
+      return {
+        success: true,
+        message: 'Đã xóa chapter thành công',
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error('Error deleting chapter:', error);
+      throw new BadRequestException({
+        code: 'DELETE_CHAPTER_ERROR',
+        message: error.message || 'Lỗi khi xóa chapter',
+      });
+    }
+  }
+
+  @Delete(':storyId/chapters/batch')
+  @ApiOperation({ summary: 'Xóa nhiều chapter cùng lúc' })
+  async deleteChaptersBatch(
+    @Param('storyId') storyId: string,
+    @Body() body: { chapterIds: string[]; reason?: string }
+  ) {
+    try {
+      const { chapterIds } = body;
+
+      if (!chapterIds || !Array.isArray(chapterIds) || chapterIds.length === 0) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'chapterIds is required and must be a non-empty array',
+        });
+      }
+
+      // Delete chapters (listening progress will cascade delete)
+      const result = await this.prisma.chapter.deleteMany({
+        where: {
+          id: { in: chapterIds },
+          storyId,
+        },
+      });
+
+      return {
+        success: true,
+        message: `Đã xóa thành công ${result.count} chapter`,
+        deletedCount: result.count,
+      };
+    } catch (error) {
+      console.error('Error deleting chapters batch:', error);
+      throw new BadRequestException({
+        code: 'DELETE_CHAPTERS_ERROR',
+        message: error.message || 'Lỗi khi xóa chapters',
       });
     }
   }

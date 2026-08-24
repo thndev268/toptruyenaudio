@@ -10,6 +10,7 @@ import {
   BadgeEventDefinition,
   BadgeEventInput,
 } from '../../types/badges';
+import { apiRequest } from '../apiClient';
 
 export { LocalBadgeRepository, LOCAL_STORAGE_KEYS } from './LocalBadgeRepository';
 
@@ -63,10 +64,16 @@ export class RestBadgeRepository implements BadgeRepository {
 
   async getBadges(filters?: BadgeFilters): Promise<UserBadge[]> {
     try {
-      const res = await fetch('/api/admin/badges', { headers: this.getHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        let badges: UserBadge[] = data.badges || [];
+      const response = await apiRequest<{ success: boolean; data: any[] }>('/admin/badges');
+      if (response?.data && Array.isArray(response.data)) {
+        let badges: UserBadge[] = response.data.map((b: any) => ({
+          id: b.id,
+          name: b.name,
+          description: b.description,
+          isActive: b.isActive,
+          effects: b.effects || [],
+          createdAt: b.createdAt,
+        }));
         
         if (filters) {
           if (filters.search) {
@@ -74,15 +81,8 @@ export class RestBadgeRepository implements BadgeRepository {
             badges = badges.filter(
               (b) =>
                 b.name.toLowerCase().includes(query) ||
-                b.code.toLowerCase().includes(query) ||
                 b.description.toLowerCase().includes(query)
             );
-          }
-          if (filters.level && filters.level !== 'ALL') {
-            badges = badges.filter((b) => b.level === filters.level);
-          }
-          if (filters.awardMode && filters.awardMode !== 'ALL') {
-            badges = badges.filter((b) => b.awardMode === filters.awardMode);
           }
           if (filters.status === 'ACTIVE') {
             badges = badges.filter((b) => b.isActive);
@@ -105,13 +105,8 @@ export class RestBadgeRepository implements BadgeRepository {
 
   async getUserBadges(userId: string): Promise<UserBadgeAssignment[]> {
     try {
-      const res = await fetch(`/api/me/badges?userId=${encodeURIComponent(userId)}`, {
-        headers: this.getHeaders(),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.badges || [];
-      }
+      const response = await apiRequest<{ success: boolean; data: UserBadgeAssignment[] }>(`/admin/users/${userId}/badges`);
+      return response?.data || [];
     } catch (e) {
       console.warn('[RestBadgeRepository] Error fetching user badges:', e);
     }
@@ -120,11 +115,8 @@ export class RestBadgeRepository implements BadgeRepository {
 
   async getPublicUserBadges(userId: string): Promise<UserBadgeAssignment[]> {
     try {
-      const res = await fetch(`/api/users/${encodeURIComponent(userId)}/badges`);
-      if (res.ok) {
-        const data = await res.json();
-        return data.badges || [];
-      }
+      const response = await apiRequest<{ success: boolean; data: UserBadgeAssignment[] }>(`/users/${userId}/badges`);
+      return response?.data || [];
     } catch (e) {
       console.warn('[RestBadgeRepository] Error fetching public badges:', e);
     }
@@ -138,56 +130,36 @@ export class RestBadgeRepository implements BadgeRepository {
     assignedBy: string = 'Admin',
     internalNote?: string
   ): Promise<UserBadgeAssignment> {
-    const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/badges`, {
+    const response = await apiRequest<{ success: boolean; data: UserBadgeAssignment }>(`/admin/badges/${badgeId}/assign/${userId}`, {
       method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify({ badgeId, internalNote }),
+      body: JSON.stringify({ internalNote }),
     });
 
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(data.error || 'Gán danh hiệu thất bại');
+    if (!response?.success) {
+      throw new Error('Gán danh hiệu thất bại');
     }
-    return data.assignment;
+    return response.data;
   }
 
   async revokeBadge(userId: string, badgeId: string, revokeReason: string = 'Thu hồi bởi Admin'): Promise<void> {
-    const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/badges/${encodeURIComponent(badgeId)}`, {
+    const response = await apiRequest<{ success: boolean }>(`/admin/badges/${badgeId}/revoke/${userId}`, {
       method: 'DELETE',
-      headers: this.getHeaders(),
       body: JSON.stringify({ revokeReason }),
     });
 
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(data.error || 'Thu hồi danh hiệu thất bại');
+    if (!response?.success) {
+      throw new Error('Thu hồi danh hiệu thất bại');
     }
   }
 
   async updateVisibility(assignmentId: string, visibility: BadgeVisibility): Promise<void> {
-    const res = await fetch(`/api/me/badges/${encodeURIComponent(assignmentId)}/visibility`, {
-      method: 'PATCH',
-      headers: this.getHeaders(),
-      body: JSON.stringify({ visibility }),
-    });
-
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(data.error || 'Cập nhật trạng thái hiển thị thất bại');
-    }
+    // Not implemented in backend yet
+    console.warn('updateVisibility not implemented');
   }
 
   async setFeaturedBadge(userId: string, assignmentId: string | null): Promise<void> {
-    const res = await fetch(`/api/me/badges/${encodeURIComponent(assignmentId || 'none')}/featured`, {
-      method: 'PATCH',
-      headers: this.getHeaders(),
-      body: JSON.stringify({ isFeatured: !!assignmentId }),
-    });
-
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(data.error || 'Cập nhật danh hiệu nổi bật thất bại');
-    }
+    // Not implemented in backend yet
+    console.warn('setFeaturedBadge not implemented');
   }
 
   async markAwardAsSeen(assignmentId: string): Promise<void> {

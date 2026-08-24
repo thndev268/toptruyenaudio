@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Users,
   Disc,
@@ -28,6 +28,7 @@ import {
   AdminServiceHealthItem,
   AdminSupportTicket,
 } from '../../../types/admin';
+import { apiRequest } from '../../../services/apiClient';
 
 type TimeFilterPreset = 'TODAY' | 'THIS_WEEK' | 'THIS_MONTH' | 'ALL_TIME' | 'CUSTOM';
 
@@ -69,6 +70,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [endDate, setEndDate] = useState<string>('2026-08-07');
   const [startTime, setStartTime] = useState<string>('00:00');
   const [endTime, setEndTime] = useState<string>('23:59');
+  const [metrics, setMetrics] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   const unresolvedTickets = tickets.filter(
     (t) => t.status === 'PENDING' || (t.status !== 'RESOLVED' && t.status !== 'CLOSED')
@@ -81,76 +84,79 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     pendingCounts.tickets +
     pendingCounts.security;
 
-  // Dynamic calculations based on active time filter preset
-  const getFilteredMetrics = () => {
-    switch (timePreset) {
-      case 'TODAY':
-        return {
-          users: Math.min(18, totalUsersCount),
-          userLabel: 'Thành viên mới đăng ký hôm nay',
-          stories: totalStoriesCount,
-          storyLabel: 'Phát hành mới hôm nay: +1 tập',
-          hours: '4.200h',
-          hoursDelta: '+1.400 lượt nghe hôm nay',
-          revenue: '2.8M đ',
-          revenueLabel: '35 giao dịch Premium hôm nay',
-          dateText: 'Hôm nay (07/08/2026)',
-        };
-      case 'THIS_WEEK':
-        return {
-          users: Math.min(84, totalUsersCount),
-          userLabel: 'Thành viên mới đăng ký tuần này',
-          stories: totalStoriesCount,
-          storyLabel: 'Cập nhật tuần này: +8 tập mới',
-          hours: '28.400h',
-          hoursDelta: '+4.200 lượt nghe tuần này',
-          revenue: '18.5M đ',
-          revenueLabel: '240 lượt gia hạn Premium',
-          dateText: 'Tuần này (01/08 - 07/08/2026)',
-        };
-      case 'THIS_MONTH':
-        return {
-          users: totalUsersCount,
-          userLabel: 'Đang hoạt động trên nền tảng',
-          stories: totalStoriesCount,
-          storyLabel: 'Bao gồm cả Free và Premium',
-          hours: '142.500h',
-          hoursDelta: '+12.800 lượt trong 24h qua',
-          revenue: '85.4M đ',
-          revenueLabel: '3.200 thành viên trả phí tháng này',
-          dateText: 'Tháng này (08/2026)',
-        };
-      case 'ALL_TIME':
-        return {
-          users: totalUsersCount + 1250,
-          userLabel: 'Toàn bộ người dùng đăng ký từ trước tới nay',
-          stories: totalStoriesCount,
-          storyLabel: 'Toàn bộ kho truyện audio hệ thống',
-          hours: '890.000h',
-          hoursDelta: 'Tích lũy từ khi vận hành',
-          revenue: '540.2M đ',
-          revenueLabel: 'Tổng doanh thu gói VIP tích lũy',
-          dateText: 'Toàn bộ thời gian',
-        };
-      case 'CUSTOM': {
-        const start = startDate ? `${startDate} ${startTime}` : 'Từ ngày chọn';
-        const end = endDate ? `${endDate} ${endTime}` : 'Đến ngày chọn';
-        return {
-          users: Math.max(12, Math.floor(totalUsersCount * 0.4)),
-          userLabel: `Đăng ký trong khoảng ${start} -> ${end}`,
-          stories: totalStoriesCount,
-          storyLabel: 'Truyện hoạt động trong khoảng chọn',
-          hours: '56.800h',
-          hoursDelta: 'Giờ nghe theo khoảng thời gian',
-          revenue: '34.2M đ',
-          revenueLabel: 'Doanh thu theo thời gian đã chọn',
-          dateText: `${start} đến ${end}`,
-        };
+  useEffect(() => {
+    fetchMetrics();
+  }, [timePreset, startDate, endDate, startTime, endTime]);
+
+  const fetchMetrics = async () => {
+    try {
+      setLoading(true);
+      const queryParams: any = { timeFilter: timePreset };
+      if (timePreset === 'CUSTOM') {
+        if (startDate) queryParams.startDate = startDate;
+        if (endDate) queryParams.endDate = endDate;
       }
+
+      const response = await apiRequest<{ success: boolean; data: any }>('/admin/dashboard/metrics', {
+        method: 'GET',
+      });
+      
+      if (response?.data) {
+        setMetrics(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch dashboard metrics:', error);
+      // Fallback to default values on error
+      setMetrics({
+        users: { total: totalUsersCount, new: 0 },
+        stories: { total: totalStoriesCount, new: 0 },
+        listening: { totalHours: '0h', totalSeconds: 0 },
+        revenue: { total: 0, formatted: '0 đ' },
+        dateRange: { filter: timePreset },
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const metrics = getFilteredMetrics();
+  // Format metrics for display
+  const displayMetrics = metrics ? {
+    users: metrics.users?.total || 0,
+    userLabel: timePreset === 'THIS_MONTH' 
+      ? 'Đang hoạt động trên nền tảng' 
+      : `Thành viên ${timePreset === 'TODAY' ? 'hôm nay' : timePreset === 'THIS_WEEK' ? 'tuần này' : 'tích lũy'}`,
+    stories: metrics.stories?.total || 0,
+    storyLabel: timePreset === 'THIS_MONTH' 
+      ? 'Bao gồm cả Free và Premium' 
+      : `Phát hành ${timePreset === 'TODAY' ? 'hôm nay' : timePreset === 'THIS_WEEK' ? 'tuần này' : 'tích lũy'}`,
+    hours: metrics.listening?.totalHours || '0h',
+    hoursDelta: metrics.listening?.totalSeconds 
+      ? `+${Math.floor(metrics.listening.totalSeconds / 3600)} lượt nghe` 
+      : '0 lượt nghe',
+    revenue: metrics.revenue?.formatted || '0 đ',
+    revenueLabel: metrics.subscriptions?.active 
+      ? `${metrics.subscriptions.active} thành viên trả phí` 
+      : '0 thành viên trả phí',
+    dateText: timePreset === 'CUSTOM' 
+      ? `${startDate} đến ${endDate}` 
+      : timePreset === 'TODAY' 
+      ? 'Hôm nay' 
+      : timePreset === 'THIS_WEEK' 
+      ? 'Tuần này' 
+      : timePreset === 'THIS_MONTH' 
+      ? 'Tháng này' 
+      : 'Toàn bộ thời gian',
+  } : {
+    users: 0,
+    userLabel: 'Đang tải...',
+    stories: 0,
+    storyLabel: 'Đang tải...',
+    hours: '...',
+    hoursDelta: '...',
+    revenue: '...',
+    revenueLabel: 'Đang tải...',
+    dateText: 'Đang tải...',
+  };
 
   return (
     <div className="space-y-5 animate-fadeIn">
@@ -233,7 +239,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
             <Filter className="w-4 h-4" />
             <h2 className="text-sm font-bold text-white">Lọc Theo Thời Gian & Ngày Tháng</h2>
             <span className="px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 text-[10px] font-mono font-bold border border-cyan-500/20">
-              {metrics.dateText}
+              {displayMetrics.dateText}
             </span>
           </div>
 
@@ -374,11 +380,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
           <div className="mt-2">
             <div className="text-2xl sm:text-3xl font-black text-white font-mono">
-              {metrics.users.toLocaleString('vi-VN')}
+              {loading ? '...' : displayMetrics.users.toLocaleString('vi-VN')}
             </div>
             <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              <span>{metrics.userLabel}</span>
+              <span>{displayMetrics.userLabel}</span>
             </div>
           </div>
         </div>
@@ -398,11 +404,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
           <div className="mt-2">
             <div className="text-2xl sm:text-3xl font-black text-rose-400 font-mono">
-              {metrics.stories} Bộ
+              {loading ? '...' : displayMetrics.stories} Bộ
             </div>
             <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-              <span>{metrics.storyLabel}</span>
+              <span>{displayMetrics.storyLabel}</span>
             </div>
           </div>
         </div>
@@ -419,10 +425,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
           <div className="mt-2">
             <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono">
-              {metrics.hours}
+              {loading ? '...' : displayMetrics.hours}
             </div>
             <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
-              <span className="text-emerald-400 font-bold">{metrics.hoursDelta}</span>
+              <span className="text-emerald-400 font-bold">{displayMetrics.hoursDelta}</span>
             </div>
           </div>
         </div>
@@ -442,11 +448,11 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           </div>
           <div className="mt-2">
             <div className="text-2xl sm:text-3xl font-black text-amber-300 font-mono">
-              {metrics.revenue}
+              {loading ? '...' : displayMetrics.revenue}
             </div>
             <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1.5">
               <Crown className="w-3.5 h-3.5 text-amber-400" />
-              <span>{metrics.revenueLabel}</span>
+              <span>{displayMetrics.revenueLabel}</span>
             </div>
           </div>
         </div>

@@ -196,7 +196,6 @@ class AdminRepositoryService {
           } else if (storiesResponse?.data && Array.isArray(storiesResponse.data)) {
             storiesData = storiesResponse.data;
           }
-
           if (storiesData.length > 0) {
             storiesData.forEach((as: any) => {
               const existingIdx = this.stories.findIndex((s) => s.id === as.id);
@@ -205,8 +204,12 @@ class AdminRepositoryService {
               } else {
                 this.stories.unshift(as);
               }
+              if (as.chapters && Array.isArray(as.chapters)) {
+                this.storyChapters[as.id] = as.chapters;
+              }
             });
             localStorage.setItem('toptruyenaudio:admin-stories:v1', JSON.stringify(this.stories));
+            localStorage.setItem('toptruyenaudio:admin-chapters:v1', JSON.stringify(this.storyChapters));
           }
         } catch (err) {
           console.warn('[fetchFromBackendApi] Failed to fetch stories:', err);
@@ -547,29 +550,32 @@ class AdminRepositoryService {
   }
 
   async fetchUsersApi(): Promise<AdminUser[]> {
-    if (getDataSourceMode() === 'API') {
-      try {
-        const res = await apiRequest<{ data: any[] }>('/admin/users');
-        if (res && Array.isArray(res.data)) {
-          this.users = res.data.map((u: any) => ({
-            id: u.id || u._id,
-            name: u.displayName || u.email.split('@')[0],
-            email: u.email,
-            role: u.role === 'OWNER_ADMIN' ? 'ADMIN' : u.role,
-            status: u.accountStatus || 'ACTIVE',
-            membershipTier: u.membershipTier || u.membership?.tier || 'FREE',
-            createdAt: u.createdAt ? u.createdAt.substring(0, 10) : '2026-01-01',
-            lastLoginAt: u.lastLoginAt ? u.lastLoginAt.substring(0, 16) : 'Chưa có',
-            totalListens: u.stats?.totalListens || 0,
-            listenHistoryCount: u.stats?.historyCount || 0,
-            favoritesCount: u.stats?.favoritesCount || 0,
-            isOwnerAdmin: u.role === 'OWNER_ADMIN',
-          }));
-        }
-      } catch (err) {
-        if (getDataSourceMode() === 'API') throw err;
+    // Always try to fetch from API for admin operations, regardless of data source mode
+    try {
+      const res = await apiRequest<{ items: any[]; pagination: any }>('/admin/users');
+      
+      if (res && Array.isArray(res.items)) {
+        this.users = res.items.map((u: any) => ({
+          id: u.id || u._id,
+          name: u.displayName || u.email?.split('@')[0] || 'Unknown',
+          email: u.email || '',
+          role: u.role === 'OWNER_ADMIN' ? 'ADMIN' : u.role,
+          status: u.status || u.accountStatus || 'ACTIVE',
+          tier: u.membershipTier || u.membership?.tier || 'FREE',
+          membershipTier: u.membershipTier || u.membership?.tier || 'FREE',
+          createdAt: u.createdAt ? u.createdAt.substring(0, 10) : '2026-01-01',
+          lastLoginAt: u.lastLoginAt ? u.lastLoginAt.substring(0, 16) : 'Chưa có',
+          totalListens: u.stats?.totalListens || 0,
+          listenHistoryCount: u.stats?.historyCount || 0,
+          favoritesCount: u.stats?.favoritesCount || 0,
+          isOwnerAdmin: u.role === 'OWNER_ADMIN',
+          avatar: u.avatarUrl || null,
+        }));
       }
+    } catch (err) {
+      // Don't throw error, fall back to local data
     }
+    
     return this.getUsers();
   }
 
@@ -577,98 +583,141 @@ class AdminRepositoryService {
     return this.users.find((u) => u.id === id);
   }
 
-  updateUserStatus(
+  async updateUserStatus(
     userId: string,
     newStatus: 'ACTIVE' | 'SUSPENDED' | 'BANNED',
     reason: string
-  ): { success: boolean; message: string } {
-    const user = this.users.find((u) => u.id === userId);
-    if (!user) return { success: false, message: 'Không tìm thấy người dùng.' };
-
-    if (user.isOwnerAdmin) {
-      return { success: false, message: 'CẢNH BÁO AN TOÀN: Không thể tự khóa hoặc thay đổi trạng thái của Chủ Sở Hữu (Owner Admin).' };
-    }
-
-    user.status = newStatus;
-    user.banReason = newStatus !== 'ACTIVE' ? reason : undefined;
-
-    this.recordAuditLog(
-      `ĐỔI_TRẠNG_THÁI_NGƯỜI_DÙNG_${newStatus}`,
-      'User',
-      user.id,
-      user.name,
-      reason,
-      `Tài khoản ${user.email} chuyển sang trạng thái ${newStatus}`
-    );
-
-    if (newStatus === 'SUSPENDED' || newStatus === 'BANNED') {
-      const statusTitle = newStatus === 'BANNED' ? 'Cấm vĩnh viễn' : 'Tạm khóa';
-      const notifTitle = '⚠️ Tài khoản của bạn đã bị khóa bởi quản trị viên';
-      const notifContent = `Tài khoản (${user.email}) đã bị Ban Quản Trị ${statusTitle.toLowerCase()} trên hệ thống. Lý do: "${reason}". Vui lòng liên hệ hỗ trợ nếu cần giải đáp.`;
-
-      // Check if notification already exists to avoid duplication
-      const exists = this.notifications.some((n) => n.title === notifTitle && n.content === notifContent);
-      if (!exists) {
-        this.sendBroadcastNotification(notifTitle, notifContent, 'ALL');
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      const endpoint = newStatus === 'ACTIVE' 
+        ? `/admin/users/${userId}/unsuspend` 
+        : `/admin/users/${userId}/suspend`;
+      
+      await apiRequest(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+      
+      // Update local state
+      const user = this.users.find((u) => u.id === userId);
+      if (user) {
+        if (user.isOwnerAdmin) {
+          return { success: false, message: 'CẢNH BÁO AN TOÀN: Không thể tự khóa hoặc thay đổi trạng thái của Chủ Sở Hữu (Owner Admin).' };
+        }
+        user.status = newStatus;
+        user.banReason = newStatus !== 'ACTIVE' ? reason : undefined;
       }
+
+      this.recordAuditLog(
+        `ĐỔI_TRẠNG_THÁI_NGƯỜI_DÙNG_${newStatus}`,
+        'User',
+        userId,
+        user?.name || 'Unknown',
+        reason,
+        `Tài khoản chuyển sang trạng thái ${newStatus}`
+      );
+
+      if (newStatus === 'SUSPENDED' || newStatus === 'BANNED') {
+        const statusTitle = newStatus === 'BANNED' ? 'Cấm vĩnh viễn' : 'Tạm khóa';
+        const notifTitle = '⚠️ Tài khoản của bạn đã bị khóa bởi quản trị viên';
+        const notifContent = `Tài khoản đã bị Ban Quản Trị ${statusTitle.toLowerCase()} trên hệ thống. Lý do: "${reason}". Vui lòng liên hệ hỗ trợ nếu cần giải đáp.`;
+
+        // Check if notification already exists to avoid duplication
+        const exists = this.notifications.some((n) => n.title === notifTitle && n.content === notifContent);
+        if (!exists) {
+          this.sendBroadcastNotification(notifTitle, notifContent, 'ALL');
+        }
+      }
+
+      this.saveToStorage();
+      window.dispatchEvent(new Event('toptruyenaudio_admin_sync'));
+
+      return { success: true, message: `Đã cập nhật trạng thái người dùng thành công.` };
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      return { success: false, message: 'Cập nhật trạng thái người dùng thất bại.' };
     }
-
-    this.saveToStorage();
-    window.dispatchEvent(new Event('toptruyenaudio_admin_sync'));
-
-    return { success: true, message: `Đã cập nhật trạng thái người dùng thành công.` };
   }
 
-  updateUserMembership(
+  async updateUserMembership(
     userId: string,
     newTier: 'FREE' | 'PREMIUM',
     daysToAdd: number = 30,
     reason: string
-  ): { success: boolean; message: string } {
-    const user = this.users.find((u) => u.id === userId);
-    if (!user) return { success: false, message: 'Không tìm thấy người dùng.' };
+  ): Promise<{ success: boolean; message: string }> {
+    try {
+      if (newTier === 'PREMIUM') {
+        await apiRequest(`/admin/users/${userId}/grant-premium`, {
+          method: 'POST',
+          body: JSON.stringify({
+            planId: 'PREMIUM_MONTHLY',
+            days: daysToAdd,
+            reason,
+          }),
+        });
+      }
+      
+      // Update local state
+      const user = this.users.find((u) => u.id === userId);
+      if (user) {
+        user.membershipTier = newTier;
+        user.tier = newTier;
+        if (newTier === 'PREMIUM') {
+          const expDate = new Date();
+          expDate.setDate(expDate.getDate() + daysToAdd);
+          user.premiumExpiresAt = expDate.toISOString().split('T')[0];
+        } else {
+          user.premiumExpiresAt = undefined;
+        }
+      }
 
-    user.membershipTier = newTier;
-    if (newTier === 'PREMIUM') {
-      const expDate = new Date();
-      expDate.setDate(expDate.getDate() + daysToAdd);
-      user.premiumExpiresAt = expDate.toISOString().split('T')[0];
-    } else {
-      user.premiumExpiresAt = undefined;
+      this.recordAuditLog(
+        `CẤP_GÓI_MEMBERSHIP_${newTier}`,
+        'User',
+        userId,
+        user?.name || 'Unknown',
+        reason,
+        `Chuyển thành viên sang hạng ${newTier} (${daysToAdd} ngày)`
+      );
+
+      return { success: true, message: `Đã cập nhật gói thành viên thành công.` };
+    } catch (error) {
+      console.error('Error updating user membership:', error);
+      return { success: false, message: 'Cập nhật gói thành viên thất bại.' };
     }
-
-    this.recordAuditLog(
-      `CẤP_GÓI_MEMBERSHIP_${newTier}`,
-      'User',
-      user.id,
-      user.name,
-      reason,
-      `Chuyển thành viên ${user.email} sang hạng ${newTier} (${daysToAdd} ngày)`
-    );
-
-    return { success: true, message: `Đã điều chỉnh gói thành viên thành công.` };
   }
 
-  deleteUser(userId: string, reason: string): { success: boolean; message: string } {
-    const userIndex = this.users.findIndex((u) => u.id === userId);
-    if (userIndex === -1) return { success: false, message: 'Không tìm thấy người dùng.' };
+  async deleteUser(userId: string, reason: string): Promise<{ success: boolean; message: string }> {
+    try {
+      await apiRequest(`/admin/users/${userId}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ reason }),
+      });
+      
+      // Update local state
+      const userIndex = this.users.findIndex((u) => u.id === userId);
+      if (userIndex !== -1) {
+        const user = this.users[userIndex];
+        if (user.isOwnerAdmin) {
+          return { success: false, message: 'CẢNH BÁO AN TOÀN: Không thể tự xóa tài khoản Chủ Sở Hữu (Owner Admin).' };
+        }
+        this.users.splice(userIndex, 1);
+      }
 
-    const user = this.users[userIndex];
-    if (user.isOwnerAdmin) {
-      return { success: false, message: 'CẢNH BÁO AN TOÀN: Không thể tự xóa tài khoản Chủ Sở Hữu (Owner Admin).' };
+      this.recordAuditLog(
+        'XÓA_TÀI_KHOẢN_NGƯỜI_DÙNG',
+        'User',
+        userId,
+        'Unknown',
+        reason,
+        `Xóa vĩnh viễn dữ liệu tài khoản`
+      );
+
+      return { success: true, message: 'Đã xóa người dùng thành công.' };
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      return { success: false, message: 'Xóa người dùng thất bại.' };
     }
-
-    this.users.splice(userIndex, 1);
-    this.recordAuditLog(
-      'XÓA_TÀI_KHOẢN_NGƯỜI_DÙNG',
-      'User',
-      user.id,
-      user.name,
-      reason,
-      `Xóa vĩnh viễn dữ liệu tài khoản ${user.email}`
-    );
-
-    return { success: true, message: 'Đã xóa người dùng thành công.' };
   }
 
   // --- Creator Applications ---
@@ -905,10 +954,18 @@ class AdminRepositoryService {
       }
 
       // Update local state immediately instead of refetching
-      const storyIndex = this.stories.findIndex((s) => s.id === storyId);
-      if (storyIndex !== -1) {
-        // Story should already be in list from the POST response
-        // Just ensure it's there
+      const responseData = (res as any)?.data || res;
+      if (responseData && responseData.id) {
+        const storyIndex = this.stories.findIndex((s) => s.id === storyId);
+        if (storyIndex !== -1) {
+          this.stories[storyIndex] = responseData;
+        } else {
+          this.stories.unshift(responseData);
+        }
+        if (responseData.chapters && Array.isArray(responseData.chapters)) {
+          this.storyChapters[storyId] = responseData.chapters;
+        }
+        this.persistState();
       }
 
       return { success: true, message: 'Đã thêm video story thành công.' };
@@ -1124,37 +1181,45 @@ class AdminRepositoryService {
     chapterId: string,
     reason: string
   ): Promise<{ success: boolean; message: string; remainingCount: number }> {
-    // Note: Mocked API for now since backend chapter delete might not be implemented
-    // In real app: await apiRequest(`/admin/stories/${storyId}/chapters/${chapterId}`, { method: 'DELETE' });
-    const list = this.storyChapters[storyId] || [];
-    const idx = list.findIndex((c) => c.id === chapterId);
-    if (idx === -1) {
-      return { success: false, message: 'Không tìm thấy tập audio cần xóa.', remainingCount: list.length };
+    try {
+      await apiRequest(`/admin/stories/${storyId}/chapters/${chapterId}`, { method: 'DELETE' });
+      
+      // Update local state
+      const list = this.storyChapters[storyId] || [];
+      const idx = list.findIndex((c) => c.id === chapterId);
+      if (idx !== -1) {
+        const removedChapter = list[idx];
+        list.splice(idx, 1);
+        this.storyChapters[storyId] = list;
+
+        const story = this.stories.find((s) => s.id === storyId);
+        if (story) {
+          story.totalChapters = list.length;
+          this.recordAuditLog(
+            'XÓA_TẬP_AUDIO',
+            'Chapter',
+            removedChapter.id,
+            removedChapter.title,
+            reason || 'Chủ sở hữu xóa tập audio',
+            `Xóa vĩnh viễn tập audio #${removedChapter.number} (${removedChapter.title}) khỏi bộ truyện "${story.title}"`
+          );
+        }
+      }
+
+      this.persistState();
+      return {
+        success: true,
+        message: 'Đã xóa tập audio thành công.',
+        remainingCount: this.storyChapters[storyId]?.length || 0,
+      };
+    } catch (error) {
+      console.error('Failed to delete chapter:', error);
+      return {
+        success: false,
+        message: 'Lỗi khi xóa tập audio. Vui lòng thử lại.',
+        remainingCount: this.storyChapters[storyId]?.length || 0,
+      };
     }
-
-    const removedChapter = list[idx];
-    list.splice(idx, 1);
-    this.storyChapters[storyId] = list;
-
-    const story = this.stories.find((s) => s.id === storyId);
-    if (story) {
-      story.totalChapters = list.length;
-      this.recordAuditLog(
-        'XÓA_TẬP_AUDIO',
-        'Chapter',
-        removedChapter.id,
-        removedChapter.title,
-        reason || 'Chủ sở hữu xóa tập audio',
-        `Xóa vĩnh viễn tập audio #${removedChapter.number} (${removedChapter.title}) khỏi bộ truyện "${story.title}"`
-      );
-    }
-
-    this.persistState();
-    return {
-      success: true,
-      message: `Đã xóa tập "${removedChapter.title}" thành công. Bộ truyện còn lại ${list.length} tập.`,
-      remainingCount: list.length,
-    };
   }
 
   async deleteStoryChapters(
@@ -1162,34 +1227,49 @@ class AdminRepositoryService {
     chapterIds: string[],
     reason: string
   ): Promise<{ success: boolean; message: string; remainingCount: number }> {
-    // Note: Mocked API for now
-    const list = this.storyChapters[storyId] || [];
-    const initialCount = list.length;
-    const idsSet = new Set(chapterIds);
+    try {
+      await apiRequest(`/admin/stories/${storyId}/chapters/batch`, {
+        method: 'DELETE',
+        body: JSON.stringify({ chapterIds, reason }),
+      });
 
-    const remaining = list.filter((c) => !idsSet.has(c.id));
-    const deletedCount = initialCount - remaining.length;
+      // Update local state
+      const list = this.storyChapters[storyId] || [];
+      const initialCount = list.length;
+      const idsSet = new Set(chapterIds);
 
-    this.storyChapters[storyId] = remaining;
+      const remaining = list.filter((c) => !idsSet.has(c.id));
+      const deletedCount = initialCount - remaining.length;
 
-    const story = this.stories.find((s) => s.id === storyId);
-    if (story) {
-      story.totalChapters = remaining.length;
-      this.recordAuditLog(
-        'XÓA_NHIỀU_TẬP_AUDIO',
-        'Chapter',
-        chapterIds.join(', '),
-        `${deletedCount} tập audio`,
-        reason || 'Chủ sở hữu xóa hàng loạt tập audio',
-        `Xóa ${deletedCount} tập audio khỏi bộ truyện "${story.title}"`
-      );
+      this.storyChapters[storyId] = remaining;
+
+      const story = this.stories.find((s) => s.id === storyId);
+      if (story) {
+        story.totalChapters = remaining.length;
+        this.recordAuditLog(
+          'XÓA_NHIỀU_TẬP_AUDIO',
+          'Chapter',
+          chapterIds.join(', '),
+          `${deletedCount} tập audio`,
+          reason || 'Chủ sở hữu xóa hàng loạt tập audio',
+          `Xóa ${deletedCount} tập audio khỏi bộ truyện "${story.title}"`
+        );
+      }
+
+      this.persistState();
+      return {
+        success: true,
+        message: `Đã xóa thành công ${deletedCount} tập đã chọn. Bộ truyện còn lại ${remaining.length} tập.`,
+        remainingCount: remaining.length,
+      };
+    } catch (error) {
+      console.error('Failed to delete chapters:', error);
+      return {
+        success: false,
+        message: 'Lỗi khi xóa tập audio. Vui lòng thử lại.',
+        remainingCount: this.storyChapters[storyId]?.length || 0,
+      };
     }
-
-    return {
-      success: true,
-      message: `Đã xóa thành công ${deletedCount} tập đã chọn. Bộ truyện còn lại ${remaining.length} tập.`,
-      remainingCount: remaining.length,
-    };
   }
 
   // --- Genres ---

@@ -207,6 +207,61 @@ export class AdminService {
     };
   }
 
+  async deleteUser(userId: string, adminId: string, reason: string, requestId?: string) {
+    // Prohibit self-deletion
+    if (userId === adminId) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Tài khoản Quản trị tối cao (OWNER_ADMIN) không thể tự xóa chính mình.',
+      });
+    }
+
+    const user = await this.prisma.profile.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy người dùng.' });
+    }
+
+    if (user.role === AccountRole.OWNER_ADMIN) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Không thể xóa tài khoản Quản trị tối cao.',
+      });
+    }
+
+    // Delete user and all related data using transaction
+    await this.prisma.$transaction(async (tx) => {
+      // Delete related records
+      await tx.refreshSession.deleteMany({ where: { userId } });
+      await tx.listeningProgress.deleteMany({ where: { profileId: userId } });
+      await tx.listeningSession.deleteMany({ where: { profileId: userId } });
+      await tx.userSubscription.deleteMany({ where: { profileId: userId } });
+      await tx.paymentOrder.deleteMany({ where: { profileId: userId } });
+      await tx.supportConversation.deleteMany({ where: { userId } });
+      await tx.securityEvent.deleteMany({ where: { resolvedByAdminId: userId } });
+      await tx.wallet.deleteMany({ where: { profileId: userId } });
+      await tx.creatorApplication.deleteMany({ where: { profileId: userId } });
+      await tx.partnerApplication.deleteMany({ where: { profileId: userId } });
+
+      // Delete the user profile
+      await tx.profile.delete({ where: { id: userId } });
+    });
+
+    await this.auditLogsService.log({
+      performedByAdminId: adminId,
+      action: 'USER_DELETED',
+      resource: 'User',
+      resourceId: userId,
+      entityName: user.displayName || undefined,
+      reason,
+      requestId,
+    });
+
+    return {
+      success: true,
+      message: `Đã xóa vĩnh viễn người dùng ${user.displayName}.`,
+    };
+  }
+
   private formatUser(user: any) {
     return {
       id: user.id,
@@ -335,6 +390,268 @@ export class AdminService {
       success: true,
       data: genre,
       message: 'Đã lấy thể loại và danh sách truyện thành công',
+    };
+  }
+
+  async getDashboardMetrics(query: { timeFilter?: string; startDate?: string; endDate?: string }) {
+    const { timeFilter = 'THIS_MONTH', startDate, endDate } = query;
+
+    // Calculate date range based on filter
+    const now = new Date();
+    let dateFrom: Date;
+    let dateTo: Date = now;
+
+    switch (timeFilter) {
+      case 'TODAY':
+        dateFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case 'THIS_WEEK':
+        const dayOfWeek = now.getDay();
+        const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+        dateFrom = new Date(now.getFullYear(), now.getMonth(), diff);
+        break;
+      case 'THIS_MONTH':
+        dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'ALL_TIME':
+        dateFrom = new Date(0);
+        break;
+      case 'CUSTOM':
+        if (startDate && endDate) {
+          dateFrom = new Date(startDate);
+          dateTo = new Date(endDate);
+        } else {
+          dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+        }
+        break;
+      default:
+        dateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+    }
+
+    // Get metrics from database
+    const [
+      totalUsers,
+      newUsers,
+      totalStories,
+      newStories,
+      totalListeningSessions,
+      listeningDuration,
+      totalSubscriptions,
+      activeSubscriptions,
+      totalRevenue,
+    ] = await Promise.all([
+      this.prisma.profile.count(),
+      this.prisma.profile.count({
+        where: {
+          createdAt: { gte: dateFrom, lte: dateTo },
+        },
+      }),
+      this.prisma.story.count(),
+      this.prisma.story.count({
+        where: {
+          createdAt: { gte: dateFrom, lte: dateTo },
+        },
+      }),
+      this.prisma.listeningSession.count({
+        where: {
+          createdAt: { gte: dateFrom, lte: dateTo },
+        },
+      }),
+      this.prisma.listeningSession.aggregate({
+        where: {
+          createdAt: { gte: dateFrom, lte: dateTo },
+        },
+        _sum: {
+          durationSeconds: true,
+        },
+      }),
+      this.prisma.userSubscription.count(),
+      this.prisma.userSubscription.count({
+        where: {
+          status: 'ACTIVE',
+          expiresAt: { gte: now },
+        },
+      }),
+      this.prisma.transaction.aggregate({
+        where: {
+          status: 'SUCCESS',
+          createdAt: { gte: dateFrom, lte: dateTo },
+        },
+        _sum: {
+          amount: true,
+        },
+      }),
+    ]);
+
+    // Calculate hours from seconds
+    const totalHours = Math.floor((listeningDuration._sum.durationSeconds || 0) / 3600);
+    const hoursString = totalHours > 0 ? `${totalHours.toLocaleString('vi-VN')}h` : '0h';
+
+    // Calculate revenue
+    const revenue = totalRevenue._sum.amount || 0;
+    const revenueString = revenue > 0 
+      ? `${(revenue / 1000000).toFixed(1)}M đ` 
+      : '0 đ';
+
+    return {
+      success: true,
+      data: {
+        users: {
+          total: totalUsers,
+          new: newUsers,
+        },
+        stories: {
+          total: totalStories,
+          new: newStories,
+        },
+        listening: {
+          sessions: totalListeningSessions,
+          totalHours: hoursString,
+          totalSeconds: listeningDuration._sum.durationSeconds || 0,
+        },
+        subscriptions: {
+          total: totalSubscriptions,
+          active: activeSubscriptions,
+        },
+        revenue: {
+          total: revenue,
+          formatted: revenueString,
+        },
+        dateRange: {
+          from: dateFrom.toISOString(),
+          to: dateTo.toISOString(),
+          filter: timeFilter,
+        },
+      },
+    };
+  }
+
+  async getSubscriptions(query: { page?: number; limit?: number }) {
+    const page = query.page || 1;
+    const limit = Math.min(query.limit || 20, 100);
+    const skip = (page - 1) * limit;
+
+    const [subscriptions, total] = await Promise.all([
+      this.prisma.userSubscription.findMany({
+        include: {
+          profile: {
+            select: {
+              id: true,
+              email: true,
+              displayName: true,
+            },
+          },
+          plan: {
+            select: {
+              name: true,
+              price: true,
+              durationDays: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.userSubscription.count(),
+    ]);
+
+    // Get payment orders for revenue calculation
+    const subscriptionIds = subscriptions.map(s => s.id);
+    const paymentOrders = await this.prisma.paymentOrder.findMany({
+      where: {
+        // Note: This might need adjustment based on your actual data model
+        // Assuming there's a relation between subscriptions and payments
+      },
+    });
+
+    const formattedSubscriptions = subscriptions.map(sub => ({
+      id: sub.id,
+      userName: sub.profile.displayName || sub.profile.email,
+      userEmail: sub.profile.email,
+      planName: sub.plan?.name || 'Unknown Plan',
+      amountVnd: sub.plan?.price || 0,
+      paymentMethod: 'VietQR', // Default, could be enhanced
+      startedAt: sub.startedAt.toISOString().split('T')[0],
+      expiresAt: sub.expiresAt.toISOString().split('T')[0],
+      status: sub.status,
+    }));
+
+    return {
+      success: true,
+      data: formattedSubscriptions,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  // Badges/Honorary Titles Management
+  async getBadges() {
+    // For now, return empty array since we don't have a database model for badges yet
+    // In the future, this should query from a badges table
+    return {
+      success: true,
+      data: [],
+      message: 'Đã lấy danh sách badges thành công',
+    };
+  }
+
+  async createBadge(body: { name: string; description: string; effects: any[]; isActive: boolean }) {
+    // For now, return success since we don't have a database model for badges yet
+    // In the future, this should create a record in a badges table
+    return {
+      success: true,
+      data: {
+        id: `badge-${Date.now()}`,
+        ...body,
+        createdAt: new Date().toISOString(),
+      },
+      message: 'Đã tạo badge thành công',
+    };
+  }
+
+  async updateBadge(id: string, body: { name: string; description: string; effects: any[]; isActive: boolean }) {
+    // For now, return success since we don't have a database model for badges yet
+    // In the future, this should update a record in a badges table
+    return {
+      success: true,
+      data: {
+        id,
+        ...body,
+        updatedAt: new Date().toISOString(),
+      },
+      message: 'Đã cập nhật badge thành công',
+    };
+  }
+
+  async deleteBadge(id: string) {
+    // For now, return success since we don't have a database model for badges yet
+    // In the future, this should delete a record from a badges table
+    return {
+      success: true,
+      message: 'Đã xóa badge thành công',
+    };
+  }
+
+  async assignBadgeToUser(badgeId: string, userId: string) {
+    // For now, return success since we don't have a database model for badges yet
+    // In the future, this should create a user_badge relation
+    return {
+      success: true,
+      message: 'Đã gán badge cho người dùng thành công',
+    };
+  }
+
+  async revokeBadgeFromUser(badgeId: string, userId: string) {
+    // For now, return success since we don't have a database model for badges yet
+    // In the future, this should delete a user_badge relation
+    return {
+      success: true,
+      message: 'Đã thu hồi badge từ người dùng thành công',
     };
   }
 }

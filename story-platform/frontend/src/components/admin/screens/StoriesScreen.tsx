@@ -12,12 +12,10 @@ import {
   Headphones,
   SlidersHorizontal,
   RotateCcw,
-  Video,
   Sparkles
 } from 'lucide-react';
 import { AdminStoryItem } from '../../../types/admin';
 import { AdminFilterPanel, AdminFilterItem } from '../common/AdminFilterPanel';
-import { AdminIframePreviewModal } from '../common/AdminIframePreviewModal';
 
 interface StoriesScreenProps {
   stories: AdminStoryItem[];
@@ -41,7 +39,6 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PUBLISHED' | 'PENDING' | 'DRAFT'>('ALL');
   const [accessFilter, setAccessFilter] = useState<'ALL' | 'FREE' | 'PREMIUM'>('ALL');
   const [isFilterVisible, setIsFilterVisible] = useState(false);
-  const [previewIframe, setPreviewIframe] = useState<string | null>(null);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -93,7 +90,6 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({
               onClick={onOpenVideoModal}
               className="px-4 py-2 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-rose-500/20 transition-all flex items-center gap-2 cursor-pointer"
             >
-              <Video className="w-4 h-4" />
               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
               Nhập Video Iframe AI
             </button>
@@ -201,15 +197,6 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({
               </div>
 
               <div className="pt-3 mt-auto border-t border-slate-800 flex items-center justify-between gap-2">
-                {(story.isVideoStory || story.iframeCode || story.iframeUrl) && (
-                  <button
-                    onClick={() => setPreviewIframe(story.iframeCode || story.iframeUrl || '')}
-                    className="py-2 px-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[11px] font-bold rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
-                    title="Xem Demo Video Iframe"
-                  >
-                    <Video className="w-3.5 h-3.5" /> Demo
-                  </button>
-                )}
                 <button
                   onClick={() => onManageStory(story)}
                   className="flex-1 py-2 bg-slate-800 hover:bg-slate-750 text-slate-200 text-[11px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
@@ -228,12 +215,6 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({
           </div>
         ))}
       </div>
-
-      <AdminIframePreviewModal
-        isOpen={Boolean(previewIframe)}
-        onClose={() => setPreviewIframe(null)}
-        iframeCodeOrUrl={previewIframe || ''}
-      />
     </div>
   );
 };

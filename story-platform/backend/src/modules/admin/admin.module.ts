@@ -9,13 +9,14 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { AuthModule } from '../auth/auth.module';
 import { StorageModule } from '../storage/storage.module';
 import { AdminStoriesController } from './admin-stories.controller';
+import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 
 @Module({
   imports: [
-
     AuditLogsModule,
     AuthModule,
     StorageModule,
+    SubscriptionsModule,
   ],
   controllers: [AdminController, AdminStoriesController],
   providers: [AdminService],

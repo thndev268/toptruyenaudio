@@ -669,15 +669,6 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-300">Mã Iframe Embed HTML</label>
-                  {editingStory?.iframeCode && (
-                    <button
-                      type="button"
-                      onClick={() => setPreviewIframe(editingStory.iframeCode || '')}
-                      className="text-[11px] text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1"
-                    >
-                      <Play className="w-3 h-3" /> Xem Demo Video
-                    </button>
-                  )}
                 </div>
                 <input
                   type="text"

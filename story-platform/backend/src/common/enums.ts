@@ -81,7 +81,7 @@ export enum GenreStatus {
 export enum StoryStatus {
   ONGOING = 'ONGOING',
   COMPLETED = 'COMPLETED',
-  HIATUS = 'HIATUS',
+  PAUSED = 'PAUSED',
 }
 
 export enum PublishStatus {

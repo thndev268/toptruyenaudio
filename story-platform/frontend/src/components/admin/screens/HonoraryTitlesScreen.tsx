@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Shield, Search, Award } from 'lucide-react';
-import { adminRepository } from '../../../services/repositories/AdminRepository';
+import { apiRequest } from '../../../services/apiClient';
 import { HonoraryTitle, TitleEffect } from '../../../types';
 import { AdminPageHeader } from '../layout/AdminPageHeader';
 import * as Icons from 'lucide-react';
@@ -10,6 +10,7 @@ export function HonoraryTitlesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTitle, setEditingTitle] = useState<HonoraryTitle | null>(null);
+  const [loading, setLoading] = useState(false);
 
   // Form State
   const [name, setName] = useState('');
@@ -21,8 +22,18 @@ export function HonoraryTitlesScreen() {
     loadTitles();
   }, []);
 
-  const loadTitles = () => {
-    setTitles(adminRepository.getHonoraryTitles());
+  const loadTitles = async () => {
+    try {
+      setLoading(true);
+      const response = await apiRequest<{ success: boolean; data: HonoraryTitle[] }>('/admin/badges');
+      if (response?.data && Array.isArray(response.data)) {
+        setTitles(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load badges:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleOpenModal = (title?: HonoraryTitle) => {
@@ -42,27 +53,46 @@ export function HonoraryTitlesScreen() {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!name.trim()) return;
 
-    const newTitle: HonoraryTitle = {
-      id: editingTitle ? editingTitle.id : `title-${Date.now()}`,
-      name,
-      description,
-      isActive,
-      effects,
-      createdAt: editingTitle ? editingTitle.createdAt : new Date().toISOString(),
-    };
+    try {
+      const badgeData = {
+        name,
+        description,
+        effects,
+        isActive,
+      };
 
-    adminRepository.saveHonoraryTitle(newTitle);
-    loadTitles();
-    setIsModalOpen(false);
+      if (editingTitle) {
+        await apiRequest(`/admin/badges/${editingTitle.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(badgeData),
+        });
+      } else {
+        await apiRequest('/admin/badges', {
+          method: 'POST',
+          body: JSON.stringify(badgeData),
+        });
+      }
+
+      loadTitles();
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Failed to save badge:', error);
+      alert('Lỗi khi lưu danh hiệu. Vui lòng thử lại.');
+    }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Bạn có chắc chắn muốn xóa danh hiệu này?')) {
-      adminRepository.deleteHonoraryTitle(id);
-      loadTitles();
+      try {
+        await apiRequest(`/admin/badges/${id}`, { method: 'DELETE' });
+        loadTitles();
+      } catch (error) {
+        console.error('Failed to delete badge:', error);
+        alert('Lỗi khi xóa danh hiệu. Vui lòng thử lại.');
+      }
     }
   };
 

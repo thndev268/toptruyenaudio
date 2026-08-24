@@ -100,9 +100,11 @@ export const StoryHero: React.FC<StoryHeroProps> = ({
               <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
                 story.storyStatus === 'ONGOING' 
                   ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' 
+                  : story.storyStatus === 'PAUSED'
+                  ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
                   : 'bg-slate-800 text-slate-300 border border-slate-700'
               }`}>
-                {story.storyStatus === 'ONGOING' ? 'Đang cập nhật' : 'Trọn bộ audio'}
+                {story.storyStatus === 'ONGOING' ? 'Đang cập nhật' : story.storyStatus === 'PAUSED' ? 'Tạm dừng' : 'Trọn bộ audio'}
               </span>
               <div className="flex flex-wrap gap-2">
                 {story.genres?.map((genre) => (
