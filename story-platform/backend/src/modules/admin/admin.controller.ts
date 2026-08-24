@@ -22,7 +22,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { AccountRole } from '../../common/enums';
+import { AccountRole, SubscriptionPlanId } from '../../common/enums';
 import { AuthService } from '../auth/auth.service';
 import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 
@@ -115,7 +115,7 @@ export class AdminController {
     return this.subscriptionsService.grantPremium({
       userId,
       adminId,
-      planId: body.planId,
+      planId: body.planId as SubscriptionPlanId,
       reason: body.reason,
       requestId,
     });

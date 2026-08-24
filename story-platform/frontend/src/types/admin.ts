@@ -200,7 +200,8 @@ export interface AdminBroadcastNotification {
   id: string;
   title: string;
   content: string;
-  targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER';
+  targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER';
+  targetUserId?: string; // For SPECIFIC_USER target
   sentAt: string;
   sentBy: AdminType;
   reachCount: number;

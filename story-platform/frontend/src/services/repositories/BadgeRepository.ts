@@ -163,174 +163,83 @@ export class RestBadgeRepository implements BadgeRepository {
   }
 
   async markAwardAsSeen(assignmentId: string): Promise<void> {
-    // Convenience wrapper
+    // Not implemented
   }
 
   async getUserNotifications(userId: string): Promise<BadgeNotification[]> {
-    try {
-      const res = await fetch(`/api/me/badge-notifications?userId=${encodeURIComponent(userId)}`, {
-        headers: this.getHeaders(),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.notifications || [];
-      }
-    } catch (e) {
-      console.warn('[RestBadgeRepository] Error fetching notifications:', e);
-    }
+    // Not implemented in backend yet
     return [];
   }
 
   async getUnseenBadgeNotifications(userId: string): Promise<BadgeAwardNotification[]> {
-    const notifications = await this.getUserNotifications(userId);
-    const unshown = notifications.filter((n) => !n.toastShownAt);
-    const badges = await this.getBadges();
-    
-    return unshown.map((n) => {
-      const badge = n.badge || badges.find((b) => b.id === n.badgeId) || {
-        id: n.badgeId,
-        code: 'UNKNOWN',
-        name: n.title,
-        description: n.message,
-        icon: 'Award',
-        level: 'COMMON',
-        awardMode: 'AUTOMATIC',
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      return {
-        assignmentId: n.assignmentId,
-        badge,
-        awardedAt: n.createdAt,
-      };
-    });
+    // Not implemented in backend yet
+    return [];
   }
 
   async markNotificationRead(notificationId: string): Promise<void> {
-    await fetch(`/api/me/badge-notifications/${encodeURIComponent(notificationId)}/read`, {
-      method: 'PATCH',
-      headers: this.getHeaders(),
-    });
+    // Not implemented
   }
 
   async markToastShown(notificationId: string): Promise<void> {
-    await fetch(`/api/me/badge-notifications/${encodeURIComponent(notificationId)}/toast-shown`, {
-      method: 'PATCH',
-      headers: this.getHeaders(),
-    });
+    // Not implemented
   }
 
   async recordEvent(eventType: string, incrementValue: number = 1): Promise<UserBadgeAssignment[]> {
-    try {
-      const res = await fetch('/api/me/badge-events/record', {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({ eventType, incrementValue }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.newlyAwarded || [];
-      }
-    } catch (e) {
-      console.warn('[RestBadgeRepository] Error recording event:', e);
-    }
+    // Not implemented in backend yet
     return [];
   }
 
   async createBadge(badgeData: Omit<UserBadge, 'id' | 'createdAt' | 'updatedAt'>): Promise<UserBadge> {
-    const res = await fetch('/api/admin/badges', {
+    const response = await apiRequest<{ success: boolean; data: UserBadge }>('/admin/badges', {
       method: 'POST',
-      headers: this.getHeaders(),
       body: JSON.stringify(badgeData),
     });
 
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(data.error || 'Tạo danh hiệu thất bại');
+    if (!response?.success) {
+      throw new Error('Tạo danh hiệu thất bại');
     }
-    return data.badge;
+    return response.data;
   }
 
   async updateBadge(id: string, updates: Partial<UserBadge>): Promise<UserBadge> {
-    const res = await fetch(`/api/admin/badges/${encodeURIComponent(id)}`, {
-      method: 'PATCH',
-      headers: this.getHeaders(),
+    const response = await apiRequest<{ success: boolean; data: UserBadge }>(`/admin/badges/${id}`, {
+      method: 'PUT',
       body: JSON.stringify(updates),
     });
 
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(data.error || 'Cập nhật danh hiệu thất bại');
+    if (!response?.success) {
+      throw new Error('Cập nhật danh hiệu thất bại');
     }
-    return data.badge;
+    return response.data;
   }
 
   async deleteBadge(id: string): Promise<void> {
-    const res = await fetch(`/api/admin/badges/${encodeURIComponent(id)}`, {
+    const response = await apiRequest<{ success: boolean }>(`/admin/badges/${id}`, {
       method: 'DELETE',
-      headers: this.getHeaders(),
     });
 
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      throw new Error(data.error || 'Xóa danh hiệu thất bại');
+    if (!response?.success) {
+      throw new Error('Xóa danh hiệu thất bại');
     }
   }
 
   async getEventDefinitions(): Promise<BadgeEventDefinition[]> {
-    try {
-      const res = await fetch('/api/admin/badge-events', { headers: this.getHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        return data.events || [];
-      }
-    } catch (e) {
-      console.warn('[RestBadgeRepository] Error fetching event definitions:', e);
-    }
+    // Not implemented in backend yet
     return [];
   }
 
   async createEventDefinition(data: Omit<BadgeEventDefinition, 'id' | 'createdAt' | 'updatedAt'>): Promise<BadgeEventDefinition> {
-    const res = await fetch('/api/admin/badge-events', {
-      method: 'POST',
-      headers: this.getHeaders(),
-      body: JSON.stringify(data),
-    });
-
-    const respData = await res.json();
-    if (!res.ok || !respData.success) {
-      throw new Error(respData.error || 'Tạo sự kiện thất bại');
-    }
-    return respData.event;
+    // Not implemented in backend yet
+    throw new Error('Not implemented');
   }
 
   async updateEventDefinition(id: string, updates: Partial<BadgeEventDefinition>): Promise<BadgeEventDefinition> {
-    const res = await fetch(`/api/admin/badge-events/${encodeURIComponent(id)}`, {
-      method: 'PATCH',
-      headers: this.getHeaders(),
-      body: JSON.stringify(updates),
-    });
-
-    const respData = await res.json();
-    if (!res.ok || !respData.success) {
-      throw new Error(respData.error || 'Cập nhật sự kiện thất bại');
-    }
-    return respData.event;
+    // Not implemented in backend yet
+    throw new Error('Not implemented');
   }
 
   async getAuditLogs(userId?: string): Promise<BadgeAuditLog[]> {
-    try {
-      const url = userId ? `/api/admin/badge-audit-logs?userId=${encodeURIComponent(userId)}` : '/api/admin/badge-audit-logs';
-      const res = await fetch(url, { headers: this.getHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        return data.logs || [];
-      }
-    } catch (e) {
-      console.warn('[RestBadgeRepository] Error fetching audit logs:', e);
-    }
+    // Not implemented in backend yet
     return [];
   }
 }

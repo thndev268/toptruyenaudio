@@ -591,46 +591,70 @@ export class AdminService {
 
   // Badges/Honorary Titles Management
   async getBadges() {
-    // For now, return empty array since we don't have a database model for badges yet
-    // In the future, this should query from a badges table
+    const badges = await this.prisma.honoraryTitle.findMany({
+      where: { isActive: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
     return {
       success: true,
-      data: [],
+      data: badges.map(b => ({
+        id: b.id,
+        code: b.code,
+        name: b.name,
+        description: b.description,
+        iconUrl: b.iconUrl,
+        effects: b.effects,
+        isActive: b.isActive,
+        createdAt: b.createdAt,
+        updatedAt: b.updatedAt,
+      })),
       message: 'Đã lấy danh sách badges thành công',
     };
   }
 
   async createBadge(body: { name: string; description: string; effects: any[]; isActive: boolean }) {
-    // For now, return success since we don't have a database model for badges yet
-    // In the future, this should create a record in a badges table
+    const code = body.name.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+    const badge = await this.prisma.honoraryTitle.create({
+      data: {
+        code,
+        name: body.name,
+        description: body.description,
+        effects: body.effects,
+        isActive: body.isActive ?? true,
+      },
+    });
+
     return {
       success: true,
-      data: {
-        id: `badge-${Date.now()}`,
-        ...body,
-        createdAt: new Date().toISOString(),
-      },
+      data: badge,
       message: 'Đã tạo badge thành công',
     };
   }
 
   async updateBadge(id: string, body: { name: string; description: string; effects: any[]; isActive: boolean }) {
-    // For now, return success since we don't have a database model for badges yet
-    // In the future, this should update a record in a badges table
+    const badge = await this.prisma.honoraryTitle.update({
+      where: { id },
+      data: {
+        name: body.name,
+        description: body.description,
+        effects: body.effects,
+        isActive: body.isActive,
+      },
+    });
+
     return {
       success: true,
-      data: {
-        id,
-        ...body,
-        updatedAt: new Date().toISOString(),
-      },
+      data: badge,
       message: 'Đã cập nhật badge thành công',
     };
   }
 
   async deleteBadge(id: string) {
-    // For now, return success since we don't have a database model for badges yet
-    // In the future, this should delete a record from a badges table
+    await this.prisma.honoraryTitle.delete({
+      where: { id },
+    });
+
     return {
       success: true,
       message: 'Đã xóa badge thành công',
@@ -638,8 +662,42 @@ export class AdminService {
   }
 
   async assignBadgeToUser(badgeId: string, userId: string) {
-    // For now, return success since we don't have a database model for badges yet
-    // In the future, this should create a user_badge relation
+    // Check if badge exists
+    const badge = await this.prisma.honoraryTitle.findUnique({
+      where: { id: badgeId },
+    });
+
+    if (!badge) {
+      throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy danh hiệu.' });
+    }
+
+    // Check if user exists
+    const user = await this.prisma.profile.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy người dùng.' });
+    }
+
+    // Assign badge to user
+    await this.prisma.userTitle.upsert({
+      where: {
+        profileId_titleId: {
+          profileId: userId,
+          titleId: badgeId,
+        },
+      },
+      update: {
+        assignedAt: new Date(),
+      },
+      create: {
+        profileId: userId,
+        titleId: badgeId,
+        assignedBy: 'ADMIN',
+      },
+    });
+
     return {
       success: true,
       message: 'Đã gán badge cho người dùng thành công',
@@ -647,8 +705,13 @@ export class AdminService {
   }
 
   async revokeBadgeFromUser(badgeId: string, userId: string) {
-    // For now, return success since we don't have a database model for badges yet
-    // In the future, this should delete a user_badge relation
+    await this.prisma.userTitle.deleteMany({
+      where: {
+        profileId: userId,
+        titleId: badgeId,
+      },
+    });
+
     return {
       success: true,
       message: 'Đã thu hồi badge từ người dùng thành công',

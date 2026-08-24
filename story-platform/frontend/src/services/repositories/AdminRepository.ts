@@ -623,9 +623,9 @@ class AdminRepositoryService {
         const notifContent = `Tài khoản đã bị Ban Quản Trị ${statusTitle.toLowerCase()} trên hệ thống. Lý do: "${reason}". Vui lòng liên hệ hỗ trợ nếu cần giải đáp.`;
 
         // Check if notification already exists to avoid duplication
-        const exists = this.notifications.some((n) => n.title === notifTitle && n.content === notifContent);
+        const exists = this.notifications.some((n) => n.title === notifTitle && n.content === notifContent && n.targetUserId === userId);
         if (!exists) {
-          this.sendBroadcastNotification(notifTitle, notifContent, 'ALL');
+          this.sendBroadcastNotification(notifTitle, notifContent, 'SPECIFIC_USER', userId);
         }
       }
 
@@ -679,6 +679,9 @@ class AdminRepositoryService {
         reason,
         `Chuyển thành viên sang hạng ${newTier} (${daysToAdd} ngày)`
       );
+
+      this.saveToStorage();
+      window.dispatchEvent(new Event('toptruyenaudio_admin_sync'));
 
       return { success: true, message: `Đã cập nhật gói thành viên thành công.` };
     } catch (error) {
@@ -1548,11 +1551,12 @@ class AdminRepositoryService {
       window.dispatchEvent(new Event('toptruyenaudio_admin_sync'));
     }
 
-    // Notify user
+    // Notify user (specific user who created the ticket)
     this.sendBroadcastNotification(
       `[Hỗ Trợ Admin] Phản hồi ticket: ${ticket?.subject || ticketId}`,
       `Ban Quản Trị đã phản hồi yêu cầu hỗ trợ của bạn: "${adminReply}"`,
-      'ALL'
+      'SPECIFIC_USER',
+      ticket?.userId
     );
 
     this.recordAuditLog(
@@ -1573,15 +1577,16 @@ class AdminRepositoryService {
     return [...this.notifications];
   }
 
-  sendBroadcastNotification(title: string, content: string, targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER'): { success: boolean; message: string } {
+  sendBroadcastNotification(title: string, content: string, targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER', targetUserId?: string): { success: boolean; message: string } {
     const newNotif: AdminBroadcastNotification = {
       id: 'notif-' + Math.random().toString(36).substring(2, 7),
       title,
       content,
       targetAudience,
+      targetUserId: targetAudience === 'SPECIFIC_USER' ? targetUserId : undefined,
       sentAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
       sentBy: 'OWNER_ADMIN',
-      reachCount: targetAudience === 'ALL' ? 18420 : targetAudience === 'PREMIUM' ? 3200 : 450,
+      reachCount: targetAudience === 'ALL' ? 18420 : targetAudience === 'PREMIUM' ? 3200 : targetAudience === 'SPECIFIC_USER' ? 1 : 450,
       status: 'SENT',
     };
     this.notifications.unshift(newNotif);
@@ -1592,7 +1597,7 @@ class AdminRepositoryService {
       newNotif.id,
       title,
       'Gửi thông báo broadcast trực tiếp đến đối tượng người dùng',
-      `Phát thông báo tới nhóm ${targetAudience}`
+      `Phát thông báo tới nhóm ${targetAudience}${targetUserId ? ` (User ID: ${targetUserId})` : ''}`
     );
 
     this.saveToStorage();

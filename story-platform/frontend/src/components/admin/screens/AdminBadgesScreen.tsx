@@ -82,21 +82,21 @@ export const AdminBadgesScreen: React.FC = () => {
   const [isSubmittingBadge, setIsSubmittingBadge] = useState(false);
 
   // Badge Form Fields
-  const [code, setCode] = useState('');
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [icon, setIcon] = useState('Award');
+  const [code, setCode] = useState<string>('');
+  const [name, setName] = useState<string>('');
+  const [description, setDescription] = useState<string>('');
+  const [icon, setIcon] = useState<string>('Award');
   const [level, setLevel] = useState<BadgeLevel>('COMMON');
   const [awardMode, setAwardMode] = useState<BadgeAwardMode>('MANUAL');
-  const [requirementText, setRequirementText] = useState('');
-  const [isActive, setIsActive] = useState(true);
+  const [requirementText, setRequirementText] = useState<string>('');
+  const [isActive, setIsActive] = useState<boolean>(true);
 
   // Automatic Condition Fields
   const [eventType, setEventType] = useState<string>('LISTENING_MINUTES_REACHED');
   const [operator, setOperator] = useState<BadgeConditionOperator>('GREATER_THAN_OR_EQUAL');
   const [targetValue, setTargetValue] = useState<number>(60);
   const [timeWindowDays, setTimeWindowDays] = useState<number | undefined>(undefined);
-  const [conditionDesc, setConditionDesc] = useState('');
+  const [conditionDesc, setConditionDesc] = useState<string>('');
   const [testResult, setTestResult] = useState<string | null>(null);
 
   // --- EVENT MODAL STATE ---
@@ -154,21 +154,21 @@ export const AdminBadgesScreen: React.FC = () => {
 
   const openEditBadgeModal = (b: UserBadge) => {
     setEditingBadge(b);
-    setCode(b.code);
-    setName(b.name);
-    setDescription(b.description);
-    setIcon(b.icon);
-    setLevel(b.level);
+    setCode(b.code || '');
+    setName(b.name || '');
+    setDescription(b.description || '');
+    setIcon(b.icon || 'Award');
+    setLevel(b.level || 'COMMON');
     setAwardMode(b.awardMode || 'MANUAL');
     setRequirementText(b.requirementText || '');
-    setIsActive(b.isActive);
+    setIsActive(b.isActive ?? true);
 
     if (b.condition) {
-      setEventType(b.condition.eventType);
-      setOperator(b.condition.operator);
-      setTargetValue(b.condition.targetValue);
+      setEventType(b.condition.eventType || 'LISTENING_MINUTES_REACHED');
+      setOperator(b.condition.operator || 'GREATER_THAN_OR_EQUAL');
+      setTargetValue(b.condition.targetValue ?? 60);
       setTimeWindowDays(b.condition.timeWindowDays);
-      setConditionDesc(b.condition.description);
+      setConditionDesc(b.condition.description || '');
     } else {
       setEventType('LISTENING_MINUTES_REACHED');
       setOperator('GREATER_THAN_OR_EQUAL');

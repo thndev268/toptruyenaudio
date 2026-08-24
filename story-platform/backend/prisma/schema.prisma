@@ -41,6 +41,7 @@ model Profile {
   wallets               Wallet[]
   creatorApplications   CreatorApplication[]
   partnerApplications   PartnerApplication[]
+  userTitles            UserTitle[]
 
   @@map("profiles")
 }
@@ -217,7 +218,7 @@ model ListeningSession {
 // -----------------------------------------------------------------------------
 
 model SubscriptionPlan {
-  id            String   @id @default(cuid())
+  id            String   @id
   name          String
   code          String   @unique
   description   String?
@@ -538,6 +539,35 @@ model FeatureFlag {
   updatedAt     DateTime @updatedAt
 
   @@map("feature_flags")
+}
+
+model HonoraryTitle {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  iconUrl     String?
+  effects     Json?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userTitles  UserTitle[]
+
+  @@map("honorary_titles")
+}
+
+model UserTitle {
+  id          String   @id @default(cuid())
+  profileId   String
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  titleId     String
+  title       HonoraryTitle @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  assignedAt  DateTime @default(now())
+  assignedBy  String?
+
+  @@unique([profileId, titleId], name: "profileId_titleId")
+  @@map("user_titles")
 }
 
 model IdempotencyRecord {
