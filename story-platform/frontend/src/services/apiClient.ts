@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase';
 
 const API_BASE_URL = ((import.meta as any).env?.VITE_API_URL as string) || 
-  (import.meta.env.PROD ? 'https://toptruyenaudio.onrender.com/api/v1' : 'http://localhost:3001/api/v1');
+  (import.meta.env.PROD ? 'https://api.toptruyenaudio.onrender.com/api/v1' : 'http://localhost:3001/api/v1');
 
 export class ApiError extends Error {
   code: string;
