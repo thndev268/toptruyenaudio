@@ -47,8 +47,12 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
 
   app.enableCors({
-    origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : true,
+    origin: process.env.CORS_ORIGINS 
+      ? process.env.CORS_ORIGINS.split(',') 
+      : ['http://localhost:5173', 'http://localhost:3000', 'https://toptruyenaudio-l298.vercel.app', 'https://toptruyenaudio.site', 'https://www.toptruyenaudio.site'],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
   });
 
   const config = new DocumentBuilder()

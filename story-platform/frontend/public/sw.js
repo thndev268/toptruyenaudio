@@ -89,19 +89,22 @@ self.addEventListener('fetch', (event) => {
       caches.match(event.request).then((cachedResponse) => {
         const fetchPromise = fetch(event.request)
           .then((networkResponse) => {
+            // Clone immediately before any consumption
+            const responseToCache = networkResponse.clone();
+            
             // Only cache valid, non-opaque, successful basic/cors responses
             if (
               networkResponse && 
               networkResponse.status === 200 && 
               (networkResponse.type === 'basic' || networkResponse.type === 'cors')
             ) {
-              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse.clone()));
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseToCache));
             }
             return networkResponse;
           })
-          .catch(() => {});
+          .catch(() => new Response('Network error', { status: 503 }));
           
-        return cachedResponse || fetchPromise.then(res => res || new Response('', { status: 404 }));
+        return cachedResponse || fetchPromise;
       })
     );
     return;
