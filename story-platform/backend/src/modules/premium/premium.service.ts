@@ -9,6 +9,8 @@ interface PayOSPaymentRequest {
   description: string;
   cancelUrl: string;
   returnUrl: string;
+  currency?: string;
+  expiredAt?: string | null;
 }
 
 interface PayOSPaymentResponse {
@@ -150,6 +152,8 @@ export class PremiumService {
         description: `Mua gói ${plan.name} - ${plan.durationDays} ngày`,
         cancelUrl: `${process.env.FRONTEND_URL}/premium/cancel`,
         returnUrl: `${process.env.FRONTEND_URL}/premium/success`,
+        currency: 'VND',
+        expiredAt: null,
       };
 
       const payOSResponse = await this.callPayOSAPI('/api/v1/payment/create', payOSRequest);
