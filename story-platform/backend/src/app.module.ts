@@ -18,6 +18,7 @@ import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { SupportModule } from './modules/support/support.module';
 import { StoriesModule } from './modules/stories/stories.module';
 import { ListeningModule } from './modules/listening/listening.module';
+import { CommentsModule } from './modules/comments/comments.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { StorageModule } from './modules/storage/storage.module';
 
@@ -34,17 +35,17 @@ import { StorageModule } from './modules/storage/storage.module';
         {
           name: 'standard',
           ttl: config.get('rateLimit.global.ttl') || 60000,
-          limit: config.get('rateLimit.global.limit') || 100,
+          limit: config.get('rateLimit.global.limit') || 500,
         },
         {
           name: 'auth',
           ttl: config.get('rateLimit.auth.ttl') || 60000,
-          limit: config.get('rateLimit.auth.limit') || 10,
+          limit: config.get('rateLimit.auth.limit') || 200,
         },
         {
           name: 'support',
           ttl: config.get('rateLimit.support.ttl') || 60000,
-          limit: config.get('rateLimit.support.limit') || 20,
+          limit: config.get('rateLimit.support.limit') || 50,
         },
       ],
     }),
@@ -62,14 +63,16 @@ import { StorageModule } from './modules/storage/storage.module';
     SupportModule,
     StoriesModule,
     ListeningModule,
+    CommentsModule,
     PrismaModule,
     StorageModule,
   ],
   providers: [
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
+    // Tắt rate limiting trong development
+    // {
+    //   provide: APP_GUARD,
+    //   useClass: ThrottlerGuard,
+    // },
   ],
 })
 export class AppModule {}

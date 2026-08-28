@@ -717,4 +717,109 @@ export class AdminService {
       message: 'Đã thu hồi badge từ người dùng thành công',
     };
   }
+
+  // Comments Management
+  async getComments(query: { status?: string; page?: number; limit?: number }) {
+    const where: any = {};
+    
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    const page = query.page || 1;
+    const limit = Math.min(query.limit || 50, 200);
+    const skip = (page - 1) * limit;
+
+    const [comments, total] = await Promise.all([
+      this.prisma.comment.findMany({
+        where,
+        include: {
+          profile: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+            },
+          },
+          story: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.comment.count({ where }),
+    ]);
+
+    const formattedComments = comments.map((c) => ({
+      id: c.id,
+      storyId: c.storyId,
+      storyTitle: c.story?.title || 'Unknown',
+      userName: c.profile?.displayName || c.profile?.email?.split('@')[0] || 'Unknown',
+      userEmail: c.profile?.email || '',
+      content: c.content,
+      rating: 0,
+      createdAt: c.createdAt ? c.createdAt.toISOString() : new Date().toISOString(),
+      reportCount: 0,
+      status: c.status === 'APPROVED' ? 'ACTIVE' : c.status === 'HIDDEN' ? 'HIDDEN' : 'FLAGGED',
+      isPinned: false,
+    }));
+
+    return {
+      success: true,
+      data: formattedComments,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async updateCommentStatus(id: string, status: string, reason?: string) {
+    const comment = await this.prisma.comment.findUnique({ where: { id } });
+    if (!comment) {
+      throw new NotFoundException({
+        code: 'RESOURCE_NOT_FOUND',
+        message: 'Không tìm thấy bình luận.',
+      });
+    }
+
+    const updated = await this.prisma.comment.update({
+      where: { id },
+      data: {
+        status: status === 'ACTIVE' ? 'APPROVED' : status,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Đã cập nhật trạng thái bình luận thành công',
+      data: updated,
+    };
+  }
+
+  async deleteComment(id: string, reason?: string) {
+    const comment = await this.prisma.comment.findUnique({ where: { id } });
+    if (!comment) {
+      throw new NotFoundException({
+        code: 'RESOURCE_NOT_FOUND',
+        message: 'Không tìm thấy bình luận.',
+      });
+    }
+
+    await this.prisma.comment.delete({
+      where: { id },
+    });
+
+    return {
+      success: true,
+      message: 'Đã xóa bình luận thành công',
+    };
+  }
 }

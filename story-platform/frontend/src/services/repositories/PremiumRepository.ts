@@ -49,7 +49,31 @@ export interface PaymentHistory {
   createdAt: string;
 }
 
-class PremiumRepository {
+function unwrapPaymentStatus(raw: any): { success: boolean; data: PaymentStatus; message: string } {
+  const payload = raw?.data?.status
+    ? raw.data
+    : raw?.data?.data?.status
+      ? raw.data.data
+      : raw?.status
+        ? raw
+        : null;
+
+  if (!payload?.status) {
+    return {
+      success: false,
+      data: raw?.data as PaymentStatus,
+      message: raw?.message || 'Không đọc được trạng thái thanh toán',
+    };
+  }
+
+  return {
+    success: true,
+    data: payload as PaymentStatus,
+    message: raw?.message || `Trạng thái thanh toán: ${payload.status}`,
+  };
+}
+
+export class PremiumRepository {
   /**
    * Lấy danh sách gói Premium đang active từ backend
    * Frontend chỉ hiển thị, không được tự quyết định giá
@@ -74,7 +98,8 @@ class PremiumRepository {
    * Backend kiểm tra trạng thái thật từ PayOS và xử lý business logic
    */
   async checkPaymentStatus(orderCode: string): Promise<{ success: boolean; data: PaymentStatus; message: string }> {
-    return apiRequest(`/premium/payments/${orderCode}/status`);
+    const raw = await apiRequest(`/premium/payments/${orderCode}/status`);
+    return unwrapPaymentStatus(raw);
   }
 
   /**

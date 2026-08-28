@@ -27,7 +27,7 @@ export const CommentsScreen: React.FC<CommentsScreenProps> = ({
   const filtered = comments.filter((c) => {
     const matchSearch =
       c.content.toLowerCase().includes(search.toLowerCase()) ||
-      c.userName.toLowerCase().includes(search.toLowerCase()) ||
+      (c.userName || '').toLowerCase().includes(search.toLowerCase()) ||
       c.storyTitle.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === 'ALL' || c.status === statusFilter;
     return matchSearch && matchStatus;
@@ -92,7 +92,7 @@ export const CommentsScreen: React.FC<CommentsScreenProps> = ({
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center font-bold text-cyan-400 text-xs">
-                  {cmt.userName.charAt(0)}
+                  {(cmt.userName || '?').charAt(0)}
                 </div>
                 <div>
                   <div className="font-bold text-white text-xs sm:text-sm flex items-center gap-1.5">

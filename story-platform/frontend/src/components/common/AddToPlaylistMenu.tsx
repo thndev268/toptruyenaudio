@@ -60,27 +60,27 @@ export const AddToPlaylistMenu: React.FC<AddToPlaylistMenuProps> = ({ storyId, c
   return (
     <motion.div 
       ref={menuRef}
-      initial={{ opacity: 0, scale: 0.95, y: -4 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95, y: -4 }}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.15 }}
-      className="w-64 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-50"
+      className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 max-w-[90vw] bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-[9999]"
     >
-      <div className="px-3 py-2 border-b border-slate-700 bg-slate-800">
+      <div className="px-4 py-3 border-b border-slate-700 bg-slate-800">
         <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Lưu vào danh sách</span>
       </div>
       
-      <div className="max-h-48 overflow-y-auto">
+      <div className="max-h-64 overflow-y-auto">
         {loading ? (
-          <div className="p-3 text-center text-slate-500 text-xs">Đang tải...</div>
+          <div className="p-4 text-center text-slate-500 text-xs">Đang tải...</div>
         ) : playlists.length === 0 ? (
-          <div className="p-3 text-center text-slate-500 text-xs">Chưa có danh sách phát nào.</div>
+          <div className="p-4 text-center text-slate-500 text-xs">Chưa có danh sách phát nào.</div>
         ) : (
           playlists.map((pl) => (
             <button
               key={pl.id}
               onClick={() => handleAddToPlaylist(pl)}
-              className="w-full px-3 py-2.5 text-left text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors truncate"
+              className="w-full px-4 py-3 text-left text-sm text-slate-300 hover:bg-slate-700 hover:text-white transition-colors truncate"
             >
               {pl.name}
             </button>
@@ -95,7 +95,7 @@ export const AddToPlaylistMenu: React.FC<AddToPlaylistMenuProps> = ({ storyId, c
               onClose();
               navigate('/library/playlists');
             }}
-            className="w-full px-3 py-2.5 text-left text-sm text-cyan-400 font-bold hover:bg-slate-800 transition-colors flex items-center gap-2"
+            className="w-full px-4 py-3 text-left text-sm text-cyan-400 font-bold hover:bg-slate-800 transition-colors flex items-center gap-2"
           >
             <Plus className="w-4 h-4" /> Tạo danh sách mới
           </button>
@@ -105,7 +105,7 @@ export const AddToPlaylistMenu: React.FC<AddToPlaylistMenuProps> = ({ storyId, c
               onClose();
               navigate('/premium');
             }}
-            className="w-full px-3 py-2.5 text-left text-xs text-amber-400 font-bold hover:bg-slate-800 transition-colors flex items-center gap-2"
+            className="w-full px-4 py-3 text-left text-xs text-amber-400 font-bold hover:bg-slate-800 transition-colors flex items-center gap-2"
           >
             Nâng cấp để tạo thêm
           </button>

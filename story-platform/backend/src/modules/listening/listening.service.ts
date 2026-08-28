@@ -36,7 +36,7 @@ export class ListeningService {
     if (!chapter) throw new NotFoundException('Chapter not found');
     
     if (!this.isMemoryProvider) {
-       return this.prisma.listeningSession.create({
+       const session = await this.prisma.listeningSession.create({
          data: {
            profileId: userId, storyId: story.id, chapterId: chapter.id,
            startedAt: new Date(), lastHeartbeatAt: new Date(),
@@ -44,8 +44,9 @@ export class ListeningService {
            status: ListeningSessionStatus.ACTIVE,
          }
        });
+       return { _id: session.id, status: session.status };
     }
-    return { id: 'mock-session', status: ListeningSessionStatus.ACTIVE };
+    return { _id: 'mock-session', status: ListeningSessionStatus.ACTIVE };
   }
 
   async handleHeartbeat(userId: string, sessionId: string, dto: HeartbeatDto) {

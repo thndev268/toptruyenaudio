@@ -21,6 +21,12 @@ export default defineConfig(() => {
       host: '0.0.0.0',
       hmr: process.env.DISABLE_HMR !== 'true',
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
+      allowedHosts: [
+        'localhost',
+        'toptruyenaudio.onrender.com',
+        'toptruyenaudio.site',
+        'www.toptruyenaudio.site',
+      ],
     },
   };
 });

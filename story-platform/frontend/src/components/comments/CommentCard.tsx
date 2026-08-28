@@ -76,13 +76,13 @@ export const CommentCard: React.FC<CommentCardProps> = ({
             {comment.userAvatar ? (
               <img src={comment.userAvatar} alt={comment.userName} className="w-full h-full object-cover" />
             ) : (
-              comment.userName.charAt(0).toUpperCase()
+              (comment.userName || '?').charAt(0).toUpperCase()
             )}
           </div>
 
           <div className="space-y-0.5">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold text-white">{comment.userName}</span>
+              <span className="text-xs font-bold text-white">{comment.userName || 'Người dùng'}</span>
               {comment.verifiedListener && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 rounded-full text-[10px] font-bold">
                   <ShieldCheck className="w-3 h-3 text-cyan-400" />

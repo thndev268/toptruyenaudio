@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Sparkles, Check, AlertCircle, Headphones, LifeBuoy, X, Loader2, RefreshCw } from 'lucide-react';
 import { PremiumPlan, SubscriptionPlanId } from '../../types';
 import { subscriptionRepository } from '../../services/repositories/SubscriptionRepository';
@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { ConfirmModal } from '../common/ConfirmModal';
 import { Portal } from '../common/filter/Portal';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import { PaymentQrCode } from '../common/PaymentQrCode';
 
 const PLANS: PremiumPlan[] = [
   {
@@ -57,7 +58,7 @@ const PRIVILEGES = [
 ];
 
 export const PremiumView: React.FC = () => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, refreshUser } = useAuth();
   const [selectedPlan, setSelectedPlan] = useState<PremiumPlan | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -68,6 +69,71 @@ export const PremiumView: React.FC = () => {
 
   useBodyScrollLock(isModalOpen);
 
+  const applyPaidMembership = useCallback(async () => {
+    setPaymentStatus('PAID');
+    try {
+      await refreshUser();
+    } catch (error) {
+      console.error('Refresh user after payment failed:', error);
+      if (selectedPlan) {
+        await updateUser({
+          membership: {
+            tier: 'PREMIUM',
+            subscriptionStatus: 'ACTIVE',
+            planId: selectedPlan.code as SubscriptionPlanId,
+            startedAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 86400000 * selectedPlan.durationDays).toISOString(),
+          },
+        });
+      }
+    }
+
+    setTimeout(() => {
+      setIsModalOpen(false);
+    }, 2000);
+  }, [selectedPlan, updateUser, refreshUser]);
+
+  useEffect(() => {
+    const orderCode = paymentResponse?.orderCode;
+    if (!isModalOpen || !orderCode || paymentStatus === 'PAID') {
+      return;
+    }
+
+    let cancelled = false;
+    const POLL_INTERVAL_MS = 8000;
+
+    const checkStatus = async () => {
+      if (cancelled) return;
+
+      try {
+        setCheckingStatus(true);
+        const response = await premiumRepository.checkPaymentStatus(orderCode);
+        if (cancelled || !response.success) return;
+
+        setPaymentStatus(response.data.status);
+
+        if (response.data.status === 'PAID') {
+          await applyPaidMembership();
+        }
+      } catch (error) {
+        console.error('Payment status check error:', error);
+      } finally {
+        if (!cancelled) {
+          setCheckingStatus(false);
+        }
+      }
+    };
+
+    const initialCheck = setTimeout(checkStatus, 2000);
+    const interval = setInterval(checkStatus, POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(initialCheck);
+      clearInterval(interval);
+    };
+  }, [isModalOpen, paymentResponse?.orderCode, paymentStatus, applyPaidMembership]);
+
   const formatCurrency = (amount: number) => {
     return amount.toLocaleString('vi-VN') + 'đ';
   };
@@ -76,6 +142,8 @@ export const PremiumView: React.FC = () => {
     setSelectedPlan(plan);
     setIsModalOpen(true);
     setIsSuccess(false);
+    setPaymentResponse(null);
+    setPaymentStatus('PENDING');
   };
 
   const handleCreatePayment = async () => {
@@ -88,99 +156,42 @@ export const PremiumView: React.FC = () => {
         setPaymentResponse(response.data);
         setPaymentStatus('PENDING');
         setIsSuccess(true);
-        
-        // Start checking payment status
-        startPaymentStatusCheck(response.data.orderCode);
       } else {
         alert(response.message || 'Không thể tạo thanh toán. Vui lòng thử lại.');
       }
     } catch (error: any) {
       console.error('Payment creation error:', error);
-      if (error?.code === 'PAYOS_NOT_CONFIGURED') {
+      const errorCode = error?.code;
+      const errorMessage = error?.message;
+      if (errorCode === 'PAYOS_NOT_CONFIGURED' || errorCode === 'PAYOS_TOKEN_NOT_CONFIGURED') {
         alert('Hệ thống thanh toán chưa được cấu hình. Vui lòng liên hệ quản trị viên.');
+      } else if (errorCode === 'PAYOS_TOKEN_INVALID') {
+        alert('Token thanh toán đã hết hạn. Admin cần cập nhật Gateway Token mới.');
       } else {
-        alert('Có lỗi xảy ra khi tạo thanh toán. Vui lòng thử lại.');
+        alert(errorMessage || 'Có lỗi xảy ra khi tạo thanh toán. Vui lòng thử lại.');
       }
     } finally {
       setPaymentLoading(false);
     }
   };
 
-  const startPaymentStatusCheck = (orderCode: string) => {
-    // Check payment status every 3 seconds
-    const checkInterval = setInterval(async () => {
-      if (!isModalOpen) {
-        clearInterval(checkInterval);
-        return;
-      }
-
-      try {
-        setCheckingStatus(true);
-        const response = await premiumRepository.checkPaymentStatus(orderCode);
-        if (response.success) {
-          setPaymentStatus(response.data.status);
-          
-          if (response.data.status === 'PAID') {
-            clearInterval(checkInterval);
-            setCheckingStatus(false);
-            
-            // Update user membership
-            await updateUser({
-              membership: {
-                tier: 'PREMIUM',
-                subscriptionStatus: 'ACTIVE',
-                planId: selectedPlan?.code as SubscriptionPlanId,
-                startedAt: new Date().toISOString(),
-                expiresAt: new Date(Date.now() + 86400000 * (selectedPlan?.durationDays || 30)).toISOString()
-              }
-            });
-            
-            // Close modal after short delay
-            setTimeout(() => {
-              setIsModalOpen(false);
-            }, 2000);
-          }
-        }
-      } catch (error) {
-        console.error('Payment status check error:', error);
-      } finally {
-        setCheckingStatus(false);
-      }
-    }, 3000);
-
-    // Store interval to clear it when modal closes
-    return () => clearInterval(checkInterval);
-  };
-
   const handleRetryStatusCheck = async () => {
-    if (paymentResponse) {
-      setCheckingStatus(true);
-      try {
-        const response = await premiumRepository.checkPaymentStatus(paymentResponse.orderCode);
-        if (response.success) {
-          setPaymentStatus(response.data.status);
-          
-          if (response.data.status === 'PAID') {
-            await updateUser({
-              membership: {
-                tier: 'PREMIUM',
-                subscriptionStatus: 'ACTIVE',
-                planId: selectedPlan?.code as SubscriptionPlanId,
-                startedAt: new Date().toISOString(),
-                expiresAt: new Date(Date.now() + 86400000 * (selectedPlan?.durationDays || 30)).toISOString()
-              }
-            });
-            
-            setTimeout(() => {
-              setIsModalOpen(false);
-            }, 2000);
-          }
+    if (!paymentResponse) return;
+
+    setCheckingStatus(true);
+    try {
+      const response = await premiumRepository.checkPaymentStatus(paymentResponse.orderCode);
+      if (response.success) {
+        setPaymentStatus(response.data.status);
+
+        if (response.data.status === 'PAID') {
+          await applyPaidMembership();
         }
-      } catch (error) {
-        console.error('Payment status check error:', error);
-      } finally {
-        setCheckingStatus(false);
       }
+    } catch (error) {
+      console.error('Payment status check error:', error);
+    } finally {
+      setCheckingStatus(false);
     }
   };
 
@@ -367,11 +378,7 @@ export const PremiumView: React.FC = () => {
                       <div className="mb-6">
                         <p className="text-sm text-slate-600 dark:text-slate-400 mb-3 text-center">Quét mã QR để thanh toán:</p>
                         <div className="flex justify-center">
-                          <img 
-                            src={paymentResponse.qrCode} 
-                            alt="QR Code thanh toán" 
-                            className="w-48 h-48 rounded-lg border border-slate-200 dark:border-slate-700"
-                          />
+                          <PaymentQrCode value={paymentResponse.qrCode} size={192} />
                         </div>
                       </div>
                     )}

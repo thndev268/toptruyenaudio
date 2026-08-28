@@ -64,7 +64,7 @@ import { localReviewRepository } from '../../services/repositories/ReviewReposit
 
 import { createProgressKey } from '../../services/storage';
 
-import { localCommentRepository } from '../../services/repositories/CommentRepository';
+import { apiCommentRepository } from '../../services/repositories/CommentRepository';
 
 import { EligibilityService } from '../../services/repositories/EligibilityService';
 
@@ -355,7 +355,7 @@ export const StoryDetailView: React.FC = () => {
 
         localReviewRepository.getReviewsByStory(story.id),
 
-        localCommentRepository.getCommentsByStory(story.id),
+        apiCommentRepository.getCommentsByStory(story.id),
 
         localReviewRepository.getRatingDistribution(story.id),
 
@@ -401,7 +401,7 @@ export const StoryDetailView: React.FC = () => {
 
         for (const c of storyComments) {
 
-          if (await localCommentRepository.hasUserVoted(c.id, user.id)) {
+          if (await apiCommentRepository.hasUserVoted(c.id, user.id)) {
 
             votedCmts.push(c.id);
 
@@ -411,7 +411,7 @@ export const StoryDetailView: React.FC = () => {
 
             for (const reply of c.replies) {
 
-              if (await localCommentRepository.hasUserVoted(reply.id, user.id)) {
+              if (await apiCommentRepository.hasUserVoted(reply.id, user.id)) {
 
                 votedCmts.push(reply.id);
 
@@ -679,7 +679,7 @@ export const StoryDetailView: React.FC = () => {
 
 
 
-    await localCommentRepository.addComment({
+    await apiCommentRepository.addComment({
 
       storyId: story.id,
 
@@ -713,7 +713,7 @@ export const StoryDetailView: React.FC = () => {
 
     if (!user) return;
 
-    await localCommentRepository.editComment(commentId, user.id, content, hasSpoiler);
+    await apiCommentRepository.editComment(commentId, user.id, content, hasSpoiler);
 
     await refreshData();
 
@@ -737,7 +737,7 @@ export const StoryDetailView: React.FC = () => {
 
       onConfirm: async () => {
 
-        await localCommentRepository.deleteComment(commentId, user.id);
+        await apiCommentRepository.deleteComment(commentId, user.id);
 
         await refreshData();
 
@@ -765,7 +765,7 @@ export const StoryDetailView: React.FC = () => {
 
 
 
-    await localCommentRepository.voteHelpful(commentId, user.id);
+    await apiCommentRepository.voteHelpful(commentId, user.id);
 
     await refreshData();
 
