@@ -41,10 +41,11 @@
     "mongoose": "^8.7.2",
     "motion": "^12.23.24",
     "passport-jwt": "^4.0.1",
+    "qrcode.react": "^4.2.0",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-router-dom": "^7.18.2",
-    "vite": "^6.2.3",
+    "vite": "^5.4.11",
     "vitest": "^4.1.10"
   },
   "devDependencies": {
@@ -60,6 +61,6 @@
     "ts-jest": "^29.4.12",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "vite": "^5.4.11"
   }
 }
