@@ -43,6 +43,7 @@ model Profile {
   userTitles            UserTitle[]
   payments             Payment[]
   paymentHistory        PaymentHistory[]
+  comments              Comment[]
 
   @@map("profiles")
 }
@@ -92,6 +93,7 @@ model Story {
   chapters      Chapter[]
   genres        GenreToStory[]
   contentRights ContentRights[]
+  comments      Comment[]
 
   @@map("stories")
 }
@@ -116,6 +118,7 @@ model Chapter {
   updatedAt       DateTime @updatedAt
 
   listeningProgress ListeningProgress[]
+  comments         Comment[]
 
   @@map("chapters")
 }
@@ -144,6 +147,33 @@ model GenreToStory {
 
   @@id([storyId, genreId])
   @@map("genres_stories")
+}
+
+model Comment {
+  id              String   @id @default(cuid())
+  storyId         String
+  story           Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  chapterId       String?
+  chapter         Chapter? @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  userId          String
+  profile         Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId        String?
+  parent          Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies         Comment[] @relation("CommentReplies")
+  content         String
+  hasSpoiler      Boolean  @default(false)
+  helpfulCount    Int      @default(0)
+  verifiedListener Boolean @default(false)
+  status          String   @default("APPROVED") // APPROVED, PENDING, REJECTED, HIDDEN
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([storyId])
+  @@index([chapterId])
+  @@index([userId])
+  @@index([parentId])
+  @@index([status])
+  @@map("comments")
 }
 
 model ContentRights {

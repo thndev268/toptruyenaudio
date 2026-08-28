@@ -235,7 +235,7 @@ export class AdminService {
       await tx.listeningProgress.deleteMany({ where: { profileId: userId } });
       await tx.listeningSession.deleteMany({ where: { profileId: userId } });
       await tx.userSubscription.deleteMany({ where: { profileId: userId } });
-      await tx.paymentOrder.deleteMany({ where: { profileId: userId } });
+      await tx.payment.deleteMany({ where: { userId } });
       await tx.supportConversation.deleteMany({ where: { userId } });
       await tx.securityEvent.deleteMany({ where: { resolvedByAdminId: userId } });
       await tx.wallet.deleteMany({ where: { profileId: userId } });
@@ -469,12 +469,12 @@ export class AdminService {
       this.prisma.userSubscription.count({
         where: {
           status: 'ACTIVE',
-          expiresAt: { gte: now },
+          endAt: { gte: now },
         },
       }),
-      this.prisma.transaction.aggregate({
+      this.prisma.payment.aggregate({
         where: {
-          status: 'SUCCESS',
+          status: 'PAID',
           createdAt: { gte: dateFrom, lte: dateTo },
         },
         _sum: {
@@ -549,7 +549,7 @@ export class AdminService {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { updatedAt: 'desc' },
         skip,
         take: limit,
       }),
@@ -558,7 +558,7 @@ export class AdminService {
 
     // Get payment orders for revenue calculation
     const subscriptionIds = subscriptions.map(s => s.id);
-    const paymentOrders = await this.prisma.paymentOrder.findMany({
+    const paymentOrders = await this.prisma.payment.findMany({
       where: {
         // Note: This might need adjustment based on your actual data model
         // Assuming there's a relation between subscriptions and payments
@@ -567,13 +567,13 @@ export class AdminService {
 
     const formattedSubscriptions = subscriptions.map(sub => ({
       id: sub.id,
-      userName: sub.profile.displayName || sub.profile.email,
-      userEmail: sub.profile.email,
+      userName: sub.profile?.displayName || sub.profile?.email || 'Unknown',
+      userEmail: sub.profile?.email || 'unknown@example.com',
       planName: sub.plan?.name || 'Unknown Plan',
       amountVnd: sub.plan?.price || 0,
       paymentMethod: 'VietQR', // Default, could be enhanced
-      startedAt: sub.startedAt.toISOString().split('T')[0],
-      expiresAt: sub.expiresAt.toISOString().split('T')[0],
+      startedAt: sub.startAt ? sub.startAt.toISOString().split('T')[0] : 'N/A',
+      expiresAt: sub.endAt ? sub.endAt.toISOString().split('T')[0] : 'N/A',
       status: sub.status,
     }));
 
@@ -715,6 +715,111 @@ export class AdminService {
     return {
       success: true,
       message: 'Đã thu hồi badge từ người dùng thành công',
+    };
+  }
+
+  // Comments Management
+  async getComments(query: { status?: string; page?: number; limit?: number }) {
+    const where: any = {};
+    
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    const page = query.page || 1;
+    const limit = Math.min(query.limit || 50, 200);
+    const skip = (page - 1) * limit;
+
+    const [comments, total] = await Promise.all([
+      this.prisma.comment.findMany({
+        where,
+        include: {
+          profile: {
+            select: {
+              id: true,
+              displayName: true,
+              email: true,
+            },
+          },
+          story: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.comment.count({ where }),
+    ]);
+
+    const formattedComments = comments.map((c) => ({
+      id: c.id,
+      storyId: c.storyId,
+      storyTitle: c.story?.title || 'Unknown',
+      userName: c.profile?.displayName || c.profile?.email?.split('@')[0] || 'Unknown',
+      userEmail: c.profile?.email || '',
+      content: c.content,
+      rating: 0,
+      createdAt: c.createdAt ? c.createdAt.toISOString() : new Date().toISOString(),
+      reportCount: 0,
+      status: c.status === 'APPROVED' ? 'ACTIVE' : c.status === 'HIDDEN' ? 'HIDDEN' : 'FLAGGED',
+      isPinned: false,
+    }));
+
+    return {
+      success: true,
+      data: formattedComments,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async updateCommentStatus(id: string, status: string, reason?: string) {
+    const comment = await this.prisma.comment.findUnique({ where: { id } });
+    if (!comment) {
+      throw new NotFoundException({
+        code: 'RESOURCE_NOT_FOUND',
+        message: 'Không tìm thấy bình luận.',
+      });
+    }
+
+    const updated = await this.prisma.comment.update({
+      where: { id },
+      data: {
+        status: status === 'ACTIVE' ? 'APPROVED' : status,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Đã cập nhật trạng thái bình luận thành công',
+      data: updated,
+    };
+  }
+
+  async deleteComment(id: string, reason?: string) {
+    const comment = await this.prisma.comment.findUnique({ where: { id } });
+    if (!comment) {
+      throw new NotFoundException({
+        code: 'RESOURCE_NOT_FOUND',
+        message: 'Không tìm thấy bình luận.',
+      });
+    }
+
+    await this.prisma.comment.delete({
+      where: { id },
+    });
+
+    return {
+      success: true,
+      message: 'Đã xóa bình luận thành công',
     };
   }
 }

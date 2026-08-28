@@ -52,9 +52,7 @@ export class AuthService {
     await this.prisma.userSubscription.create({
       data: {
         profileId: user.id,
-        membershipTier: MembershipTier.FREE,
         status: SubscriptionStatus.NONE,
-        autoRenew: false,
       }
     });
 
@@ -300,11 +298,9 @@ export class AuthService {
     await this.prisma.userSubscription.create({
       data: {
         profileId: admin.id,
-        membershipTier: MembershipTier.PREMIUM,
         status: SubscriptionStatus.ACTIVE,
-        startedAt: new Date(),
-        expiresAt: new Date(Date.now() + 100 * 365 * 86400000), // 100 years
-        autoRenew: true,
+        startAt: new Date(),
+        endAt: new Date(Date.now() + 100 * 365 * 86400000), // 100 years
       }
     });
 

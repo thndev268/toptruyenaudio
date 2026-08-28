@@ -60,42 +60,38 @@ async function main() {
   // Seed subscription plans
   const subscriptionPlans = [
     {
-      id: 'PREMIUM_MONTHLY',
       code: 'PREMIUM_MONTHLY',
       name: 'Premium Tháng',
       durationDays: 30,
       price: 59000,
-      features: ['AD_FREE', 'HIGH_QUALITY_AUDIO', 'PREMIUM_CATALOG', 'EARLY_ACCESS', 'UNLIMITED_PLAYLISTS', 'PREMIUM_COMMENT_BADGE', 'PRIORITY_SUPPORT'],
+      benefits: ['AD_FREE', 'HIGH_QUALITY_AUDIO', 'PREMIUM_CATALOG', 'EARLY_ACCESS', 'UNLIMITED_PLAYLISTS', 'PREMIUM_COMMENT_BADGE', 'PRIORITY_SUPPORT'],
     },
     {
-      id: 'PREMIUM_QUARTERLY',
       code: 'PREMIUM_QUARTERLY',
       name: 'Premium 3 Tháng',
       durationDays: 90,
       price: 150000,
-      features: ['AD_FREE', 'HIGH_QUALITY_AUDIO', 'PREMIUM_CATALOG', 'EARLY_ACCESS', 'UNLIMITED_PLAYLISTS', 'PREMIUM_COMMENT_BADGE', 'PRIORITY_SUPPORT'],
+      benefits: ['AD_FREE', 'HIGH_QUALITY_AUDIO', 'PREMIUM_CATALOG', 'EARLY_ACCESS', 'UNLIMITED_PLAYLISTS', 'PREMIUM_COMMENT_BADGE', 'PRIORITY_SUPPORT'],
     },
     {
-      id: 'PREMIUM_SEMIANNUAL',
       code: 'PREMIUM_SEMIANNUAL',
       name: 'Premium 6 Tháng',
       durationDays: 180,
       price: 270000,
-      features: ['AD_FREE', 'HIGH_QUALITY_AUDIO', 'PREMIUM_CATALOG', 'EARLY_ACCESS', 'UNLIMITED_PLAYLISTS', 'PREMIUM_COMMENT_BADGE', 'PRIORITY_SUPPORT'],
+      benefits: ['AD_FREE', 'HIGH_QUALITY_AUDIO', 'PREMIUM_CATALOG', 'EARLY_ACCESS', 'UNLIMITED_PLAYLISTS', 'PREMIUM_COMMENT_BADGE', 'PRIORITY_SUPPORT'],
     },
     {
-      id: 'PREMIUM_ANNUAL',
       code: 'PREMIUM_ANNUAL',
       name: 'Premium 12 Tháng',
       durationDays: 365,
       price: 480000,
-      features: ['AD_FREE', 'HIGH_QUALITY_AUDIO', 'PREMIUM_CATALOG', 'EARLY_ACCESS', 'UNLIMITED_PLAYLISTS', 'PREMIUM_COMMENT_BADGE', 'PRIORITY_SUPPORT'],
+      benefits: ['AD_FREE', 'HIGH_QUALITY_AUDIO', 'PREMIUM_CATALOG', 'EARLY_ACCESS', 'UNLIMITED_PLAYLISTS', 'PREMIUM_COMMENT_BADGE', 'PRIORITY_SUPPORT'],
     },
   ];
 
   for (const plan of subscriptionPlans) {
     await prisma.subscriptionPlan.upsert({
-      where: { id: plan.id },
+      where: { code: plan.code },
       update: {},
       create: plan,
     });

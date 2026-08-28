@@ -8,7 +8,7 @@ export class PaymentsService {
   ) {}
 
   async getPackages() {
-    return this.prisma.paymentPackage.findMany({ where: { status: true } });
+    return this.prisma.subscriptionPlan.findMany({ where: { isActive: true } });
   }
 
   async createOrder(userId: string, dto: any) {

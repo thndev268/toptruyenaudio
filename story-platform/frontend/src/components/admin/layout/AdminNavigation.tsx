@@ -18,6 +18,7 @@ import { Award,
   ShieldAlert,
   History,
   Sliders,
+  CreditCard,
   User,
  } from 'lucide-react';
 import { AdminDropdownMenu, AdminNavGroup } from './AdminDropdownMenu';
@@ -207,6 +208,13 @@ export const AdminNavigation: React.FC<AdminNavigationProps> = ({
           route: '/admin/settings',
           icon: Sliders,
           description: 'Bật/tắt cờ tính năng hệ thống',
+        },
+        {
+          id: 'payos',
+          label: 'Cấu hình thanh toán PayOS',
+          route: '/admin/payos',
+          icon: CreditCard,
+          description: 'Quản lý thông tin PayOS',
         },
         {
           id: 'profile',

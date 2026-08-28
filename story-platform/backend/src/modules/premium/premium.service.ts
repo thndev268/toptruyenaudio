@@ -1,43 +1,31 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, HttpException } from '@nestjs/common';
+import PayOS = require('@payos/node');
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
-// PayOS types
-interface PayOSPaymentRequest {
+interface PayOSPaymentLink {
   orderCode: number;
   amount: number;
   description: string;
-  cancelUrl: string;
-  returnUrl: string;
+  status: string;
+  checkoutUrl: string;
+  qrCode: string;
 }
 
-interface PayOSPaymentResponse {
+interface GatewayPaymentResponse {
   error: number;
   message: string;
-  data: {
-    bin: string;
-    accountNumber: string;
-    accountName: string;
-    amount: number;
-    description: string;
-    orderCode: number;
-    currency: string;
-    paymentLinkId: string;
-    status: string;
-    expiredAt: string | null;
-    checkoutUrl: string;
-    qrCode: string;
-  };
+  data: PayOSPaymentLink;
   timestamp: string;
 }
 
-interface PayOSPaymentStatus {
+interface GatewayPaymentStatus {
   error: number;
   message: string;
   data: {
     orderCode: number;
-    amount: number;
-    status: string; // PENDING, PAID, CANCELLED, EXPIRED
+    amount?: number;
+    status: string;
     transactionCode?: string;
   };
   timestamp: string;
@@ -45,27 +33,59 @@ interface PayOSPaymentStatus {
 
 @Injectable()
 export class PremiumService {
-  private readonly payOSBaseUrl = 'https://pay-8dip.onrender.com';
+  private readonly payOSBaseUrl = process.env.PAYOS_GATEWAY_URL || 'https://pay-8dip.onrender.com';
+  private payOSClient: PayOS | null = null;
   
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
   ) {}
 
+  private getDirectPayOSClient(): PayOS | null {
+    if (this.payOSClient) {
+      return this.payOSClient;
+    }
+
+    const clientId = process.env.PAYOS_CLIENT_ID || process.env.CLIENT_ID;
+    const apiKey = process.env.PAYOS_API_KEY || process.env.API_KEY;
+    const checksumKey = process.env.PAYOS_CHECKSUM_KEY || process.env.CHECKSUM_KEY;
+
+    if (!clientId || !apiKey || !checksumKey) {
+      return null;
+    }
+
+    this.payOSClient = new PayOS(clientId, apiKey, checksumKey);
+    return this.payOSClient;
+  }
+
+  private getPaymentUrls() {
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    return {
+      returnUrl: process.env.RETURN_URL || `${frontendUrl}/premium/success`,
+      cancelUrl: process.env.CANCEL_URL || `${frontendUrl}/premium/cancel`,
+    };
+  }
+
   /**
    * Get JWT token from database (configured by admin)
    * Admin manually logs into PayOS, gets token, and pastes it in admin panel
    */
   private async getPayOSToken(): Promise<string> {
-    // Get the active PayOS config from database
+    if (this.getDirectPayOSClient()) {
+      throw new BadRequestException({
+        code: 'GATEWAY_TOKEN_NOT_REQUIRED',
+        message: 'Đang dùng PayOS trực tiếp, không cần Gateway Token.',
+      });
+    }
+
     const config = await this.prisma.payOSConfig.findFirst({
       where: { isActive: true },
     });
 
     if (!config || !config.gatewayToken) {
       throw new BadRequestException({ 
-        code: 'PAYOS_TOKEN_NOT_CONFIGURED', 
-        message: 'PayOS Gateway Token chưa được cấu hình. Admin cần đăng nhập vào PayOS và dán token vào phần cấu hình thanh toán.' 
+        code: 'PAYOS_NOT_CONFIGURED', 
+        message: 'Chưa cấu hình thanh toán. Cần thiết lập CLIENT_ID/API_KEY/CHECKSUM_KEY trong .env hoặc Gateway Token trong Admin.' 
       });
     }
 
@@ -125,13 +145,13 @@ export class PremiumService {
       throw new NotFoundException({ code: 'PLAN_NOT_FOUND', message: 'Gói Premium không tồn tại hoặc đã bị vô hiệu hóa.' });
     }
 
-    // 3. Tạo orderCode duy nhất
+    // 3. Tạo orderCode duy nhất (PayOS yêu cầu số nguyên trong phạm vi an toàn)
     const orderCode = this.generateOrderCode();
 
     // 4. Tạo Payment record với status PENDING
     const payment = await this.prisma.payment.create({
       data: {
-        orderCode: orderCode.toString(),
+        orderCode,
         userId,
         packageId: plan.id,
         planName: plan.name,
@@ -142,24 +162,27 @@ export class PremiumService {
       },
     });
 
-    // 5. Gọi PayOS API để tạo payment
+    // 5. Gọi PayOS để tạo payment link
     try {
-      const payOSRequest: PayOSPaymentRequest = {
-        orderCode: parseInt(orderCode),
+      const description = this.buildPayOSDescription(plan);
+      const { returnUrl, cancelUrl } = this.getPaymentUrls();
+      const payOSResponse = await this.createPayOSPaymentLink({
+        orderCode: Number(orderCode),
         amount: Math.round(plan.price),
-        description: `Mua gói ${plan.name} - ${plan.durationDays} ngày`,
-        cancelUrl: `${process.env.FRONTEND_URL}/premium/cancel`,
-        returnUrl: `${process.env.FRONTEND_URL}/premium/success`,
-      };
+        description,
+        cancelUrl,
+        returnUrl,
+      });
 
-      const payOSResponse = await this.callPayOSAPI('/api/v1/payment/create', payOSRequest);
+      const gatewayOrderCode = String(payOSResponse.orderCode);
 
       // 6. Cập nhật Payment với thông tin từ PayOS
       const updatedPayment = await this.prisma.payment.update({
         where: { id: payment.id },
         data: {
-          checkoutUrl: payOSResponse.data.checkoutUrl,
-          qrCode: payOSResponse.data.qrCode,
+          orderCode: gatewayOrderCode,
+          checkoutUrl: payOSResponse.checkoutUrl,
+          qrCode: payOSResponse.qrCode,
         },
       });
 
@@ -181,9 +204,9 @@ export class PremiumService {
           planName: updatedPayment.planName,
           amount: updatedPayment.amount,
           durationDays: updatedPayment.durationDays,
-          qrCode: payOSResponse.data.qrCode,
-          checkoutUrl: payOSResponse.data.checkoutUrl,
-          status: payOSResponse.data.status,
+          qrCode: payOSResponse.qrCode,
+          checkoutUrl: payOSResponse.checkoutUrl,
+          status: payOSResponse.status,
         },
         message: 'Đã tạo yêu cầu thanh toán thành công',
       };
@@ -199,10 +222,13 @@ export class PremiumService {
       }
       
       console.error('PayOS API call failed:', error);
+      const payOSErrorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new BadRequestException({ 
         code: 'PAYOS_ERROR', 
-        message: 'Không thể tạo yêu cầu thanh toán. Vui lòng thử lại.',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        message: payOSErrorMessage.includes('Mô tả') || payOSErrorMessage.includes('description')
+          ? payOSErrorMessage
+          : 'Không thể tạo yêu cầu thanh toán. Vui lòng thử lại.',
+        details: payOSErrorMessage,
       });
     }
   }
@@ -242,14 +268,34 @@ export class PremiumService {
       };
     }
 
-    // 3. Kiểm tra trạng thái thật từ PayOS
+    // 3. Kiểm tra trạng thái thật từ PayOS — lỗi poll không được chặn UI
+    let gatewayStatus = payment.status;
     try {
-      const payOSStatus = await this.getPayOSPaymentStatus(parseInt(orderCode));
+      const payOSStatus = await this.getPayOSPaymentStatus(orderCode);
+      gatewayStatus = this.normalizePayOSStatus(
+        payOSStatus.status,
+        payOSStatus.amountPaid,
+        payment.amount,
+      );
+    } catch (error) {
+      console.error('PayOS status check failed:', error);
+      return {
+        success: true,
+        data: {
+          orderCode: payment.orderCode,
+          status: payment.status,
+          planName: payment.planName,
+          amount: payment.amount,
+          paidAt: payment.paidAt,
+        },
+        message: `Trạng thái thanh toán: ${payment.status}`,
+      };
+    }
 
-      // 4. Nếu PayOS trả về PAID, xử lý business logic trong transaction
-      if (payOSStatus.data.status === 'PAID') {
+    try {
+      if (gatewayStatus === 'PAID') {
         await this.processSuccessfulPayment(payment, userId, requestId);
-      } else if (payOSStatus.data.status === 'CANCELLED') {
+      } else if (gatewayStatus === 'CANCELLED') {
         await this.prisma.payment.update({
           where: { id: payment.id },
           data: {
@@ -257,7 +303,7 @@ export class PremiumService {
             cancelledAt: new Date(),
           },
         });
-      } else if (payOSStatus.data.status === 'EXPIRED') {
+      } else if (gatewayStatus === 'EXPIRED') {
         await this.prisma.payment.update({
           where: { id: payment.id },
           data: {
@@ -266,7 +312,6 @@ export class PremiumService {
         });
       }
 
-      // 5. Trả về trạng thái hiện tại
       const updatedPayment = await this.prisma.payment.findUnique({
         where: { id: payment.id },
       });
@@ -275,19 +320,69 @@ export class PremiumService {
         throw new NotFoundException({ code: 'PAYMENT_NOT_FOUND', message: 'Không tìm thấy thanh toán.' });
       }
 
+      const finalStatus = updatedPayment.status === 'PAID' ? 'PAID' : gatewayStatus;
+
       return {
         success: true,
         data: {
           orderCode: updatedPayment.orderCode,
-          status: payOSStatus.data.status,
+          status: finalStatus,
           planName: updatedPayment.planName,
           amount: updatedPayment.amount,
           paidAt: updatedPayment.paidAt,
         },
-        message: `Trạng thái thanh toán: ${payOSStatus.data.status}`,
+        message: `Trạng thái thanh toán: ${finalStatus}`,
       };
     } catch (error) {
-      throw new BadRequestException({ code: 'PAYOS_CHECK_ERROR', message: 'Không thể kiểm tra trạng thái thanh toán.' });
+      console.error('Payment status processing failed:', error);
+      throw new BadRequestException({
+        code: 'PAYOS_CHECK_ERROR',
+        message: 'Không thể cập nhật trạng thái thanh toán.',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  /**
+   * PayOS gọi webhook khi thanh toán thành công — không phụ thuộc polling frontend.
+   */
+  async handlePayOSWebhook(body: unknown) {
+    console.log('[PayOS Webhook] Received webhook:', JSON.stringify(body));
+    
+    const client = this.getDirectPayOSClient();
+    if (!client) {
+      console.error('[PayOS Webhook] PayOS client not configured - missing credentials');
+      return { success: false, message: 'PayOS chưa được cấu hình' };
+    }
+
+    try {
+      const webhookData = client.verifyPaymentWebhookData(body as any);
+      console.log('[PayOS Webhook] Verified webhook data:', webhookData);
+      
+      const orderCode = String(webhookData.orderCode);
+      const payment = await this.prisma.payment.findFirst({
+        where: { orderCode },
+      });
+
+      if (!payment) {
+        console.warn(`[PayOS Webhook] Payment not found for orderCode: ${orderCode}`);
+        return { success: false, message: 'Order not found locally' };
+      }
+
+      console.log(`[PayOS Webhook] Found payment: ${payment.id}, current status: ${payment.status}`);
+
+      if (payment.status !== 'PAID') {
+        console.log(`[PayOS Webhook] Processing successful payment for order: ${orderCode}`);
+        await this.processSuccessfulPayment(payment, payment.userId);
+        console.log(`[PayOS Webhook] Successfully processed payment for order: ${orderCode}`);
+      } else {
+        console.log(`[PayOS Webhook] Payment already PAID for order: ${orderCode}`);
+      }
+
+      return { success: true, message: 'Webhook processed' };
+    } catch (error) {
+      console.error('[PayOS Webhook] Verify/process failed:', error);
+      return { success: false, message: 'Webhook processing failed', error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
 
@@ -309,7 +404,7 @@ export class PremiumService {
 
     try {
       // Gọi PayOS để hủy
-      await this.callPayOSAPI(`/api/v1/payment/${parseInt(orderCode)}/cancel`, {}, 'PATCH');
+      await this.cancelPayOSPayment(orderCode);
 
       // Cập nhật status
       await this.prisma.payment.update({
@@ -443,16 +538,19 @@ export class PremiumService {
       });
     });
 
-    // 7. Ghi audit log (sau transaction thành công)
-    await this.auditLogsService.log({
-      performedByAdminId: userId,
-      action: 'PAYMENT_SUCCESS',
-      resource: 'Payment',
-      resourceId: payment.id,
-      entityName: payment.orderCode,
-      reason: `Thanh toán thành công gói ${payment.planName}`,
-      requestId,
-    });
+    try {
+      await this.auditLogsService.log({
+        performedByAdminId: userId,
+        action: 'PAYMENT_SUCCESS',
+        resource: 'Payment',
+        resourceId: payment.id,
+        entityName: payment.orderCode,
+        reason: `Thanh toán thành công gói ${payment.planName}`,
+        requestId,
+      });
+    } catch (error) {
+      console.error('Audit log PAYMENT_SUCCESS failed:', error);
+    }
   }
 
   /**
@@ -520,13 +618,95 @@ export class PremiumService {
 
   // Helper methods
 
-  private generateOrderCode(): string {
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    return `${timestamp}${random}`;
+  /** PayOS giới hạn description tối đa 25 ký tự */
+  private buildPayOSDescription(plan: { code: string; durationDays: number }): string {
+    const desc = `Premium ${plan.durationDays} ngay`;
+    return desc.slice(0, 25);
   }
 
-  private async callPayOSAPI(endpoint: string, data: any, method = 'POST'): Promise<any> {
+  private normalizePayOSStatus(status: string, amountPaid?: number, amount?: number): string {
+    const normalized = (status || '').toUpperCase();
+    if (['PAID', 'SUCCESS', 'COMPLETED'].includes(normalized)) {
+      return 'PAID';
+    }
+    if (amountPaid != null && amount != null && amountPaid >= amount && amountPaid > 0) {
+      return 'PAID';
+    }
+    if (normalized === 'CANCELLED' || normalized === 'CANCELED') {
+      return 'CANCELLED';
+    }
+    if (normalized === 'EXPIRED') {
+      return 'EXPIRED';
+    }
+    return normalized || 'PENDING';
+  }
+
+  private generateOrderCode(): string {
+    const seconds = Math.floor(Date.now() / 1000);
+    const random = Math.floor(Math.random() * 1000);
+    return String(seconds * 1000 + random);
+  }
+
+  private async createPayOSPaymentLink(input: {
+    orderCode: number;
+    amount: number;
+    description: string;
+    cancelUrl: string;
+    returnUrl: string;
+  }): Promise<PayOSPaymentLink> {
+    const directClient = this.getDirectPayOSClient();
+    if (directClient) {
+      const result = await directClient.createPaymentLink(input);
+      return {
+        orderCode: result.orderCode,
+        amount: result.amount,
+        description: result.description,
+        status: result.status,
+        checkoutUrl: result.checkoutUrl,
+        qrCode: result.qrCode,
+      };
+    }
+
+    const gatewayResponse = await this.callGatewayAPI<GatewayPaymentResponse>(
+      '/api/v1/payment/create',
+      {
+        amount: input.amount,
+        description: input.description,
+        cancelUrl: input.cancelUrl,
+        returnUrl: input.returnUrl,
+      },
+    );
+
+    return gatewayResponse.data;
+  }
+
+  private async getPayOSPaymentStatus(orderCode: string): Promise<{ status: string; amountPaid?: number }> {
+    const directClient = this.getDirectPayOSClient();
+    if (directClient) {
+      const result = await directClient.getPaymentLinkInformation(Number(orderCode));
+      return { status: result.status, amountPaid: result.amountPaid };
+    }
+
+    const gatewayResponse = await this.callGatewayAPI<GatewayPaymentStatus>(
+      `/api/v1/payment/${orderCode}/status`,
+      {},
+      'GET',
+    );
+
+    return { status: gatewayResponse.data.status };
+  }
+
+  private async cancelPayOSPayment(orderCode: string): Promise<void> {
+    const directClient = this.getDirectPayOSClient();
+    if (directClient) {
+      await directClient.cancelPaymentLink(orderCode);
+      return;
+    }
+
+    await this.callGatewayAPI(`/api/v1/payment/${orderCode}/cancel`, {}, 'POST');
+  }
+
+  private async callGatewayAPI<T>(endpoint: string, data: Record<string, unknown>, method = 'POST'): Promise<T> {
     // Get JWT token (cached server-side)
     const token = await this.getPayOSToken();
 
@@ -542,22 +722,17 @@ export class PremiumService {
       body: method === 'POST' ? JSON.stringify(data) : undefined,
     });
 
+    const result = await response.json().catch(() => ({}));
+
     if (!response.ok) {
-      throw new Error(`PayOS API error: ${response.status}`);
+      throw new Error(`PayOS Gateway error: ${response.status} - ${result?.message || 'Unknown error'}`);
     }
-
-    const result = await response.json();
     
-    // Check if PayOS response has error field
     if (result.error !== 0 && result.error !== undefined) {
-      throw new Error(`PayOS API error: ${result.message || 'Unknown error'}`);
+      throw new Error(`PayOS Gateway error: ${result.message || 'Unknown error'}`);
     }
     
-    return result;
-  }
-
-  private async getPayOSPaymentStatus(orderCode: number): Promise<PayOSPaymentStatus> {
-    return this.callPayOSAPI(`/api/v1/payment/${orderCode}/status`, {}, 'GET');
+    return result as T;
   }
 
   /**
@@ -565,6 +740,21 @@ export class PremiumService {
    * Dùng cho admin dashboard để kiểm tra xem token có cấu hình và gateway có reachable không
    */
   async getGatewayStatus() {
+    const directConfigured = !!this.getDirectPayOSClient();
+
+    if (directConfigured) {
+      return {
+        success: true,
+        data: {
+          configured: true,
+          reachable: true,
+          tokenStatus: 'ACTIVE',
+          lastCheckedAt: new Date().toISOString(),
+          mode: 'DIRECT',
+        },
+      };
+    }
+
     const config = await this.prisma.payOSConfig.findFirst({
       where: { isActive: true },
     });
@@ -601,6 +791,7 @@ export class PremiumService {
         reachable,
         tokenStatus,
         lastCheckedAt,
+        mode: 'GATEWAY',
       },
     };
   }

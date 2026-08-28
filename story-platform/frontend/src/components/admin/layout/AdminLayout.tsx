@@ -192,15 +192,17 @@ export const AdminLayout: React.FC = () => {
 
   const refreshAllData = async () => {
     try {
-      const [u, f, a, p] = await Promise.all([
+      const [u, f, a, p, c] = await Promise.all([
         adminRepository.fetchUsersApi(),
         adminRepository.fetchFeatureFlagsApi(),
         adminRepository.fetchAuditLogsApi(),
         adminRepository.fetchOwnerProfileApi(),
+        adminRepository.fetchCommentsApi(),
       ]);
       setUsers(u);
       setFeatureFlags(f);
       setAuditLogs(a);
+      setComments(c);
     } catch (e) {
       console.warn('API sync warning:', e);
     }
@@ -208,7 +210,6 @@ export const AdminLayout: React.FC = () => {
     setSubscriptions(adminRepository.getSubscriptions());
     setStories(adminRepository.getStories());
     setGenres(adminRepository.getGenres());
-    setComments(adminRepository.getComments());
     setReports(adminRepository.getReports());
     setCopyrightClaims(adminRepository.getCopyrightClaims());
     setTickets(adminRepository.getTickets());

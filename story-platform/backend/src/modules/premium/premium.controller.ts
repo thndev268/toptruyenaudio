@@ -1,7 +1,9 @@
 import { Controller, Post, Get, Body, Param, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { PremiumService } from './premium.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('Premium & Payments')
 @Controller('premium')
@@ -52,10 +54,23 @@ export class PremiumController {
   }
 
   /**
+   * Webhook từ PayOS — không cần JWT (PayOS gọi trực tiếp).
+   */
+  @Post('payments/webhook')
+  @Public()
+  @SkipThrottle()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Nhận webhook thanh toán từ PayOS' })
+  async handlePayOSWebhook(@Body() body: unknown) {
+    return this.premiumService.handlePayOSWebhook(body);
+  }
+
+  /**
    * Kiểm tra trạng thái payment
    * Backend kiểm tra trạng thái thật từ PayOS và xử lý business logic
    */
   @Get('payments/:orderCode/status')
+  @SkipThrottle()
   @ApiOperation({ summary: 'Kiểm tra trạng thái thanh toán' })
   @ApiParam({ name: 'orderCode', description: 'Mã đơn hàng', example: '12345678901234' })
   @ApiResponse({ status: 200, description: 'Kiểm tra trạng thái thành công' })
@@ -167,5 +182,22 @@ export class PremiumController {
       throw new Error('Admin ID not found in request');
     }
     return this.premiumService.testCurrentGatewayToken(adminId);
+  }
+
+  /**
+   * Test webhook endpoint (public endpoint để PayOS test)
+   */
+  @Public()
+  @Post('payments/webhook/test')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Test webhook endpoint' })
+  @ApiResponse({ status: 200, description: 'Test webhook thành công' })
+  async testWebhook(@Body() body: any) {
+    console.log('[Webhook Test] Received test webhook:', JSON.stringify(body));
+    return {
+      success: true,
+      message: 'Webhook endpoint is accessible',
+      receivedData: body,
+    };
   }
 }

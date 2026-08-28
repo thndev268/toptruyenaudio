@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Param,
   Query,
@@ -240,5 +241,27 @@ export class AdminController {
   @ApiOperation({ summary: 'Thu hồi badge từ người dùng' })
   async revokeBadgeFromUser(@Param('badgeId') badgeId: string, @Param('userId') userId: string) {
     return this.adminService.revokeBadgeFromUser(badgeId, userId);
+  }
+
+  @Get('comments')
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Lấy danh sách tất cả bình luận cho admin' })
+  async getComments(@Query() query: { status?: string; page?: number; limit?: number }) {
+    return this.adminService.getComments(query);
+  }
+
+  @Patch('comments/:id/status')
+  @ApiOperation({ summary: 'Cập nhật trạng thái bình luận' })
+  async updateCommentStatus(
+    @Param('id') id: string,
+    @Body() body: { status: string; reason?: string }
+  ) {
+    return this.adminService.updateCommentStatus(id, body.status, body.reason);
+  }
+
+  @Delete('comments/:id')
+  @ApiOperation({ summary: 'Xóa bình luận' })
+  async deleteComment(@Param('id') id: string, @Body() body: { reason?: string }) {
+    return this.adminService.deleteComment(id, body.reason);
   }
 }

@@ -1334,40 +1334,93 @@ class AdminRepositoryService {
     return [...this.comments];
   }
 
-  updateCommentStatus(commentId: string, newStatus: 'ACTIVE' | 'HIDDEN' | 'FLAGGED', reason: string): { success: boolean; message: string } {
-    const cmt = this.comments.find((c) => c.id === commentId);
-    if (!cmt) return { success: false, message: 'Không tìm thấy bình luận.' };
-
-    cmt.status = newStatus;
-    this.recordAuditLog(
-      `KIỂM_DUYỆT_BÌNH_LUẬN_${newStatus}`,
-      'Comment',
-      cmt.id,
-      `Bình luận của ${cmt.userName}`,
-      reason,
-      `Thay đổi trạng thái bình luận thành ${newStatus}`
-    );
-
-    return { success: true, message: 'Đã cập nhật trạng thái bình luận.' };
+  async fetchCommentsApi(): Promise<AdminCommentItem[]> {
+    try {
+      const res = await apiRequest<{ success: boolean; data: any[]; pagination: any }>('/admin/comments');
+      
+      if (res && Array.isArray(res.data)) {
+        this.comments = res.data.map((c: any) => ({
+          id: c.id,
+          storyId: c.storyId,
+          storyTitle: c.storyTitle || 'Unknown',
+          userName: c.userName || 'Unknown',
+          userEmail: c.userEmail || '',
+          content: c.content || '',
+          rating: c.rating || 0,
+          createdAt: c.createdAt || new Date().toISOString(),
+          reportCount: c.reportCount || 0,
+          status: c.status || 'ACTIVE',
+          isPinned: c.isPinned || false,
+        }));
+      }
+    } catch (err) {
+      console.warn('[fetchCommentsApi] Failed to fetch comments:', err);
+    }
+    
+    return this.getComments();
   }
 
-  deleteComment(commentId: string, reason: string): { success: boolean; message: string } {
-    const idx = this.comments.findIndex((c) => c.id === commentId);
-    if (idx === -1) return { success: false, message: 'Không tìm thấy bình luận.' };
+  async updateCommentStatus(commentId: string, newStatus: 'ACTIVE' | 'HIDDEN' | 'FLAGGED', reason: string): Promise<{ success: boolean; message: string }> {
+    try {
+      await apiRequest(`/admin/comments/${commentId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: newStatus, reason }),
+      });
+      
+      const cmt = this.comments.find((c) => c.id === commentId);
+      if (cmt) {
+        cmt.status = newStatus;
+      }
 
-    const cmt = this.comments[idx];
-    this.comments.splice(idx, 1);
+      this.recordAuditLog(
+        `KIỂM_DUYỆT_BÌNH_LUẬN_${newStatus}`,
+        'Comment',
+        commentId,
+        cmt?.userName || 'Unknown',
+        reason,
+        `Thay đổi trạng thái bình luận thành ${newStatus}`
+      );
 
-    this.recordAuditLog(
-      'XÓA_BÌNH_LUẬN',
-      'Comment',
-      cmt.id,
-      `Bình luận của ${cmt.userName}`,
-      reason,
-      `Xóa vĩnh viễn bình luận trên truyện "${cmt.storyTitle}"`
-    );
+      this.saveToStorage();
+      window.dispatchEvent(new Event('toptruyenaudio_admin_sync'));
 
-    return { success: true, message: 'Đã xóa bình luận thành công.' };
+      return { success: true, message: 'Đã cập nhật trạng thái bình luận.' };
+    } catch (error) {
+      console.error('Error updating comment status:', error);
+      return { success: false, message: 'Cập nhật trạng thái bình luận thất bại.' };
+    }
+  }
+
+  async deleteComment(commentId: string, reason: string): Promise<{ success: boolean; message: string }> {
+    try {
+      await apiRequest(`/admin/comments/${commentId}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ reason }),
+      });
+      
+      const idx = this.comments.findIndex((c) => c.id === commentId);
+      const cmt = idx !== -1 ? this.comments[idx] : null;
+      if (idx !== -1) {
+        this.comments.splice(idx, 1);
+      }
+
+      this.recordAuditLog(
+        'XÓA_BÌNH_LUẬN',
+        'Comment',
+        commentId,
+        cmt?.userName || 'Unknown',
+        reason,
+        `Xóa vĩnh viễn bình luận trên truyện "${cmt?.storyTitle || 'Unknown'}"`
+      );
+
+      this.saveToStorage();
+      window.dispatchEvent(new Event('toptruyenaudio_admin_sync'));
+
+      return { success: true, message: 'Đã xóa bình luận thành công.' };
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      return { success: false, message: 'Xóa bình luận thất bại.' };
+    }
   }
 
   // --- Violation Reports ---

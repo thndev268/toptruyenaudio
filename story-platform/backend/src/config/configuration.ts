@@ -27,15 +27,15 @@ export default () => {
     rateLimit: {
       global: {
         ttl: parseInt(process.env.RATE_LIMIT_TTL_GLOBAL || '60000', 10),
-        limit: parseInt(process.env.RATE_LIMIT_LIMIT_GLOBAL || '100', 10),
+        limit: parseInt(process.env.RATE_LIMIT_LIMIT_GLOBAL || '2000', 10), // Tăng lên 2000
       },
       auth: {
         ttl: parseInt(process.env.RATE_LIMIT_TTL_AUTH || '60000', 10),
-        limit: parseInt(process.env.RATE_LIMIT_LIMIT_AUTH || '50', 10),
+        limit: parseInt(process.env.RATE_LIMIT_LIMIT_AUTH || '1000', 10), // Tăng lên 1000
       },
       support: {
         ttl: parseInt(process.env.RATE_LIMIT_TTL_SUPPORT || '60000', 10),
-        limit: parseInt(process.env.RATE_LIMIT_LIMIT_SUPPORT || '20', 10),
+        limit: parseInt(process.env.RATE_LIMIT_LIMIT_SUPPORT || '200', 10), // Tăng lên 200
       },
     },
   };

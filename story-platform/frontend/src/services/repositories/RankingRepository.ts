@@ -20,12 +20,8 @@ class LocalRankingRepository implements RankingRepository {
     } catch (e) {
       console.error('[RankingRepository] Error reading user activity from localStorage', e);
     }
-    // Initialize default map from mock
-    const initialMap: Record<string, UserActivityRanking> = {};
-    [].forEach((item) => {
-      initialMap[item.userId] = item;
-    });
-    return initialMap;
+    // Initialize empty map
+    return {};
   }
 
   private saveStoredActivity(map: Record<string, UserActivityRanking>): void {
@@ -51,7 +47,65 @@ class LocalRankingRepository implements RankingRepository {
   }
 
   async getCreatorRankings(): Promise<CreatorRanking[]> {
-    return [];
+    // Sample author data as requested
+    const creators = [
+      {
+        creatorId: 'cau-bau-audio',
+        name: 'Cầu Bầu Audio',
+        avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+        role: 'AUTHOR' as const,
+        storyCount: 15,
+        totalListens: 125000,
+        growthPercent: 23,
+        rating: 4.8,
+      },
+      {
+        creatorId: 'qua-trung-audio',
+        name: 'Quả Trứng Audio',
+        avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+        role: 'AUTHOR' as const,
+        storyCount: 12,
+        totalListens: 98000,
+        growthPercent: 18,
+        rating: 4.7,
+      },
+      {
+        creatorId: 'review-audio',
+        name: 'Review Audio',
+        avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
+        role: 'AUTHOR' as const,
+        storyCount: 8,
+        totalListens: 75000,
+        growthPercent: 15,
+        rating: 4.6,
+      },
+      {
+        creatorId: 'audio-studio',
+        name: 'Audio Studio',
+        avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&auto=format&fit=crop&q=80',
+        role: 'AUTHOR' as const,
+        storyCount: 10,
+        totalListens: 62000,
+        growthPercent: 12,
+        rating: 4.5,
+      },
+      {
+        creatorId: 'audio-master',
+        name: 'Audio Master',
+        avatarUrl: 'https://images.unsplash.com/photo-1519345182560-3f2917c472ef?w=150&auto=format&fit=crop&q=80',
+        role: 'AUTHOR' as const,
+        storyCount: 6,
+        totalListens: 45000,
+        growthPercent: 8,
+        rating: 4.4,
+      },
+    ];
+
+    // Add rank property
+    return creators.map((creator, index) => ({
+      ...creator,
+      rank: index + 1,
+    }));
   }
 
   async getActivityBadges(): Promise<ActivityBadge[]> {

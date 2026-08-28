@@ -84,21 +84,18 @@ export class SubscriptionsService {
       sub = await this.prisma.userSubscription.create({
         data: {
           profileId: userId,
-          membershipTier: MembershipTier.FREE,
           status: SubscriptionStatus.NONE,
-          autoRenew: false,
         }
       });
     }
 
     // Check if subscription has expired based on server time
     const now = new Date();
-    if (sub.status === SubscriptionStatus.ACTIVE && sub.expiresAt && sub.expiresAt < now) {
+    if (sub.status === SubscriptionStatus.ACTIVE && sub.endAt && sub.endAt < now) {
       sub = await this.prisma.userSubscription.update({
         where: { id: sub!.id },
         data: {
           status: SubscriptionStatus.EXPIRED,
-          membershipTier: MembershipTier.FREE,
         }
       });
 
@@ -163,23 +160,22 @@ export class SubscriptionsService {
         currentSub = await this.prisma.userSubscription.create({
           data: {
             profileId: userId,
-            membershipTier: MembershipTier.FREE,
             status: SubscriptionStatus.NONE,
           }
         });
       }
 
-      const previousExpiresAt = currentSub.expiresAt;
+      const previousExpiresAt = currentSub.endAt;
       let baseTime = serverNow;
 
-      if (currentSub.status === SubscriptionStatus.ACTIVE && currentSub.expiresAt && currentSub.expiresAt > serverNow) {
-        baseTime = currentSub.expiresAt;
+      if (currentSub.status === SubscriptionStatus.ACTIVE && currentSub.endAt && currentSub.endAt > serverNow) {
+        baseTime = currentSub.endAt;
       }
 
       const durationMonths = PLAN_DURATION_MONTHS_MAP[normalizedPlanId] || 1;
-      const newExpiresAt = calculateSubscriptionExpiry(baseTime, durationMonths);
+      const newEndAt = calculateSubscriptionExpiry(baseTime, durationMonths);
 
-      const isExtend = currentSub.status === SubscriptionStatus.ACTIVE && currentSub.expiresAt && currentSub.expiresAt > serverNow;
+      const isExtend = currentSub.status === SubscriptionStatus.ACTIVE && currentSub.endAt && currentSub.endAt > serverNow;
       const actionType = isExtend ? 'EXTEND' : 'GRANT';
 
       // Transaction execution
@@ -189,14 +185,10 @@ export class SubscriptionsService {
           currentSub = await tx.userSubscription.update({
             where: { id: currentSub!.id },
             data: {
-              membershipTier: MembershipTier.PREMIUM,
               planId: plan.id,
               status: SubscriptionStatus.ACTIVE,
-              source: SubscriptionSource.ADMIN_GRANT,
-              startedAt: (!currentSub!.startedAt || currentSub!.status !== SubscriptionStatus.ACTIVE) ? serverNow : currentSub!.startedAt,
-              expiresAt: newExpiresAt,
-              autoRenew: false,
-              version: { increment: 1 }
+              startAt: (!currentSub!.startAt || currentSub!.status !== SubscriptionStatus.ACTIVE) ? serverNow : currentSub!.startAt,
+              endAt: newEndAt,
             }
           });
 
@@ -220,7 +212,7 @@ export class SubscriptionsService {
               planId: plan.id,
               durationDays: durationMonths * 30,
               previousExpiresAt,
-              newExpiresAt,
+              newExpiresAt: newEndAt,
             }
           });
         });
@@ -236,7 +228,7 @@ export class SubscriptionsService {
         entityName: user.displayName || undefined,
         reason,
         requestId,
-        metadata: { planId: plan.id, durationMonths, newExpiresAt: newExpiresAt.toISOString() },
+        metadata: { planId: plan.id, durationMonths, newExpiresAt: newEndAt.toISOString() },
       });
 
       const responsePayload = {
@@ -291,7 +283,7 @@ export class SubscriptionsService {
       }
 
       const serverNow = new Date();
-      const previousExpiresAt = currentSub.expiresAt;
+      const previousExpiresAt = currentSub.endAt;
 
       let ledger: any;
 
@@ -300,11 +292,7 @@ export class SubscriptionsService {
           currentSub = await tx.userSubscription.update({
             where: { id: currentSub!.id },
             data: {
-              membershipTier: MembershipTier.FREE,
               status: SubscriptionStatus.CANCELLED,
-              cancelledAt: serverNow,
-              autoRenew: false,
-              version: { increment: 1 }
             }
           });
 
@@ -344,7 +332,7 @@ export class SubscriptionsService {
         entityName: user.displayName || undefined,
         reason,
         requestId,
-        metadata: { previousExpiresAt: previousExpiresAt.toISOString() },
+        metadata: { previousExpiresAt: previousExpiresAt ? previousExpiresAt.toISOString() : null },
       });
 
       const responsePayload = {

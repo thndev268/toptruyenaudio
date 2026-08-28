@@ -211,7 +211,7 @@ export type SubscriptionStatus =
 export type SubscriptionPlanId =
   | 'PREMIUM_MONTHLY'
   | 'PREMIUM_QUARTERLY'
-  | 'PREMIUM_SEMI_ANNUAL'
+  | 'PREMIUM_SEMIANNUAL'
   | 'PREMIUM_ANNUAL';
 
 export type PremiumPlanCode = SubscriptionPlanId;
