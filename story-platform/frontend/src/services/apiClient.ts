@@ -3,6 +3,10 @@ import { supabase } from '../lib/supabase';
 const API_BASE_URL = ((import.meta as any).env?.VITE_API_URL as string) || 
   (import.meta.env.PROD ? 'https://api.toptruyenaudio.site/api/v1' : 'http://localhost:3001/api/v1');
 
+console.log('[apiClient] API_BASE_URL configured:', API_BASE_URL);
+console.log('[apiClient] VITE_API_URL env var:', (import.meta as any).env?.VITE_API_URL);
+console.log('[apiClient] Environment PROD:', import.meta.env.PROD);
+
 export class ApiError extends Error {
   code: string;
   fields?: Record<string, any>;
