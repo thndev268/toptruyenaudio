@@ -90,8 +90,8 @@ export const ExploreView: React.FC = () => {
     setSearchParams(new URLSearchParams());
   };
 
-  const publicStories = useStories();
-  const allStories = publicStories;
+  const { stories: publicStories } = useStories();
+  const allStories = Array.isArray(publicStories) ? publicStories : [];
   const filteredStories = filterStoryList(allStories, filters);
 
   // Simulate network loading time for smoother visual transition

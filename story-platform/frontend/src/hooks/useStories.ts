@@ -105,9 +105,10 @@ export function useStories() {
     const handleSync = () => {
       if (mountedRef.current) {
         const fetchedStories = adminRepository.getPublicStories();
+        const storiesArray = Array.isArray(fetchedStories) ? fetchedStories : [];
         setState(prev => ({
           ...prev,
-          stories: fetchedStories,
+          stories: storiesArray,
           isLoading: false,
           error: null,
           hasTimedOut: false,
@@ -119,9 +120,10 @@ export function useStories() {
       if (e.key === 'toptruyenaudio:admin-data:v1' || e.key === 'toptruyenaudio:admin-stories:v1') {
         if (mountedRef.current) {
           const fetchedStories = adminRepository.getPublicStories();
+          const storiesArray = Array.isArray(fetchedStories) ? fetchedStories : [];
           setState(prev => ({
             ...prev,
-            stories: fetchedStories,
+            stories: storiesArray,
             isLoading: false,
             error: null,
             hasTimedOut: false,

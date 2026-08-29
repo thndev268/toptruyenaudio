@@ -74,6 +74,12 @@ export function filterStoryList<T extends {
   rating: number;
   publishedAt: string;
 }>(stories: T[], filters: FilterState): T[] {
+  // Ensure stories is an array
+  if (!Array.isArray(stories)) {
+    console.warn('[filterStoryList] stories is not an array, returning empty array');
+    return [];
+  }
+  
   return stories.filter((story) => {
     // 1. Search Query
     if (filters.q && filters.q.trim()) {
