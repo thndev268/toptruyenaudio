@@ -111,28 +111,7 @@ class AdminRepositoryService {
 
   private subscriptions: AdminSubscriptionRecord[] = [];
 
-  private stories: AdminStoryItem[] = [].map((s) => ({
-    id: s.id,
-    title: s.title,
-    slug: s.slug,
-    authorName: s.authorName,
-    narratorName: s.narratorName,
-    genres: s.genres,
-    totalChapters: s.chapters.length,
-    storyStatus: s.storyStatus,
-    publishStatus: s.publishStatus,
-    accessLevel: s.chapters.some((c) => c.accessLevel === 'PREMIUM') ? 'PREMIUM' : 'FREE',
-    listenCount: s.stats.listenCount,
-    rating: s.rating,
-    createdAt: s.publishedAt,
-    summary: s.summary,
-    storyline: s.storyline || s.summary,
-    audioContent: s.audioContent || s.summary,
-    coverUrl: s.coverUrl,
-    isVideoStory: s.isVideoStory,
-    iframeCode: s.iframeCode,
-    iframeUrl: s.iframeUrl,
-  }));
+  private stories: AdminStoryItem[] = [];
 
   private storyChapters: Record<string, AudioChapter[]> = (() => {
     const map: Record<string, AudioChapter[]> = {};
@@ -187,7 +166,7 @@ class AdminRepositoryService {
         }
 
         try {
-          const storiesResponse = await apiRequest<{ success: boolean; data: any[] } | any[]>('/admin/stories');
+          const storiesResponse = await apiRequest<{ success: boolean; data: any[] } | any[]>('/stories');
           
           // Handle both response formats: { success, data } and direct array
           let storiesData: any[] = [];
@@ -216,7 +195,7 @@ class AdminRepositoryService {
         }
 
         try {
-          const genresResponse = await apiRequest<{ success: boolean; data: any[] }>('/admin/genres');
+          const genresResponse = await apiRequest<{ success: boolean; data: any[] }>('/stories/genres/all');
           if (genresResponse?.data && Array.isArray(genresResponse.data)) {
             this.genres = genresResponse.data;
             window.dispatchEvent(new Event('toptruyenaudio_admin_sync'));
@@ -292,14 +271,7 @@ class AdminRepositoryService {
     });
   }
 
-  private genres: AdminGenreItem[] = [].map((g) => ({
-    id: g.id,
-    name: g.name,
-    slug: g.slug,
-    description: g.description,
-    storyCount: g.storyCount,
-    iconName: g.iconName,
-  }));
+  private genres: AdminGenreItem[] = [];
 
   private comments: AdminCommentItem[] = [];
 
