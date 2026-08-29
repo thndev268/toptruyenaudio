@@ -611,3 +611,20 @@ model PayOSConfig {
 
   @@map("payos_configs")
 }
+
+// -----------------------------------------------------------------------------
+// NOTIFICATIONS
+// -----------------------------------------------------------------------------
+
+model Notification {
+  id            String   @id @default(cuid())
+  title         String
+  content       String
+  targetAudience String  @default("ALL") // ALL, PREMIUM, CREATOR, PARTNER, SPECIFIC_USER
+  targetUserId  String?
+  isRead        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("notifications")
+}

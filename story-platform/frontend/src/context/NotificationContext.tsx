@@ -1,13 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Bell, X, Check, Eye, Sparkles, Radio, Info } from 'lucide-react';
-import { adminRepository } from '../services/repositories/AdminRepository';
+import { notificationsRepository, Notification as NotificationType } from '../services/repositories/NotificationsRepository';
 import { useAuth } from './AuthContext';
-import { AdminBroadcastNotification } from '../types/admin';
 import { NotificationDetailModal } from '../components/common/NotificationDetailModal';
 import { BannedUserModal } from '../components/common/BannedUserModal';
 
-export interface Notification extends AdminBroadcastNotification {
+export interface Notification extends NotificationType {
   isRead: boolean;
 }
 
@@ -63,33 +62,24 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   useEffect(() => {
-    const syncNotifications = () => {
-      const broadcasts = adminRepository.getNotifications();
-
-      // Filter by role/audience
-      const filteredBroadcasts = broadcasts.filter((notif) => {
-        if (notif.targetAudience === 'ALL') return true;
-        if (notif.targetAudience === 'PREMIUM' && user?.isPremium) return true;
-        if (notif.targetAudience === 'CREATOR' && (role === 'CREATOR' || role === 'ADMIN')) return true;
-        if (notif.targetAudience === 'PARTNER' && (role === 'PARTNER' || role === 'ADMIN')) return true;
-        return false;
-      });
-
+    const syncNotifications = async () => {
+      const fetchedNotifications = await notificationsRepository.fetchNotifications(user?.id);
+      
       // Load read status from localStorage
       const readIds = JSON.parse(localStorage.getItem(`read_notifications_${user?.id || 'guest'}`) || '[]');
       const deletedIds = JSON.parse(localStorage.getItem(`deleted_notifications_${user?.id || 'guest'}`) || '[]');
 
-      const combined: Notification[] = filteredBroadcasts
-        .filter((b) => !deletedIds.includes(b.id))
-        .map((b) => ({
+      const combined: Notification[] = fetchedNotifications
+        .filter((b: NotificationType) => !deletedIds.includes(b.id))
+        .map((b: NotificationType) => ({
           ...b,
           isRead: readIds.includes(b.id),
         }));
 
       // Detect new incoming notifications for real-time toast
       if (!isFirstLoadRef.current) {
-        const newItems = combined.filter((n) => !knownNotifIdsRef.current.has(n.id));
-        newItems.forEach((newNotif) => {
+        const newItems = combined.filter((n: Notification) => !knownNotifIdsRef.current.has(n.id));
+        newItems.forEach((newNotif: Notification) => {
           showToast({
             title: newNotif.title,
             message: newNotif.content,
@@ -102,7 +92,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         isFirstLoadRef.current = false;
       }
 
-      knownNotifIdsRef.current = new Set(combined.map((n) => n.id));
+      knownNotifIdsRef.current = new Set(combined.map((n: Notification) => n.id));
       setNotifications(combined);
     };
 

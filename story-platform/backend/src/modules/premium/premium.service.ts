@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException, HttpException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException, HttpException, Logger } from '@nestjs/common';
 import PayOS = require('@payos/node');
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 interface PayOSPaymentLink {
@@ -39,6 +40,7 @@ export class PremiumService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private getDirectPayOSClient(): PayOS | null {
@@ -573,6 +575,18 @@ export class PremiumService {
       });
     } catch (error) {
       console.error('Audit log PAYMENT_SUCCESS failed:', error);
+    }
+
+    // Send notification to user about successful payment
+    try {
+      await this.notificationsService.sendBroadcast({
+        title: 'Thanh toán thành công',
+        content: `Bạn đã thanh toán thành công gói ${payment.planName}. Cảm ơn bạn đã sử dụng dịch vụ TOP TRUYỆN AUDIO!`,
+        targetAudience: 'SPECIFIC_USER',
+        targetUserId: userId,
+      });
+    } catch (error) {
+      console.error('Failed to send payment success notification:', error);
     }
   }
 
