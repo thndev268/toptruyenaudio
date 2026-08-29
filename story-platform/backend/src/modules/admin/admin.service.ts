@@ -75,14 +75,37 @@ export class AdminService {
       throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy người dùng.' });
     }
 
-    const subscription = await this.prisma.userSubscription.findFirst({ where: { profileId: userId } });
+    const subscription = await this.prisma.userSubscription.findFirst({
+      where: { profileId: userId },
+      include: {
+        plan: true,
+      },
+    });
+
+    // Calculate days remaining and percentage
+    let daysRemaining = 0;
+    let percentageRemaining = 0;
+    if (subscription && subscription.endAt) {
+      const now = new Date();
+      daysRemaining = Math.max(0, Math.floor((subscription.endAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+      const totalDays = subscription.startAt && subscription.endAt
+        ? Math.floor((subscription.endAt.getTime() - subscription.startAt.getTime()) / (1000 * 60 * 60 * 24))
+        : 30;
+      percentageRemaining = totalDays > 0 ? Math.round((daysRemaining / totalDays) * 100) : 0;
+    }
 
     return {
       user: this.formatUser(user),
-      subscription: subscription || {
+      subscription: subscription ? {
+        ...subscription,
+        daysRemaining,
+        percentageRemaining,
+      } : {
         membershipTier: user.membershipTier,
         status: 'NONE',
         autoRenew: false,
+        daysRemaining: 0,
+        percentageRemaining: 0,
       },
     };
   }

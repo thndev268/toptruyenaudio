@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Sparkles, Check, AlertCircle, Headphones, LifeBuoy, X, Loader2, RefreshCw } from 'lucide-react';
+import { Sparkles, Check, AlertCircle, Headphones, LifeBuoy, X, Loader2, RefreshCw, Crown, Calendar, Percent } from 'lucide-react';
 import { PremiumPlan, SubscriptionPlanId } from '../../types';
 import { subscriptionRepository } from '../../services/repositories/SubscriptionRepository';
 import { premiumRepository } from '../../services/repositories/PremiumRepository';
@@ -66,8 +66,26 @@ export const PremiumView: React.FC = () => {
   const [paymentResponse, setPaymentResponse] = useState<any>(null);
   const [paymentStatus, setPaymentStatus] = useState<string>('PENDING');
   const [checkingStatus, setCheckingStatus] = useState(false);
+  const [userSubscription, setUserSubscription] = useState<any>(null);
+  const [autoRenew, setAutoRenew] = useState(false);
 
   useBodyScrollLock(isModalOpen);
+
+  // Fetch user subscription
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      try {
+        const response = await premiumRepository.getUserSubscription();
+        if (response.success && response.data) {
+          setUserSubscription(response.data);
+          setAutoRenew(response.data.autoRenew || false);
+        }
+      } catch (error) {
+        console.error('Failed to fetch subscription:', error);
+      }
+    };
+    fetchSubscription();
+  }, [isSuccess]);
 
   const applyPaidMembership = useCallback(async () => {
     setPaymentStatus('PAID');
@@ -151,7 +169,7 @@ export const PremiumView: React.FC = () => {
 
     setPaymentLoading(true);
     try {
-      const response = await premiumRepository.createPayment(selectedPlan.code);
+      const response = await premiumRepository.createPayment(selectedPlan.code, autoRenew);
       if (response.success) {
         setPaymentResponse(response.data);
         setPaymentStatus('PENDING');
@@ -172,6 +190,19 @@ export const PremiumView: React.FC = () => {
       }
     } finally {
       setPaymentLoading(false);
+    }
+  };
+
+  const handleToggleAutoRenew = async () => {
+    try {
+      const response = await premiumRepository.updateAutoRenew(!autoRenew);
+      if (response.success) {
+        setAutoRenew(!autoRenew);
+        alert(response.message);
+      }
+    } catch (error) {
+      console.error('Failed to update auto-renewal:', error);
+      alert('Không thể cập nhật tự động gia hạn. Vui lòng thử lại.');
     }
   };
 
@@ -211,6 +242,65 @@ export const PremiumView: React.FC = () => {
             Chức năng thanh toán đang được chuẩn bị và chưa phát sinh giao dịch thật. Tham gia đăng ký nhận thông báo ngay hôm nay.
           </p>
         </div>
+
+        {/* Current Subscription Status */}
+        {userSubscription && userSubscription.isActive && (
+          <div className="max-w-4xl mx-auto mb-12 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-3xl p-6 sm:p-8 shadow-lg">
+            <div className="flex items-center gap-3 mb-4">
+              <Crown className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Gói Premium hiện tại</h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+              <div className="bg-white dark:bg-slate-900/50 rounded-xl p-4 border border-amber-500/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Calendar className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span className="text-xs text-slate-600 dark:text-slate-400">Ngày còn lại</span>
+                </div>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">{userSubscription.daysRemaining} ngày</p>
+              </div>
+              <div className="bg-white dark:bg-slate-900/50 rounded-xl p-4 border border-amber-500/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Percent className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span className="text-xs text-slate-600 dark:text-slate-400">Tiến độ</span>
+                </div>
+                <p className="text-2xl font-bold text-slate-900 dark:text-white">{userSubscription.percentageRemaining}%</p>
+              </div>
+              <div className="bg-white dark:bg-slate-900/50 rounded-xl p-4 border border-amber-500/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <Crown className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                  <span className="text-xs text-slate-600 dark:text-slate-400">Gói</span>
+                </div>
+                <p className="text-lg font-bold text-slate-900 dark:text-white truncate">{userSubscription.plan?.name || 'Premium'}</p>
+              </div>
+            </div>
+            {userSubscription.endAt && (
+              <div className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                Ngày hết hạn: <span className="font-semibold text-slate-900 dark:text-white">
+                  {new Date(userSubscription.endAt).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="auto-renew"
+                  checked={autoRenew}
+                  onChange={handleToggleAutoRenew}
+                  className="w-5 h-5 rounded accent-amber-500 cursor-pointer"
+                />
+                <label htmlFor="auto-renew" className="text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
+                  Tự động gia hạn khi hết hạn
+                </label>
+              </div>
+              {userSubscription.shouldNotify && (
+                <div className="px-3 py-1 bg-amber-500/20 text-amber-700 dark:text-amber-300 rounded-full text-xs font-bold">
+                  Sắp hết hạn
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Plans */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-6 lg:gap-4 mb-16">

@@ -274,6 +274,8 @@ model UserSubscription {
   status        String   @default("EXPIRED") // ACTIVE, EXPIRED, CANCELLED
   startAt       DateTime?
   endAt         DateTime?
+  autoRenew     Boolean  @default(false)
+  lastNotifiedAt DateTime?
   updatedAt     DateTime @updatedAt
 
   @@map("user_subscriptions")

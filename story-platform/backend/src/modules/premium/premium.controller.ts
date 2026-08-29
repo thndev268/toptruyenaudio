@@ -39,18 +39,23 @@ export class PremiumController {
           description: 'Code của gói Premium (PREMIUM_MONTHLY, PREMIUM_QUARTERLY, v.v.)',
           example: 'PREMIUM_MONTHLY',
         },
+        autoRenew: {
+          type: 'boolean',
+          description: 'Bật tự động gia hạn',
+          example: false,
+        },
       },
       required: ['packageCode'],
     },
   })
   @ApiResponse({ status: 200, description: 'Đã tạo yêu cầu thanh toán thành công' })
   @ApiResponse({ status: 404, description: 'Gói Premium không tồn tại' })
-  async createPayment(@Request() req, @Body() body: { packageCode: string }) {
+  async createPayment(@Request() req, @Body() body: { packageCode: string; autoRenew?: boolean }) {
     const userId = req.user?.sub || req.user?.id;
     if (!userId) {
       throw new Error('User ID not found in request');
     }
-    return this.premiumService.createPayment(userId, body.packageCode, req.id);
+    return this.premiumService.createPayment(userId, body.packageCode, body.autoRenew || false, req.id);
   }
 
   /**
@@ -128,6 +133,56 @@ export class PremiumController {
       throw new Error('User ID not found in request');
     }
     return this.premiumService.getUserSubscription(userId);
+  }
+
+  /**
+   * Cập nhật auto-renewal preference
+   */
+  @Post('subscription/auto-renew')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cập nhật tự động gia hạn' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        autoRenew: {
+          type: 'boolean',
+          description: 'Bật/tắt tự động gia hạn',
+          example: true,
+        },
+      },
+      required: ['autoRenew'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Cập nhật thành công' })
+  async updateAutoRenew(@Request() req, @Body() body: { autoRenew: boolean }) {
+    const userId = req.user?.sub || req.user?.id;
+    if (!userId) {
+      throw new Error('User ID not found in request');
+    }
+    return this.premiumService.updateAutoRenew(userId, body.autoRenew);
+  }
+
+  /**
+   * Process expired subscriptions (Admin only - cron job)
+   */
+  @Post('subscriptions/process-expired')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Xử lý subscription hết hạn (cron job)' })
+  @ApiResponse({ status: 200, description: 'Xử lý thành công' })
+  async processExpiredSubscriptions() {
+    return this.premiumService.processExpiredSubscriptions();
+  }
+
+  /**
+   * Check expiring subscriptions (Admin only - cron job)
+   */
+  @Post('subscriptions/check-expiring')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Kiểm tra subscription sắp hết hạn (cron job)' })
+  @ApiResponse({ status: 200, description: 'Kiểm tra thành công' })
+  async checkExpiringSubscriptions() {
+    return this.premiumService.checkExpiringSubscriptions();
   }
 
   /**

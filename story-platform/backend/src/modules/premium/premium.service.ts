@@ -128,7 +128,7 @@ export class PremiumService {
    * Tạo payment request mới
    * Frontend chỉ gửi packageId, backend tự xác định giá và thời hạn từ database
    */
-  async createPayment(userId: string, packageCode: string, requestId?: string) {
+  async createPayment(userId: string, packageCode: string, autoRenew = false, requestId?: string) {
     // 1. Xác thực user
     const user = await this.prisma.profile.findUnique({
       where: { id: userId },
@@ -161,6 +161,27 @@ export class PremiumService {
         status: 'PENDING',
       },
     });
+
+    // 5. Update user's auto-renewal preference if this is a new subscription
+    const existingSubscription = await this.prisma.userSubscription.findFirst({
+      where: { profileId: userId },
+    });
+
+    if (!existingSubscription) {
+      await this.prisma.userSubscription.create({
+        data: {
+          profileId: userId,
+          planId: plan.id,
+          status: 'PENDING',
+          autoRenew,
+        },
+      });
+    } else {
+      await this.prisma.userSubscription.update({
+        where: { id: existingSubscription.id },
+        data: { autoRenew },
+      });
+    }
 
     // 5. Gọi PayOS để tạo payment link
     try {
@@ -487,6 +508,7 @@ export class PremiumService {
             status: 'ACTIVE',
             startAt: existingSubscription.startAt || now,
             endAt: newEndAt,
+            lastNotifiedAt: null, // Reset notification after renewal
           },
         });
       } else {
@@ -501,6 +523,7 @@ export class PremiumService {
             status: 'ACTIVE',
             startAt: now,
             endAt: newEndAt,
+            autoRenew: false, // Default to false for new subscriptions
           },
         });
       }
@@ -604,15 +627,167 @@ export class PremiumService {
     const now = new Date();
     const isActive = subscription.status === 'ACTIVE' && subscription.endAt && subscription.endAt > now;
 
+    // Tính số ngày còn lại
+    const daysRemaining = subscription.endAt
+      ? Math.max(0, Math.floor((subscription.endAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+      : 0;
+
+    // Tính phần trăm thời gian còn lại
+    const totalDays = subscription.startAt && subscription.endAt
+      ? Math.floor((subscription.endAt.getTime() - subscription.startAt.getTime()) / (1000 * 60 * 60 * 24))
+      : 30; // Default to 30 days if not available
+    const percentageRemaining = totalDays > 0 ? Math.round((daysRemaining / totalDays) * 100) : 0;
+
+    // Check if should notify (handle type safely)
+    const lastNotifiedAt = (subscription as any).lastNotifiedAt as Date | null;
+    const shouldNotify = daysRemaining <= 7 && (!lastNotifiedAt ||
+      (now.getTime() - lastNotifiedAt.getTime()) > 24 * 60 * 60 * 1000);
+
     return {
       success: true,
       data: {
         ...subscription,
         isActive,
-        daysRemaining: subscription.endAt 
-          ? Math.max(0, Math.floor((subscription.endAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
-          : 0,
+        daysRemaining,
+        percentageRemaining,
+        shouldNotify,
       },
+    };
+  }
+
+  /**
+   * Kiểm tra và xử lý các subscription hết hạn (cron job)
+   * Chạy hàng ngày để auto-downgrade expired subscriptions
+   */
+  async processExpiredSubscriptions() {
+    const now = new Date();
+    const expiredSubscriptions = await this.prisma.userSubscription.findMany({
+      where: {
+        status: 'ACTIVE',
+        endAt: {
+          lt: now,
+        },
+      },
+    });
+
+    for (const subscription of expiredSubscriptions) {
+      await this.prisma.$transaction(async (tx) => {
+        // Update subscription status
+        await tx.userSubscription.update({
+          where: { id: subscription.id },
+          data: {
+            status: 'EXPIRED',
+          },
+        });
+
+        // Downgrade profile to FREE
+        await tx.profile.update({
+          where: { id: subscription.profileId },
+          data: {
+            membershipTier: 'FREE',
+            premiumExpiresAt: null,
+          },
+        });
+
+        // Log audit
+        await this.auditLogsService.log({
+          performedByAdminId: 'SYSTEM',
+          action: 'SUBSCRIPTION_EXPIRED',
+          resource: 'UserSubscription',
+          resourceId: subscription.id,
+          entityName: subscription.profileId,
+          reason: `Subscription expired automatically on ${now.toISOString()}`,
+        });
+      });
+    }
+
+    return {
+      success: true,
+      processed: expiredSubscriptions.length,
+      message: `Đã xử lý ${expiredSubscriptions.length} subscription hết hạn`,
+    };
+  }
+
+  /**
+   * Kiểm tra và gửi thông báo cho subscription sắp hết hạn (cron job)
+   * Chạy hàng ngày để notify users với auto-renewal enabled
+   */
+  async checkExpiringSubscriptions() {
+    const now = new Date();
+    const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    // Get all active subscriptions with auto-renew enabled
+    const allSubscriptions = await this.prisma.userSubscription.findMany({
+      where: {
+        status: 'ACTIVE',
+        autoRenew: true,
+        endAt: {
+          lte: sevenDaysLater,
+          gt: now,
+        },
+      },
+      include: {
+        plan: true,
+      },
+    });
+
+    // Filter manually for lastNotifiedAt to avoid type issues
+    const expiringSubscriptions = allSubscriptions.filter(sub => {
+      const lastNotifiedAt = (sub as any).lastNotifiedAt as Date | null;
+      return !lastNotifiedAt || (now.getTime() - lastNotifiedAt.getTime()) > 24 * 60 * 60 * 1000;
+    });
+
+    for (const subscription of expiringSubscriptions) {
+      const daysRemaining = subscription.endAt
+        ? Math.floor((subscription.endAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+
+      // Update lastNotifiedAt
+      await this.prisma.userSubscription.update({
+        where: { id: subscription.id },
+        data: {
+          lastNotifiedAt: now,
+        } as any,
+      });
+
+      // Log notification (in real app, send email/push notification)
+      await this.auditLogsService.log({
+        performedByAdminId: 'SYSTEM',
+        action: 'SUBSCRIPTION_EXPIRING_NOTIFICATION',
+        resource: 'UserSubscription',
+        resourceId: subscription.id,
+        entityName: subscription.profileId,
+        reason: `Subscription expiring in ${daysRemaining} days. Auto-renewal enabled.`,
+      });
+    }
+
+    return {
+      success: true,
+      notified: expiringSubscriptions.length,
+      message: `Đã gửi thông báo cho ${expiringSubscriptions.length} subscription sắp hết hạn`,
+    };
+  }
+
+  /**
+   * Cập nhật auto-renewal preference
+   */
+  async updateAutoRenew(userId: string, autoRenew: boolean) {
+    const subscription = await this.prisma.userSubscription.findFirst({
+      where: { profileId: userId },
+    });
+
+    if (!subscription) {
+      throw new NotFoundException({ code: 'SUBSCRIPTION_NOT_FOUND', message: 'Không tìm thấy subscription.' });
+    }
+
+    await this.prisma.userSubscription.update({
+      where: { id: subscription.id },
+      data: { autoRenew },
+    });
+
+    return {
+      success: true,
+      message: autoRenew ? 'Đã bật tự động gia hạn' : 'Đã tắt tự động gia hạn',
     };
   }
 

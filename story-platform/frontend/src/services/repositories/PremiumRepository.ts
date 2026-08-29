@@ -34,6 +34,9 @@ export interface UserSubscription {
   updatedAt: string;
   isActive?: boolean;
   daysRemaining?: number;
+  percentageRemaining?: number;
+  shouldNotify?: boolean;
+  autoRenew?: boolean;
   plan?: SubscriptionPlan;
 }
 
@@ -86,10 +89,10 @@ export class PremiumRepository {
    * Tạo payment request mới
    * Chỉ gửi packageCode, backend tự xác định giá và thời hạn
    */
-  async createPayment(packageCode: string): Promise<{ success: boolean; data: PaymentResponse; message: string }> {
+  async createPayment(packageCode: string, autoRenew = false): Promise<{ success: boolean; data: PaymentResponse; message: string }> {
     return apiRequest('/premium/payments', {
       method: 'POST',
-      body: JSON.stringify({ packageCode }),
+      body: JSON.stringify({ packageCode, autoRenew }),
     });
   }
 
@@ -127,6 +130,16 @@ export class PremiumRepository {
    */
   async getUserSubscription(): Promise<{ success: boolean; data: UserSubscription | null; message: string }> {
     return apiRequest('/premium/subscription');
+  }
+
+  /**
+   * Cập nhật auto-renewal preference
+   */
+  async updateAutoRenew(autoRenew: boolean): Promise<{ success: boolean; message: string }> {
+    return apiRequest('/premium/subscription/auto-renew', {
+      method: 'POST',
+      body: JSON.stringify({ autoRenew }),
+    });
   }
 }
 
