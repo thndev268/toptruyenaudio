@@ -28,6 +28,7 @@ export const HomeView: React.FC = () => {
   const allStories = Array.isArray(stories) ? stories : [];
   const featuredStory = allStories.length > 0 ? allStories[0] : null;
   const genres = useGenres();
+  const genresArray = Array.isArray(genres) ? genres : [];
 
   // Show premium loading screen for initial load
   useEffect(() => {
@@ -94,7 +95,7 @@ export const HomeView: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {genres.map((genre) => (
+          {genresArray.map((genre) => (
             <div
               key={genre.id}
               onClick={() => navigate(`/explore?genre=${encodeURIComponent(genre.name)}`)}

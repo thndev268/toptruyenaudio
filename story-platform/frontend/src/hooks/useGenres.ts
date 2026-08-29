@@ -6,11 +6,15 @@ import { adminRepository } from '../services/repositories/AdminRepository';
  * when the admin sync event is triggered.
  */
 export function useGenres() {
-  const [genres, setGenres] = useState(() => adminRepository.getGenres());
+  const [genres, setGenres] = useState(() => {
+    const fetchedGenres = adminRepository.getGenres();
+    return Array.isArray(fetchedGenres) ? fetchedGenres : [];
+  });
 
   useEffect(() => {
     const handleSync = () => {
-      setGenres(adminRepository.getGenres());
+      const fetchedGenres = adminRepository.getGenres();
+      setGenres(Array.isArray(fetchedGenres) ? fetchedGenres : []);
     };
 
     // Listen to admin sync event for real-time reactivity
@@ -19,7 +23,8 @@ export function useGenres() {
     // Fallback storage listener for cross-tab or cross-frame updates
     const handleStorage = (e: StorageEvent) => {
       if (e.key === 'toptruyenaudio:admin-data:v1') {
-        setGenres(adminRepository.getGenres());
+        const fetchedGenres = adminRepository.getGenres();
+        setGenres(Array.isArray(fetchedGenres) ? fetchedGenres : []);
       }
     };
     window.addEventListener('storage', handleStorage);
