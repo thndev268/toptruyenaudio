@@ -54,7 +54,8 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({
   };
 
   const filtered = useMemo(() => {
-    return stories.filter((s) => {
+    const storiesArray = Array.isArray(stories) ? stories : [];
+    return storiesArray.filter((s) => {
       const matchSearch =
         s.title.toLowerCase().includes(search.toLowerCase()) ||
         s.authorName.toLowerCase().includes(search.toLowerCase()) ||
