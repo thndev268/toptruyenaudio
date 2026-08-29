@@ -187,17 +187,19 @@ class AdminRepositoryService {
             storiesData = storiesResponse.data;
           }
           if (storiesData.length > 0) {
+            const storiesArray = Array.isArray(this.stories) ? this.stories : [];
             storiesData.forEach((as: any) => {
-              const existingIdx = this.stories.findIndex((s) => s.id === as.id);
+              const existingIdx = storiesArray.findIndex((s) => s.id === as.id);
               if (existingIdx !== -1) {
-                this.stories[existingIdx] = as;
+                storiesArray[existingIdx] = as;
               } else {
-                this.stories.unshift(as);
+                storiesArray.unshift(as);
               }
               if (as.chapters && Array.isArray(as.chapters)) {
                 this.storyChapters[as.id] = as.chapters;
               }
             });
+            this.stories = storiesArray;
             localStorage.setItem('toptruyenaudio:admin-stories:v1', JSON.stringify(this.stories));
             localStorage.setItem('toptruyenaudio:admin-chapters:v1', JSON.stringify(this.storyChapters));
           }
@@ -211,7 +213,8 @@ class AdminRepositoryService {
             this.genres = genresResponse.data;
             
             // Map genre IDs to genre objects in stories
-            this.stories.forEach((story) => {
+            const storiesArray = Array.isArray(this.stories) ? this.stories : [];
+            storiesArray.forEach((story) => {
               if (story.genreIds && Array.isArray(story.genreIds)) {
                 story.genres = this.genres.filter((g) => story.genreIds && story.genreIds.includes(g.id));
               }
@@ -219,7 +222,7 @@ class AdminRepositoryService {
             
             // Calculate storyCount for each genre based on stories
             const genresWithCount = this.genres.map((genre: any) => {
-              const count = this.stories.filter((story) => {
+              const count = storiesArray.filter((story) => {
                 const storyGenres = story.genres || [];
                 return storyGenres.some((g: any) => g.name === genre.name || g.id === genre.id);
               }).length;
