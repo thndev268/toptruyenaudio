@@ -1,6 +1,5 @@
-import React from 'react';
-import { ShieldAlert, LogOut, HelpCircle, AlertTriangle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { ShieldAlert, HelpCircle, AlertTriangle, Phone } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 interface BannedUserModalProps {
@@ -9,17 +8,35 @@ interface BannedUserModalProps {
 }
 
 export const BannedUserModal: React.FC<BannedUserModalProps> = ({ isOpen, reason }) => {
-  const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
+
+  // Disable all interactions when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      // Prevent escape key
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [isOpen]);
 
   if (!isOpen || !user) return null;
 
-  const handleGoToSupport = () => {
-    navigate('/support');
+  const handleContactZalo = () => {
+    // Zalo link - replace with actual Zalo number
+    window.open('https://zalo.me/0388888888', '_blank');
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-4 animate-fadeIn">
+    <div className="fixed inset-0 z-[9999] bg-slate-950/95 backdrop-blur-xl flex items-center justify-center p-4 animate-fadeIn">
       <div className="bg-slate-900 border-2 border-rose-500/80 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl shadow-rose-900/40 space-y-6 text-center relative overflow-hidden">
         {/* Decorative Top Glow */}
         <div className="absolute -top-24 -left-24 w-48 h-48 bg-rose-500/20 rounded-full blur-3xl pointer-events-none" />
@@ -57,27 +74,23 @@ export const BannedUserModal: React.FC<BannedUserModalProps> = ({ isOpen, reason
         </div>
 
         <p className="text-[11px] text-slate-400 leading-relaxed">
-          Trong thời gian bị khóa, các tính năng nghe truyện, đánh giá, bình luận và thanh toán gói cước tạm thời bị đình chỉ. Nếu bạn tin rằng đây là nhầm lẫn, vui lòng gửi phản hồi trực tiếp tới Owner Admin.
+          Trong thời gian bị khóa, các tính năng nghe truyện, đánh giá, bình luận và thanh toán gói cước tạm thời bị đình chỉ. Nếu bạn tin rằng đây là nhầm lẫn, vui lòng liên hệ trực tiếp với Owner Admin qua Zalo để được hỗ trợ.
         </p>
 
-        {/* Action Buttons */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+        {/* Action Button - Only Zalo contact */}
+        <div className="pt-2">
           <button
-            onClick={handleGoToSupport}
-            className="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-xs sm:text-sm rounded-xl shadow-lg shadow-cyan-500/20 transition-all min-h-[44px] flex items-center justify-center gap-2 cursor-pointer"
+            onClick={handleContactZalo}
+            className="w-full py-4 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-extrabold text-sm sm:text-base rounded-xl shadow-lg shadow-cyan-500/20 transition-all min-h-[52px] flex items-center justify-center gap-3 cursor-pointer"
           >
-            <HelpCircle className="w-4 h-4" />
-            <span>Gửi Yêu Cầu Hỗ Trợ</span>
-          </button>
-
-          <button
-            onClick={() => logout()}
-            className="w-full py-3 bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white border border-slate-700 font-bold text-xs sm:text-sm rounded-xl transition-all min-h-[44px] flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Đăng Xuất</span>
+            <Phone className="w-5 h-5" />
+            <span>Liên Hệ Admin Qua Zalo</span>
           </button>
         </div>
+
+        <p className="text-[10px] text-slate-500 font-mono">
+          Liên hệ Zalo để giải quyết vấn đề tài khoản
+        </p>
       </div>
     </div>
   );
