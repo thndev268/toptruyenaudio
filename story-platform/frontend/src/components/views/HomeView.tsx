@@ -25,8 +25,8 @@ export const HomeView: React.FC = () => {
   const [showInitialLoading, setShowInitialLoading] = useState(true);
 
   const { stories, isLoading, isLoadingMore, error, hasTimedOut, retry, loadMore } = useStories();
-  const allStories = stories;
-  const featuredStory = allStories[0];
+  const allStories = Array.isArray(stories) ? stories : [];
+  const featuredStory = allStories.length > 0 ? allStories[0] : null;
   const genres = useGenres();
 
   // Show premium loading screen for initial load

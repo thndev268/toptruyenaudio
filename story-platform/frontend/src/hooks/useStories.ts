@@ -52,6 +52,9 @@ export function useStories() {
       // Fetch from repository
       const fetchedStories = adminRepository.getPublicStories();
       
+      // Ensure fetchedStories is an array
+      const storiesArray = Array.isArray(fetchedStories) ? fetchedStories : [];
+      
       // Clear timeout on success
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
@@ -61,7 +64,7 @@ export function useStories() {
       if (mountedRef.current) {
         setState(prev => ({
           ...prev,
-          stories: isInitial ? fetchedStories : [...prev.stories, ...fetchedStories],
+          stories: isInitial ? storiesArray : [...prev.stories, ...storiesArray],
           isLoading: false,
           isLoadingMore: false,
           error: null,
