@@ -13,12 +13,14 @@ export const HotStoriesSection: React.FC<HotStoriesSectionProps> = ({ stories })
 
   const ITEMS_PER_PAGE = 6;
 
+  const storiesArray = Array.isArray(stories) ? stories : [];
+
   const handleTabChange = (newTab: 'today' | 'week' | 'month') => {
     setTab(newTab);
     setCurrentPage(1);
   };
 
-  const sortedStories = [...stories].sort((a, b) => {
+  const sortedStories = [...storiesArray].sort((a, b) => {
     if (tab === 'today') return (b.stats?.listenCount || 0) - (a.stats?.listenCount || 0);
     if (tab === 'week') return (b.stats?.favoriteCount || 0) - (a.stats?.favoriteCount || 0);
     return b.rating - a.rating;

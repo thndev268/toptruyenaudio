@@ -16,7 +16,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ featuredStory }) => {
 
   if (!featuredStory) return null;
 
-  const firstChapter = featuredStory.chapters?.[0];
+  const chapters = Array.isArray(featuredStory.chapters) ? featuredStory.chapters : [];
+  const firstChapter = chapters.length > 0 ? chapters[0] : null;
 
   // Extract YouTube Video ID from any available field
   const ytId =

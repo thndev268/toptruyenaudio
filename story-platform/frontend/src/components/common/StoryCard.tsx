@@ -17,7 +17,8 @@ export interface StoryCardProps {
 }
 
 export function getStoryThumbnailUrl(story: AudioStory): string {
-  const firstChapter = story.chapters?.[0];
+  const chapters = Array.isArray(story.chapters) ? story.chapters : [];
+  const firstChapter = chapters.length > 0 ? chapters[0] : null;
   const ytId =
     extractYouTubeId(story.iframeUrl) ||
     extractYouTubeId(story.iframeCode) ||
@@ -55,11 +56,14 @@ export const StoryCard: React.FC<StoryCardProps> = ({
     e.stopPropagation();
     if (onPlayClick) {
       onPlayClick();
-    } else if (story.chapters && story.chapters.length > 0) {
-      const success = await playChapter(story, story.chapters[0]);
-      if (success) {
-        const storyIdentifier = story.slug || story.id;
-        navigate(`/listen/${storyIdentifier}/${story.chapters[0].id}`);
+    } else {
+      const chapters = Array.isArray(story.chapters) ? story.chapters : [];
+      if (chapters.length > 0) {
+        const success = await playChapter(story, chapters[0]);
+        if (success) {
+          const storyIdentifier = story.slug || story.id;
+          navigate(`/listen/${storyIdentifier}/${chapters[0].id}`);
+        }
       }
     }
   };
@@ -84,7 +88,8 @@ export const StoryCard: React.FC<StoryCardProps> = ({
   const thumbnailUrl = getStoryThumbnailUrl(story);
 
   // Check if story is VIP / Premium
-  const isPremiumStory = story.isExclusive || story.chapters?.some((c) => c.accessLevel === 'PREMIUM');
+  const chapters = Array.isArray(story.chapters) ? story.chapters : [];
+  const isPremiumStory = story.isExclusive || chapters.some((c: any) => c.accessLevel === 'PREMIUM');
 
   return (
     <div

@@ -45,8 +45,9 @@ export const TrendingStoriesSection: React.FC<TrendingStoriesSectionProps> = ({ 
 
   // Sort stories by 24H popularity (listenCount + viewCount)
   const sortedTrending = useMemo(() => {
-    if (!stories || stories.length === 0) return [];
-    return [...stories].sort((a, b) => {
+    const storiesArray = Array.isArray(stories) ? stories : [];
+    if (storiesArray.length === 0) return [];
+    return [...storiesArray].sort((a, b) => {
       const aTotal = (a.stats?.listenCount || 0) + (a.stats?.viewCount || 0);
       const bTotal = (b.stats?.listenCount || 0) + (b.stats?.viewCount || 0);
       return bTotal - aTotal;
