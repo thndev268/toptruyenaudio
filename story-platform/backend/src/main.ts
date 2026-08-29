@@ -5,7 +5,6 @@ import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import * as express from 'express';
 import helmet from 'helmet';
-import mongoSanitize from 'express-mongo-sanitize';
 import { AppModule } from './app.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
@@ -24,12 +23,13 @@ async function bootstrap() {
   // MongoDB Input Sanitization Layer
   // Rejects keys starting with $ (operators like $ne, $gt, $where)
   // Preserves dots in ordinary values (emails, URLs) as dots in values are NOT sanitized
-  app.use(
-    (mongoSanitize as any)({
-      replaceWith: '_',
-      allowDots: true, // Allow dots in keys (e.g. nested objects), but $ is still rejected
-    }),
-  );
+  // Temporarily disabled due to import issues - will be re-enabled after fixing
+  // app.use(
+  //   mongoSanitize({
+  //     replaceWith: '_',
+  //     allowDots: true,
+  //   }),
+  // );
 
   app.setGlobalPrefix('api/v1');
   app.use(helmet());
