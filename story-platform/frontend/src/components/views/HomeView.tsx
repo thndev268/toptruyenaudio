@@ -16,25 +16,48 @@ import { FeaturedActiveUsersSection } from '../home/FeaturedActiveUsersSection';
 import { CommunityActivitySection } from '../home/CommunityActivitySection';
 import { BecomeCreatorBanner } from '../home/BecomeCreatorBanner';
 import { HomeViewSkeleton } from './skeletons/HomeViewSkeleton';
+import { PremiumLoadingScreen } from '../common/PremiumLoadingScreen';
+import { ErrorState } from '../common/ErrorState';
+import { BottomLoadingIndicator } from '../common/BottomLoadingIndicator';
 
 export const HomeView: React.FC = () => {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
+  const [showInitialLoading, setShowInitialLoading] = useState(true);
 
-  const publicStories = useStories();
-  const allStories = publicStories;
-  const featuredStory = allStories[0] ;
+  const { stories, isLoading, isLoadingMore, error, hasTimedOut, retry, loadMore } = useStories();
+  const allStories = stories;
+  const featuredStory = allStories[0];
   const genres = useGenres();
 
-  // Simulate network loading time for smoother visual transition
+  // Show premium loading screen for initial load
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, []);
+    if (!isLoading) {
+      const timer = setTimeout(() => {
+        setShowInitialLoading(false);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading]);
 
-  if (isLoading) {
+  // Show premium loading screen during initial load
+  if (showInitialLoading && isLoading) {
+    return <PremiumLoadingScreen message="Đang tải truyện audio..." />;
+  }
+
+  // Show error state if there's an error
+  if (error && !isLoading) {
+    return (
+      <ErrorState
+        title={hasTimedOut ? 'Hệ thống đang gặp sự cố' : 'Không thể tải dữ liệu'}
+        message={hasTimedOut ? 'Vui lòng chờ trong giây lát...' : error.message}
+        onRetry={retry}
+        isRetrying={isLoading}
+      />
+    );
+  }
+
+  // Show skeleton if still loading but not initial loading
+  if (isLoading && !showInitialLoading) {
     return <HomeViewSkeleton />;
   }
 
@@ -91,6 +114,9 @@ export const HomeView: React.FC = () => {
 
       {/* 5. TRENDING 24H SECTION */}
       <TrendingStoriesSection stories={allStories} />
+
+      {/* 6. BOTTOM LOADING INDICATOR */}
+      {isLoadingMore && <BottomLoadingIndicator />}
 
       {/* 7. FEATURED CREATORS */}
       <FeaturedCreatorsSection />
