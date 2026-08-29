@@ -114,18 +114,20 @@ export function filterStoryList<T extends {
 
     // 4. Access Level
     if (filters.access && filters.access !== 'all') {
+      const chapters = Array.isArray(story.chapters) ? story.chapters : [];
       if (filters.access === 'FREE') {
-        const isAllFree = story.chapters.every((c) => c.accessLevel === 'FREE');
+        const isAllFree = chapters.every((c: any) => c.accessLevel === 'FREE');
         if (!isAllFree) return false;
       } else if (filters.access === 'PREMIUM') {
-        const hasPremium = story.chapters.some((c) => c.accessLevel === 'PREMIUM');
+        const hasPremium = chapters.some((c: any) => c.accessLevel === 'PREMIUM');
         if (!hasPremium) return false;
       }
     }
 
     // 5. Duration
     if (filters.duration && filters.duration !== 'all') {
-      const totalSeconds = story.chapters.reduce((sum, c) => sum + (c.durationSeconds || 0), 0);
+      const chapters = Array.isArray(story.chapters) ? story.chapters : [];
+      const totalSeconds = chapters.reduce((sum, c: any) => sum + (c.durationSeconds || 0), 0);
       const totalHours = totalSeconds / 3600;
 
       if (filters.duration === 'under5' && totalHours >= 5) return false;
