@@ -2,7 +2,7 @@ import 'dotenv/config'; // PHẢI là dòng đầu tiên — load .env trước 
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import cookieParser from 'cookie-parser';
+import * as cookieParser from 'cookie-parser';
 import * as express from 'express';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
@@ -33,7 +33,7 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api/v1');
   app.use(helmet());
-  app.use(cookieParser());
+  app.use((cookieParser as any)());
 
   app.useGlobalPipes(
     new ValidationPipe({
