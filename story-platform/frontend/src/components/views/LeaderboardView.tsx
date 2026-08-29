@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Star, Play, Crown, User, PenTool, Award, Clock, Sparkles } from 'lucide-react';
+import { Trophy, Star, Play, Crown, User, Award, Clock, Sparkles } from 'lucide-react';
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
 import { adminRepository } from '../../services/repositories/AdminRepository';
 import { StoryCard } from '../common/StoryCard';
 import { rankingRepository } from '../../services/repositories/RankingRepository';
-import { UserActivityRanking, CreatorRanking } from '../../types';
+import { UserActivityRanking } from '../../types';
 import { ActiveUserDetailModal } from '../home/ActiveUserDetailModal';
 
 export const LeaderboardView: React.FC = () => {
   const { navigateTo, playChapter } = useAudioPlayer();
 
-  // Tab State: STORIES, USERS, CREATOR
-  const [mainTab, setMainTab] = useState<'STORIES' | 'USERS' | 'CREATOR'>('STORIES');
+  // Tab State: STORIES, USERS
+  const [mainTab, setMainTab] = useState<'STORIES' | 'USERS'>('STORIES');
   const [subTab, setSubTab] = useState<'listens' | 'favorites' | 'rating' | 'trending'>('listens');
   const [timePeriod, setTimePeriod] = useState<'today' | 'week' | 'month' | 'all'>('week');
 
@@ -20,7 +20,6 @@ export const LeaderboardView: React.FC = () => {
 
   // Async Repository Data
   const [userRankings, setUserRankings] = useState<UserActivityRanking[]>([]);
-  const [creatorRankings, setCreatorRankings] = useState<CreatorRanking[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -41,25 +40,6 @@ export const LeaderboardView: React.FC = () => {
       .catch((err) => {
         console.error('Failed to load user rankings:', err);
         if (active) setUserRankings([]);
-      });
-
-    rankingRepository
-      .getCreatorRankings()
-      .then((res) => {
-        if (!active) return;
-        if (Array.isArray(res)) {
-          setCreatorRankings(res);
-        } else if (res && typeof res === 'object' && Array.isArray((res as any).data)) {
-          setCreatorRankings((res as any).data);
-        } else if (res && typeof res === 'object' && Array.isArray((res as any).creators)) {
-          setCreatorRankings((res as any).creators);
-        } else {
-          setCreatorRankings([]);
-        }
-      })
-      .catch((err) => {
-        console.error('Failed to load creator rankings:', err);
-        if (active) setCreatorRankings([]);
       });
 
     return () => {
@@ -89,7 +69,7 @@ export const LeaderboardView: React.FC = () => {
             <span className="text-xs uppercase font-mono font-bold tracking-wider">Hệ Thống Bảng Binh Danh</span>
           </div>
           <h1 className="text-xl sm:text-3xl font-black text-white">Bảng Xếp Hạng TOP TRUYỆN AUDIO</h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">Cập nhật thời gian thực thành tích của tác phẩm, thính giả và tác giả</p>
+          <p className="text-xs sm:text-sm text-slate-400 mt-1">Cập nhật thời gian thực thành tích của tác phẩm và thính giả</p>
         </div>
 
         {/* Time Period Selector */}
@@ -129,15 +109,6 @@ export const LeaderboardView: React.FC = () => {
           }`}
         >
           <Award className="w-4 h-4" /> Bảng Thính Giả Tích Cực
-        </button>
-
-        <button
-          onClick={() => setMainTab('CREATOR')}
-          className={`px-5 py-3.5 text-xs sm:text-sm font-bold border-b-2 flex items-center gap-2 transition-all min-h-[44px] shrink-0 ${
-            mainTab === 'CREATOR' ? 'border-amber-500 text-amber-400' : 'border-transparent text-slate-400 hover:text-white'
-          }`}
-        >
-          <PenTool className="w-4 h-4" /> Bảng Xếp Hạng Tác Giả
         </button>
       </div>
 
@@ -242,48 +213,6 @@ export const LeaderboardView: React.FC = () => {
           ) : (
             <div className="text-center py-8 text-slate-400 text-xs bg-slate-900/50 border border-slate-800 rounded-2xl">
               Chưa có dữ liệu thính giả tích cực
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* CREATOR RANKINGS */}
-      {mainTab === 'CREATOR' && (
-        <div className="space-y-3">
-          {Array.isArray(creatorRankings) && creatorRankings.length > 0 ? (
-            creatorRankings.map((creator, rank) => (
-              <div
-                key={creator.creatorId}
-                className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between gap-4"
-              >
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="shrink-0 w-8 h-8 rounded-xl bg-slate-800 text-emerald-400 font-mono font-bold text-xs flex items-center justify-center">
-                    #{rank + 1}
-                  </div>
-
-                  <div className="w-12 h-12 rounded-2xl overflow-hidden bg-slate-800 border border-slate-700 shrink-0">
-                    <img src={creator.avatarUrl} alt={creator.name} className="w-full h-full object-cover" />
-                  </div>
-
-                  <div className="min-w-0 space-y-0.5">
-                    <div className="text-sm font-bold text-white truncate">{creator.name}</div>
-                    <div className="text-xs text-slate-400">
-                      <span className="text-emerald-400 font-mono font-bold">
-                        {creator.role === 'AUTHOR' ? 'Tác Giả' : creator.role}
-                      </span> | {creator.storyCount} tác phẩm
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-right text-xs font-mono shrink-0">
-                  <div className="text-slate-200 font-bold">{(creator.totalListens / 1000).toFixed(0)}k lượt nghe</div>
-                  <div className="text-[10px] text-emerald-400">+{creator.growthPercent}% tăng trưởng</div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-center py-8 text-slate-400 text-xs bg-slate-900/50 border border-slate-800 rounded-2xl">
-              Chưa có dữ liệu tác giả
             </div>
           )}
         </div>
