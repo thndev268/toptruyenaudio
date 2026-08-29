@@ -50,61 +50,16 @@ export const PremiumLoadingScreen: React.FC<{ message?: string }> = ({ message =
         </div>
       </motion.div>
 
-      {/* Animated Sound Wave */}
+      {/* Animated Loading Text */}
       <motion.div
-        className="relative z-10 flex items-center justify-center gap-1.5 mb-8"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
+        className="relative z-10 mb-8"
       >
-        {[...Array(5)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="w-1.5 bg-gradient-to-t from-cyan-400 to-purple-400 rounded-full"
-            animate={{
-              height: [20, 40, 20],
-              opacity: [0.5, 1, 0.5],
-            }}
-            transition={{
-              duration: 1.2,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: i * 0.1,
-            }}
-            style={{ height: 20 }}
-          />
-        ))}
-      </motion.div>
-
-      {/* Loading Message */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        className="relative z-10 text-center"
-      >
-        <div className="text-slate-300 text-base sm:text-lg font-medium mb-2">
+        <div className="loader">
           {message}
         </div>
-        <motion.div
-          className="w-48 h-1 bg-slate-800 rounded-full overflow-hidden mx-auto"
-          initial={{ width: 0 }}
-          animate={{ width: 192 }}
-          transition={{ delay: 0.6, duration: 0.4 }}
-        >
-          <motion.div
-            className="h-full bg-gradient-to-r from-cyan-400 to-purple-400"
-            animate={{
-              x: ['-100%', '100%'],
-            }}
-            transition={{
-              duration: 1.5,
-              repeat: Infinity,
-              ease: "linear",
-            }}
-            style={{ width: '50%' }}
-          />
-        </motion.div>
       </motion.div>
 
       {/* Decorative Elements */}
@@ -119,6 +74,23 @@ export const PremiumLoadingScreen: React.FC<{ message?: string }> = ({ message =
           <span>Đang kết nối với máy chủ...</span>
         </div>
       </motion.div>
+
+      <style>{`
+        .loader {
+          width: fit-content;
+          font-size: 40px;
+          font-family: monospace;
+          font-weight: bold;
+          text-transform: uppercase;
+          color: #0000;
+          -webkit-text-stroke: 1px #22d3ee;
+          background: linear-gradient(90deg, #0000 33%, #22d3ee 0 67%, #0000 0) 100%/300% 100% no-repeat text;
+          animation: l12 4s steps(14) infinite;
+        }
+        @keyframes l12 {
+          to { background-position: 0 }
+        }
+      `}</style>
     </div>
   );
 };
