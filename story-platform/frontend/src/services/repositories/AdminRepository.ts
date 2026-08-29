@@ -35,10 +35,17 @@ class AdminRepositoryService {
   private honoraryTitles: HonoraryTitle[] = [];
 
   getHonoraryTitles(): HonoraryTitle[] {
+    if (!Array.isArray(this.honoraryTitles)) {
+      console.warn('[AdminRepository] honoraryTitles is not an array, resetting to empty array');
+      this.honoraryTitles = [];
+    }
     return this.honoraryTitles;
   }
 
   saveHonoraryTitle(title: HonoraryTitle): void {
+    if (!Array.isArray(this.honoraryTitles)) {
+      this.honoraryTitles = [];
+    }
     const existingIndex = this.honoraryTitles.findIndex(t => t.id === title.id);
     if (existingIndex >= 0) {
       this.honoraryTitles[existingIndex] = title;
@@ -48,6 +55,10 @@ class AdminRepositoryService {
   }
 
   deleteHonoraryTitle(titleId: string): void {
+    if (!Array.isArray(this.honoraryTitles)) {
+      this.honoraryTitles = [];
+      return;
+    }
     this.honoraryTitles = this.honoraryTitles.filter(t => t.id !== titleId);
   }
 
@@ -236,6 +247,10 @@ class AdminRepositoryService {
   }
 
   public getPublicStories(): any[] {
+    if (!Array.isArray(this.stories)) {
+      console.warn('[AdminRepository] stories is not an array, resetting to empty array');
+      this.stories = [];
+    }
     return this.stories.map((s) => {
       const chapters = this.storyChapters[s.id] || [];
       return {
@@ -1249,6 +1264,10 @@ class AdminRepositoryService {
 
   // --- Genres ---
   getGenres(): AdminGenreItem[] {
+    if (!Array.isArray(this.genres)) {
+      console.warn('[AdminRepository] genres is not an array, resetting to empty array');
+      this.genres = [];
+    }
     return [...this.genres];
   }
 
@@ -1581,7 +1600,7 @@ class AdminRepositoryService {
       `[Hỗ Trợ Admin] Phản hồi ticket: ${ticket?.subject || ticketId}`,
       `Ban Quản Trị đã phản hồi yêu cầu hỗ trợ của bạn: "${adminReply}"`,
       'SPECIFIC_USER',
-      ticket?.userId
+      (ticket as any)?.userId || ticket?.userEmail
     );
 
     this.recordAuditLog(
