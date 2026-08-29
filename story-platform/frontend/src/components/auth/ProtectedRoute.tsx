@@ -7,8 +7,13 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
+
+  if (isLoading) {
+    // Show loading state while checking auth
+    return null;
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
@@ -23,8 +28,13 @@ interface RoleRouteProps {
 }
 
 export const RoleRoute: React.FC<RoleRouteProps> = ({ allowedRoles, children }) => {
-  const { role, isAuthenticated } = useAuth();
+  const { role, isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
+
+  if (isLoading) {
+    // Show loading state while checking auth
+    return null;
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
