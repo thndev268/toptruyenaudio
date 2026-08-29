@@ -1,4 +1,4 @@
-import { apiRequest } from '../api';
+import { apiRequest } from '../apiClient';
 
 export interface Notification {
   id: string;
@@ -51,7 +51,7 @@ export class NotificationsRepository {
 
   async markAsRead(notificationId: string): Promise<void> {
     try {
-      await apiRequest(`/notifications/mark-read/${notificationId}`, 'POST');
+      await apiRequest(`/notifications/mark-read/${notificationId}`, { method: 'POST' });
       const notification = this.notifications.find(n => n.id === notificationId);
       if (notification) {
         notification.isRead = true;
@@ -64,7 +64,7 @@ export class NotificationsRepository {
 
   async markAllAsRead(): Promise<void> {
     try {
-      await apiRequest('/notifications/mark-all-read', 'POST');
+      await apiRequest('/notifications/mark-all-read', { method: 'POST' });
       this.notifications.forEach(n => n.isRead = true);
       this.notifyListeners();
     } catch (error) {
@@ -74,7 +74,7 @@ export class NotificationsRepository {
 
   async deleteNotification(notificationId: string): Promise<void> {
     try {
-      await apiRequest(`/notifications/delete/${notificationId}`, 'POST');
+      await apiRequest(`/notifications/delete/${notificationId}`, { method: 'POST' });
       this.notifications = this.notifications.filter(n => n.id !== notificationId);
       this.notifyListeners();
     } catch (error) {
