@@ -60,10 +60,11 @@ export const TicketsScreen: React.FC<TicketsScreenProps> = ({
         setConversations(res.items);
         
         const activeId = selectedConvId || stateSelectedId;
-        if (activeId && res.items.some((item) => item.id === activeId)) {
+        const itemsArray = Array.isArray(res.items) ? res.items : [];
+        if (activeId && itemsArray.some((item) => item.id === activeId)) {
           setSelectedConvId(activeId);
           // Auto set status filter so that the selected conversation is visible
-          const matchedConv = res.items.find((item) => item.id === activeId);
+          const matchedConv = itemsArray.find((item) => item.id === activeId);
           if (matchedConv) {
             const isPending = matchedConv.status !== 'RESOLVED' && matchedConv.status !== 'CLOSED';
             if (isPending) {
@@ -72,10 +73,10 @@ export const TicketsScreen: React.FC<TicketsScreenProps> = ({
               setStatusFilter('RESOLVED');
             }
           }
-        } else if (res.items.length > 0) {
+        } else if (itemsArray.length > 0) {
           // Default to first pending conversation if available, otherwise first overall
-          const firstPending = res.items.find((item) => item.status !== 'RESOLVED' && item.status !== 'CLOSED');
-          setSelectedConvId(firstPending ? firstPending.id : res.items[0].id);
+          const firstPending = itemsArray.find((item) => item.status !== 'RESOLVED' && item.status !== 'CLOSED');
+          setSelectedConvId(firstPending ? firstPending.id : itemsArray[0].id);
         }
       }
     } catch (e) {
@@ -138,7 +139,7 @@ export const TicketsScreen: React.FC<TicketsScreenProps> = ({
     return matchesSearch && matchesStatus;
   });
 
-  const selectedConv = conversations.find((c) => c.id === selectedConvId);
+  const selectedConv = Array.isArray(conversations) ? conversations.find((c) => c.id === selectedConvId) : null;
 
   // Send Admin Chat Reply
   const handleSendChatReply = async (e?: React.FormEvent, shouldClose: boolean = false) => {

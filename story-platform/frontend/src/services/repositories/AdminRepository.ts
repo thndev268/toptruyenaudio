@@ -272,7 +272,7 @@ class AdminRepositoryService {
       this.stories = [];
     }
     return this.stories.map((s) => {
-      const chapters = this.storyChapters[s.id] || [];
+      const chapters = Array.isArray(this.storyChapters[s.id]) ? this.storyChapters[s.id] : [];
       return {
         id: s.id,
         title: s.title,
@@ -284,7 +284,7 @@ class AdminRepositoryService {
         audioContent: s.audioContent || s.summary,
         coverUrl: s.coverUrl,
         bannerUrl: s.coverUrl,
-        genres: s.genres || [],
+        genres: Array.isArray(s.genres) ? s.genres : [],
         storyStatus: s.storyStatus || 'COMPLETED',
         publishStatus: s.publishStatus || 'PUBLISHED',
         rating: s.rating || 5.0,

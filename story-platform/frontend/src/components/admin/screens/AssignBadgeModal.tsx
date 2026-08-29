@@ -99,7 +99,7 @@ export const AssignBadgeModal: React.FC<AssignBadgeModalProps> = ({
     return true;
   });
 
-  const selectedBadgeObj = badges.find((b) => b.id === selectedBadgeId);
+  const selectedBadgeObj = Array.isArray(badges) ? badges.find((b) => b.id === selectedBadgeId) : null;
 
   const handleAssignClick = () => {
     if (!selectedBadgeId) {

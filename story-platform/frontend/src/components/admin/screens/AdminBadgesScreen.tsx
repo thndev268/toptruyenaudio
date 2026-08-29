@@ -192,7 +192,7 @@ export const AdminBadgesScreen: React.FC = () => {
       operator === 'GREATER_THAN_OR_EQUAL' ? '≥' :
       operator === 'GREATER_THAN' ? '>' : '≤';
 
-    const eventObj = STANDARD_EVENTS.find((e) => e.key === eventType);
+    const eventObj = Array.isArray(STANDARD_EVENTS) ? STANDARD_EVENTS.find((e) => e.key === eventType) : null;
     const unit = eventObj?.defaultUnit || 'đơn vị';
 
     setTestResult(

@@ -82,11 +82,13 @@ export const AudioPlayerView: React.FC = () => {
   useEffect(() => {
     if (storySlug) {
       const publicStories = adminRepository.getPublicStories();
-      const foundStory = publicStories.find((s) => s.slug === storySlug || s.id === storySlug) ;
+      const storiesArray = Array.isArray(publicStories) ? publicStories : [];
+      const foundStory = storiesArray.find((s) => s.slug === storySlug || s.id === storySlug) ;
       if (foundStory) {
-        let foundChapter = foundStory.chapters.find((c) => c.id === chapterId || c.number.toString() === chapterId);
-        if (!foundChapter) {
-          foundChapter = foundStory.chapters[0];
+        const chapters = Array.isArray(foundStory.chapters) ? foundStory.chapters : [];
+        let foundChapter = chapters.find((c) => c.id === chapterId || c.number.toString() === chapterId);
+        if (!foundChapter && chapters.length > 0) {
+          foundChapter = chapters[0];
         }
 
         if (foundChapter && (currentStory?.id !== foundStory.id || currentChapter?.id !== foundChapter.id)) {

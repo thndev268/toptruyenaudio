@@ -54,7 +54,7 @@ export const Breadcrumbs: React.FC = () => {
           let name = breadcrumbMap[value] || value;
 
           const publicStories = adminRepository.getPublicStories();
-          const allStories = publicStories;
+          const allStories = Array.isArray(publicStories) ? publicStories : [];
 
           // Special handling for dynamic routes
           if (pathnames[index - 1] === 'story') {
@@ -67,7 +67,8 @@ export const Breadcrumbs: React.FC = () => {
             // Chapter ID handling
             const storySlug = pathnames[index - 1];
             const story = allStories.find((s) => s.slug === storySlug);
-            const chapter = story?.chapters.find(c => c.id === value);
+            const chapters = Array.isArray(story?.chapters) ? story.chapters : [];
+            const chapter = chapters.find(c => c.id === value);
             name = chapter ? `Tập ${chapter.number}` : value;
           }
 

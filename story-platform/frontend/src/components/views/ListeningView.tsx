@@ -29,9 +29,12 @@ export const ListeningView: React.FC = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {(Object.values(listeningProgressMap) as ListeningProgress[]).map((prog) => {
-          const story = allStories.find((s) => s.id === prog.storyId);
+          const storiesArray = Array.isArray(allStories) ? allStories : [];
+          const story = storiesArray.find((s) => s.id === prog.storyId);
           if (!story) return null;
-          const chapter = story.chapters.find((c) => c.id === prog.chapterId) || story.chapters[0];
+          const chapters = Array.isArray(story.chapters) ? story.chapters : [];
+          const chapter = chapters.find((c) => c.id === prog.chapterId) || (chapters.length > 0 ? chapters[0] : null);
+          if (!chapter) return null;
           const pct = prog.durationSeconds > 0 ? (prog.positionSeconds / prog.durationSeconds) * 100 : 0;
 
           return (

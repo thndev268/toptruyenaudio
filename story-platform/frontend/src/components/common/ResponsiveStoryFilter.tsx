@@ -102,14 +102,16 @@ export const ResponsiveStoryFilter: React.FC<ResponsiveStoryFilterProps> = ({
   };
 
   const handleToggleGenre = (genreName: string) => {
+    const genresArray = Array.isArray(genres) ? genres : [];
     setDraft(prev => ({
       ...prev,
-      genre: isGenreMatch(genres.find(g => g.name === genreName || g.slug === genreName) || { name: genreName, slug: genreName, id: '' }, prev.genre) ? 'all' : genreName
+      genre: isGenreMatch(genresArray.find(g => g.name === genreName || g.slug === genreName) || { name: genreName, slug: genreName, id: '' }, prev.genre) ? 'all' : genreName
     }));
   };
 
   const handleToggleGenreDesktop = (genreName: string) => {
-    const updatedGenre = isGenreMatch(genres.find(g => g.name === genreName || g.slug === genreName) || { name: genreName, slug: genreName, id: '' }, filters.genre) ? 'all' : genreName;
+    const genresArray = Array.isArray(genres) ? genres : [];
+    const updatedGenre = isGenreMatch(genresArray.find(g => g.name === genreName || g.slug === genreName) || { name: genreName, slug: genreName, id: '' }, filters.genre) ? 'all' : genreName;
     onFiltersChange({
       ...filters,
       genre: updatedGenre

@@ -79,9 +79,10 @@ export const NotificationDetailModal: React.FC<NotificationDetailModalProps> = (
 
   if (!isOpen) return null;
 
-  const currentNotif = notifications.find((n) => n.id === selectedId) || initialNotification || notifications[0] || null;
+  const notificationsArray = Array.isArray(notifications) ? notifications : [];
+  const currentNotif = notificationsArray.find((n) => n.id === selectedId) || initialNotification || notificationsArray[0] || null;
 
-  const filteredNotifications = notifications.filter((n) => {
+  const filteredNotifications = notificationsArray.filter((n) => {
     if (activeFilter === 'UNREAD' && n.isRead) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();

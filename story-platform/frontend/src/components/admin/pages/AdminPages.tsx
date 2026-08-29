@@ -158,7 +158,7 @@ export const AdminStoriesPage: React.FC = () => {
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
 
   const selectedStory = selectedStoryId
-    ? ctx.stories.find((s) => s.id === selectedStoryId) || null
+    ? (Array.isArray(ctx.stories) ? ctx.stories.find((s) => s.id === selectedStoryId) : null) || null
     : null;
 
   return (

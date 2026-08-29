@@ -231,7 +231,9 @@ export const RecommendedStoriesSection: React.FC<RecommendedStoriesSectionProps>
             onPlayClick={() => { 
 const progresses = Object.values(listeningProgressMap).filter((p: any) => p.storyId === story.id);
 progresses.sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-const chapter = story.chapters.find(c => c.id === progresses[0]?.chapterId) || story.chapters[0];
+const chapters = Array.isArray(story.chapters) ? story.chapters : [];
+const chapter = chapters.find(c => c.id === progresses[0]?.chapterId) || (chapters.length > 0 ? chapters[0] : null);
+if (!chapter) return;
  playChapter(story, chapter).then(success => { if(success) { const storyIdentifier = story.slug || story.id; navigate(`/listen/${storyIdentifier}/${chapter.id}`); } }) }}
             story={story}
             subtitle={reason}

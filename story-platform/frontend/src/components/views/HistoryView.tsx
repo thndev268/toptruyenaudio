@@ -26,9 +26,11 @@ export const HistoryView: React.FC = () => {
 
   const filteredHistory = useMemo(() => {
     return listeningHistory.filter(item => {
-      const story = allStories.find(s => s.id === item.storyId);
+      const storiesArray = Array.isArray(allStories) ? allStories : [];
+      const story = storiesArray.find(s => s.id === item.storyId);
       if (!story) return false;
-      const chapter = story.chapters.find(c => c.id === item.chapterId);
+      const chapters = Array.isArray(story.chapters) ? story.chapters : [];
+      const chapter = chapters.find(c => c.id === item.chapterId);
 
       // Search match
       const lowerQuery = searchQuery.toLowerCase();
@@ -154,9 +156,12 @@ export const HistoryView: React.FC = () => {
                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider pl-2 border-l-2 border-cyan-500">{groupName}</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
                   {items.map((item, idx) => {
-                    const story = allStories.find((s) => s.id === item.storyId);
+                    const storiesArray = Array.isArray(allStories) ? allStories : [];
+                    const story = storiesArray.find((s) => s.id === item.storyId);
                     if (!story) return null;
-                    const chapter = story.chapters.find((c) => c.id === item.chapterId) || story.chapters[0];
+                    const chapters = Array.isArray(story.chapters) ? story.chapters : [];
+                    const chapter = chapters.find((c) => c.id === item.chapterId) || (chapters.length > 0 ? chapters[0] : null);
+                    if (!chapter) return null;
                     const percent = item.durationSeconds > 0 ? (item.positionSeconds / item.durationSeconds) * 100 : 0;
                     
                     return (
