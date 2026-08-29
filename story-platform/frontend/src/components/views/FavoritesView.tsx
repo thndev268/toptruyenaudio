@@ -7,7 +7,7 @@ import { StoryCard } from '../common/StoryCard';
 export const FavoritesView: React.FC = () => {
   const { favorites } = useAudioPlayer();
   const publicStories = adminRepository.getPublicStories();
-  const allStories = publicStories;
+  const allStories = Array.isArray(publicStories) ? publicStories : [];
   const favStories = allStories.filter((s) => favorites.includes(s.id));
 
   return (

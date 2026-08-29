@@ -9,6 +9,7 @@ export const GenresView: React.FC = () => {
   const navigate = useNavigate();
   const { navigateTo } = useAudioPlayer();
   const genres = useGenres();
+  const genresArray = Array.isArray(genres) ? genres : [];
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -121,7 +122,7 @@ export const GenresView: React.FC = () => {
 
       {/* Genres Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {genres.map((genre) => (
+        {genresArray.map((genre) => (
           <div
             key={genre.id}
             onClick={() => handleGenreClick(genre.name)}
@@ -130,7 +131,7 @@ export const GenresView: React.FC = () => {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="p-2.5 bg-slate-950 border border-slate-800 rounded-xl group-hover:scale-105 transition-transform">
-                  {getGenreIcon(genre.iconName)}
+                  {getGenreIcon(genre.iconName || '')}
                 </div>
                 <span className="text-[11px] font-mono font-bold px-2.5 py-1 bg-slate-950 text-cyan-400 rounded-full border border-cyan-500/20">
                   {genre.storyCount} Bộ Audio

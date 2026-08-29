@@ -29,7 +29,7 @@ export const SearchView: React.FC = () => {
   }, [query]);
 
   const publicStories = useStories();
-  const allStories = publicStories;
+  const allStories = Array.isArray(publicStories) ? publicStories : [];
   const genres = useGenres();
 
   const filtered = allStories.filter((story) => {
@@ -39,20 +39,23 @@ export const SearchView: React.FC = () => {
       const matchesAuthor = matchesSearchKeyword(story.authorName, query);
       const matchesNarrator = matchesSearchKeyword(story.narratorName, query);
       const matchesSummary = matchesSearchKeyword(story.summary, query);
-      const matchesGenres = matchesSearchKeyword(story.genres, query);
+      const storyGenres = Array.isArray(story.genres) ? story.genres : [];
+      const matchesGenres = matchesSearchKeyword(storyGenres, query);
       if (!(matchesTitle || matchesAuthor || matchesNarrator || matchesSummary || matchesGenres)) {
         return false;
       }
     }
 
     // Genre filter
-    if (selectedGenre !== 'all' && !story.genres.includes(selectedGenre)) {
+    const storyGenres = Array.isArray(story.genres) ? story.genres : [];
+    if (selectedGenre !== 'all' && !storyGenres.includes(selectedGenre)) {
       return false;
     }
 
     // Access filter (checks if story has any FREE or VIP chapter)
     if (selectedAccess !== 'all') {
-      const hasMatchingAccess = story.chapters?.some((ch) => ch.accessLevel === selectedAccess);
+      const chapters = Array.isArray(story.chapters) ? story.chapters : [];
+      const hasMatchingAccess = chapters.some((ch: any) => ch.accessLevel === selectedAccess);
       if (!hasMatchingAccess) return false;
     }
 

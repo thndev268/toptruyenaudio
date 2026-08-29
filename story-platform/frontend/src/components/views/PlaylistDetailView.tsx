@@ -40,7 +40,7 @@ export const PlaylistDetailView: React.FC = () => {
   };
 
   const publicStories = adminRepository.getPublicStories();
-  const allStories = publicStories;
+  const allStories = Array.isArray(publicStories) ? publicStories : [];
 
   const handlePlayAll = () => {
     if (items.length === 0) return;
@@ -48,7 +48,8 @@ export const PlaylistDetailView: React.FC = () => {
     const firstItem = items[0];
     const story = allStories.find(s => s.id === firstItem.storyId);
     if (!story) return;
-    const chapter = story.chapters.find(c => c.id === firstItem.chapterId);
+    const chapters = Array.isArray(story.chapters) ? story.chapters : [];
+    const chapter = chapters.find((c: any) => c.id === firstItem.chapterId);
     if (chapter) {
       playChapter(story, chapter);
     }
@@ -149,7 +150,8 @@ export const PlaylistDetailView: React.FC = () => {
           items.map((item, index) => {
             const story = allStories.find(s => s.id === item.storyId);
             if (!story) return null;
-            const chapter = story.chapters.find(c => c.id === item.chapterId);
+            const chapters = Array.isArray(story.chapters) ? story.chapters : [];
+            const chapter = chapters.find((c: any) => c.id === item.chapterId);
             if (!chapter) return null;
 
             return (
