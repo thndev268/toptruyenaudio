@@ -208,7 +208,18 @@ class AdminRepositoryService {
         try {
           const genresResponse = await apiRequest<{ success: boolean; data: any[] }>('/stories/genres/all');
           if (genresResponse?.data && Array.isArray(genresResponse.data)) {
-            this.genres = genresResponse.data;
+            // Calculate storyCount for each genre based on stories
+            const genresWithCount = genresResponse.data.map((genre: any) => {
+              const count = this.stories.filter((story) => {
+                const storyGenres = story.genres || [];
+                return storyGenres.some((g: any) => g.name === genre.name || g.id === genre.id);
+              }).length;
+              return {
+                ...genre,
+                storyCount: count,
+              };
+            });
+            this.genres = genresWithCount;
             window.dispatchEvent(new Event('toptruyenaudio_admin_sync'));
           }
         } catch (err) {
@@ -1268,7 +1279,20 @@ class AdminRepositoryService {
       console.warn('[AdminRepository] genres is not an array, resetting to empty array');
       this.genres = [];
     }
-    return [...this.genres];
+    
+    // Calculate storyCount for each genre
+    const genresWithCount = this.genres.map((genre) => {
+      const count = this.stories.filter((story) => {
+        const storyGenres = story.genres || [];
+        return storyGenres.some((g: any) => g.name === genre.name || g.id === genre.id);
+      }).length;
+      return {
+        ...genre,
+        storyCount: count,
+      };
+    });
+    
+    return genresWithCount;
   }
 
   addGenre(name: string, slug: string, description: string, iconName?: string): { success: boolean; message: string } {
