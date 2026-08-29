@@ -11,7 +11,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   variant = 'full',
   className = '',
 }) => {
-  const logoUrl = '/branding/top-truyen-audio-logo.svg';
+  const logoUrl = '/branding/logotoptruyen.png';
 
   return (
     <Link

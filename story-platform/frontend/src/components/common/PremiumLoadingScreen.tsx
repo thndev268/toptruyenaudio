@@ -42,9 +42,11 @@ export const PremiumLoadingScreen: React.FC<{ message?: string }> = ({ message =
         transition={{ duration: 0.6 }}
         className="relative z-10 text-center mb-12"
       >
-        <div className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-cyan-400 via-purple-400 to-cyan-400 bg-clip-text text-transparent mb-3">
-          TOP TRUYỆN AUDIO
-        </div>
+        <img 
+          src="/branding/logotoptruyen.png" 
+          alt="Top Truyện Audio Logo" 
+          className="w-48 h-48 sm:w-64 sm:h-64 mx-auto mb-4 object-contain"
+        />
         <div className="text-sm text-slate-400 tracking-widest uppercase">
           Premium Audio Experience
         </div>
