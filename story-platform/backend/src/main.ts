@@ -25,7 +25,7 @@ async function bootstrap() {
   // Rejects keys starting with $ (operators like $ne, $gt, $where)
   // Preserves dots in ordinary values (emails, URLs) as dots in values are NOT sanitized
   app.use(
-    mongoSanitize({
+    (mongoSanitize as any)({
       replaceWith: '_',
       allowDots: true, // Allow dots in keys (e.g. nested objects), but $ is still rejected
     }),
