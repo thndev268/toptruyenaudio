@@ -143,7 +143,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
               </span>
             ) : (
               <div className="flex gap-1 flex-wrap">
-                {story.genres?.slice(0, 2).map((genre) => (
+                {Array.isArray(story.genres) && story.genres.slice(0, 2).map((genre) => (
                   <span
                     key={genre.id}
                     className="px-2 py-0.5 bg-slate-800 text-slate-300 text-[10px] font-bold rounded-md border border-slate-700"
@@ -151,7 +151,7 @@ export const StoryCard: React.FC<StoryCardProps> = ({
                     {genre.name}
                   </span>
                 ))}
-                {story.genres?.length > 2 && <span>+{story.genres.length - 2}</span>}
+                {Array.isArray(story.genres) && story.genres.length > 2 && <span>+{story.genres.length - 2}</span>}
               </div>
             )}
           </div>
