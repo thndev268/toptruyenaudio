@@ -54,6 +54,9 @@ export function useStories() {
       
       // Ensure fetchedStories is an array
       const storiesArray = Array.isArray(fetchedStories) ? fetchedStories : [];
+      if (!Array.isArray(fetchedStories)) {
+        console.warn('[useStories] fetchedStories is not an array', fetchedStories);
+      }
       
       // Clear timeout on success
       if (timeoutRef.current) {

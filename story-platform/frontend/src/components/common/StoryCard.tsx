@@ -18,6 +18,9 @@ export interface StoryCardProps {
 
 export function getStoryThumbnailUrl(story: AudioStory): string {
   const chapters = Array.isArray(story.chapters) ? story.chapters : [];
+  if (!Array.isArray(story.chapters)) {
+    console.warn('[StoryCard] story.chapters is not an array', story.id, story.chapters);
+  }
   const firstChapter = chapters.length > 0 ? chapters[0] : null;
   const ytId =
     extractYouTubeId(story.iframeUrl) ||
@@ -58,6 +61,9 @@ export const StoryCard: React.FC<StoryCardProps> = ({
       onPlayClick();
     } else {
       const chapters = Array.isArray(story.chapters) ? story.chapters : [];
+      if (!Array.isArray(story.chapters)) {
+        console.warn('[StoryCard] story.chapters is not an array in handlePlayClick', story.id, story.chapters);
+      }
       if (chapters.length > 0) {
         const success = await playChapter(story, chapters[0]);
         if (success) {

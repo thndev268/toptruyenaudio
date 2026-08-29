@@ -268,11 +268,14 @@ class AdminRepositoryService {
 
   public getPublicStories(): any[] {
     if (!Array.isArray(this.stories)) {
-      console.warn('[AdminRepository] stories is not an array, resetting to empty array');
+      console.warn('[AdminRepository] stories is not an array, resetting to empty array', this.stories);
       this.stories = [];
     }
     return this.stories.map((s) => {
       const chapters = Array.isArray(this.storyChapters[s.id]) ? this.storyChapters[s.id] : [];
+      if (!Array.isArray(s.genres)) {
+        console.warn('[AdminRepository] story.genres is not an array', s.id, s.genres);
+      }
       return {
         id: s.id,
         title: s.title,
