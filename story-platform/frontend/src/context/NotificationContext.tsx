@@ -152,7 +152,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const toggleReadStatus = (id: string) => {
-    const notif = notifications.find((n) => n.id === id);
+    const notificationsArray = Array.isArray(notifications) ? notifications : [];
+    const notif = notificationsArray.find((n) => n.id === id);
     if (notif?.isRead) {
       markAsUnread(id);
     } else {
@@ -208,7 +209,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 removeToast(toast.id);
                 if (toast.notificationId) {
                   markAsRead(toast.notificationId);
-                  const found = notifications.find((n) => n.id === toast.notificationId);
+                  const notificationsArray = Array.isArray(notifications) ? notifications : [];
+                  const found = notificationsArray.find((n) => n.id === toast.notificationId);
                   openNotificationModal(found || undefined);
                 } else {
                   openNotificationModal();

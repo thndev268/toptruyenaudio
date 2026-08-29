@@ -631,11 +631,12 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 errorMsg = `Lỗi kết nối trình phát YouTube (Mã lỗi ${code}).`;
               }
 
+              const chapters = Array.isArray(currentStoryRef.current?.chapters) ? currentStoryRef.current.chapters : [];
               const hasNext = Boolean(
                 currentStoryRef.current &&
                 currentChapterRef.current &&
-                currentStoryRef.current.chapters.findIndex((c) => c.id === currentChapterRef.current?.id) <
-                  currentStoryRef.current.chapters.length - 1
+                chapters.findIndex((c) => c.id === currentChapterRef.current?.id) <
+                  chapters.length - 1
               );
 
               setAudioError({
@@ -1453,18 +1454,20 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const playNextChapter = () => {
     if (!currentStory || !currentChapter) return;
-    const currentIndex = currentStory.chapters.findIndex((c) => c.id === currentChapter.id);
-    if (currentIndex !== -1 && currentIndex < currentStory.chapters.length - 1) {
-      const nextChapter = currentStory.chapters[currentIndex + 1];
+    const chapters = Array.isArray(currentStory.chapters) ? currentStory.chapters : [];
+    const currentIndex = chapters.findIndex((c) => c.id === currentChapter.id);
+    if (currentIndex !== -1 && currentIndex < chapters.length - 1) {
+      const nextChapter = chapters[currentIndex + 1];
       playChapter(currentStory, nextChapter);
     }
   };
 
   const playPreviousChapter = () => {
     if (!currentStory || !currentChapter) return;
-    const currentIndex = currentStory.chapters.findIndex((c) => c.id === currentChapter.id);
+    const chapters = Array.isArray(currentStory.chapters) ? currentStory.chapters : [];
+    const currentIndex = chapters.findIndex((c) => c.id === currentChapter.id);
     if (currentIndex > 0) {
-      const prevChapter = currentStory.chapters[currentIndex - 1];
+      const prevChapter = chapters[currentIndex - 1];
       playChapter(currentStory, prevChapter);
     }
   };
