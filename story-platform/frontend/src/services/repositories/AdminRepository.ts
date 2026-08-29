@@ -208,8 +208,17 @@ class AdminRepositoryService {
         try {
           const genresResponse = await apiRequest<{ success: boolean; data: any[] }>('/stories/genres/all');
           if (genresResponse?.data && Array.isArray(genresResponse.data)) {
+            this.genres = genresResponse.data;
+            
+            // Map genre IDs to genre objects in stories
+            this.stories.forEach((story) => {
+              if (story.genreIds && Array.isArray(story.genreIds)) {
+                story.genres = this.genres.filter((g) => story.genreIds && story.genreIds.includes(g.id));
+              }
+            });
+            
             // Calculate storyCount for each genre based on stories
-            const genresWithCount = genresResponse.data.map((genre: any) => {
+            const genresWithCount = this.genres.map((genre: any) => {
               const count = this.stories.filter((story) => {
                 const storyGenres = story.genres || [];
                 return storyGenres.some((g: any) => g.name === genre.name || g.id === genre.id);
@@ -1279,6 +1288,13 @@ class AdminRepositoryService {
       console.warn('[AdminRepository] genres is not an array, resetting to empty array');
       this.genres = [];
     }
+    
+    // Ensure stories have genres mapped from genreIds
+    this.stories.forEach((story) => {
+      if (story.genreIds && Array.isArray(story.genreIds) && (!story.genres || story.genres.length === 0)) {
+        story.genres = this.genres.filter((g) => story.genreIds && story.genreIds.includes(g.id));
+      }
+    });
     
     // Calculate storyCount for each genre
     const genresWithCount = this.genres.map((genre) => {

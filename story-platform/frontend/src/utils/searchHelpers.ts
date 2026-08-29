@@ -97,7 +97,10 @@ export function filterStoryList<T extends {
     // 2. Genre
     if (filters.genre && filters.genre !== 'all') {
       const matchesGenre = (story: any) => {
-        return story.genres?.some((genre) => genre.name === filters.genre);
+        if (!story.genres || !Array.isArray(story.genres)) return false;
+        return story.genres.some((genre: any) => 
+          genre.name === filters.genre || genre.id === filters.genre || genre.slug === filters.genre
+        );
       };
       if (!matchesGenre(story)) return false;
     }
