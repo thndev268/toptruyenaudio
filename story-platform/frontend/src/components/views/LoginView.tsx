@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { PwaInstallNotice } from '../common/PwaInstallNotice';
 import { supabase } from '../../lib/supabase';
+import { VideoBackground } from '../common/VideoBackground';
 
 export const LoginView: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -56,15 +57,18 @@ export const LoginView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto py-8 sm:py-12 animate-fadeIn">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 bg-cyan-500/20 text-cyan-400 rounded-2xl flex items-center justify-center mx-auto border border-cyan-500/30">
-            <LogIn className="w-6 h-6" />
-          </div>
-          <h1 className="text-xl sm:text-2xl font-black text-white">Đăng Nhập</h1>
-          <p className="text-xs text-slate-400">Thưởng thức kho audiobook & podcast mỗi đêm</p>
-        </div>
+    <div className="relative min-h-screen">
+      <VideoBackground />
+      <div className="relative z-10 flex items-center justify-center min-h-screen px-4">
+        <div className="max-w-md w-full py-8 sm:py-12 animate-fadeIn">
+          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 bg-cyan-500/20 text-cyan-400 rounded-2xl flex items-center justify-center mx-auto border border-cyan-500/30">
+                <LogIn className="w-6 h-6" />
+              </div>
+              <h1 className="text-xl sm:text-2xl font-black text-white">Đăng Nhập</h1>
+              <p className="text-xs text-slate-400">Thưởng thức kho audiobook & podcast mỗi đêm</p>
+            </div>
 
         {/* OAuth Buttons */}
         <div className="space-y-3">
@@ -148,6 +152,8 @@ export const LoginView: React.FC = () => {
       </div>
       <div className="mt-4">
         <PwaInstallNotice />
+      </div>
+        </div>
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { UserPlus, UserCheck, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { PwaInstallNotice } from '../common/PwaInstallNotice';
+import { VideoBackground } from '../common/VideoBackground';
 
 export const RegisterView: React.FC = () => {
   const [name, setName] = useState('');
@@ -57,15 +58,18 @@ export const RegisterView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto py-8 sm:py-12 animate-fadeIn">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 bg-cyan-500/20 text-cyan-400 rounded-2xl flex items-center justify-center mx-auto border border-cyan-500/30">
-            <UserPlus className="w-6 h-6" />
-          </div>
-          <h1 className="text-xl sm:text-2xl font-black text-white">Đăng Ký Tài Khoản</h1>
-          <p className="text-xs text-slate-400">Gia nhập cộng đồng người nghe truyện</p>
-        </div>
+    <div className="relative min-h-screen">
+      <VideoBackground />
+      <div className="relative z-10 flex items-center justify-center min-h-screen px-4">
+        <div className="max-w-md w-full py-8 sm:py-12 animate-fadeIn">
+          <div className="bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 bg-cyan-500/20 text-cyan-400 rounded-2xl flex items-center justify-center mx-auto border border-cyan-500/30">
+                <UserPlus className="w-6 h-6" />
+              </div>
+              <h1 className="text-xl sm:text-2xl font-black text-white">Đăng Ký Tài Khoản</h1>
+              <p className="text-xs text-slate-400">Gia nhập cộng đồng người nghe truyện</p>
+            </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
@@ -169,6 +173,8 @@ export const RegisterView: React.FC = () => {
       </div>
       <div className="mt-4">
         <PwaInstallNotice />
+      </div>
+        </div>
       </div>
     </div>
   );
