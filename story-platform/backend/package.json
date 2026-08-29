@@ -10,6 +10,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/src/main.js",
+    "postinstall": "npm run seed:premium-plans",
     "bootstrap:owner-admin": "ts-node src/scripts/bootstrap-owner-admin.ts",
     "set-admin-role": "ts-node src/scripts/set-admin-role.ts",
     "list-profiles": "ts-node src/scripts/list-profiles.ts",

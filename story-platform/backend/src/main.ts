@@ -2,10 +2,10 @@ import 'dotenv/config'; // PHẢI là dòng đầu tiên — load .env trước 
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 import * as express from 'express';
 import helmet from 'helmet';
-import * as mongoSanitize from 'express-mongo-sanitize';
+import mongoSanitize from 'express-mongo-sanitize';
 import { AppModule } from './app.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
