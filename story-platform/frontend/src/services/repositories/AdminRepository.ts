@@ -967,8 +967,18 @@ class AdminRepositoryService {
         });
         console.log('[addVideoStory] Default chapter 1 created with iframe audio source');
         
-        // Fetch chapters to update local state and display in list
-        await this.fetchFromBackendApi();
+        // Fetch the specific story to get updated chapters
+        try {
+          const storyResponse = await apiRequest<any>(`/admin/stories/${storyId}`);
+          const storyData = storyResponse?.data || storyResponse;
+          if (storyData && storyData.chapters && Array.isArray(storyData.chapters)) {
+            this.storyChapters[storyId] = storyData.chapters;
+            this.persistState();
+            console.log('[addVideoStory] Chapters updated for story:', storyId, storyData.chapters.length);
+          }
+        } catch (fetchError) {
+          console.warn('[addVideoStory] Failed to fetch story chapters:', fetchError);
+        }
       } catch (chapterError) {
         console.warn('[addVideoStory] Chapter creation failed (non-critical):', chapterError);
         // Don't fail the whole operation if chapter creation fails
