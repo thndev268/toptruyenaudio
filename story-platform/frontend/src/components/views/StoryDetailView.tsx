@@ -250,6 +250,27 @@ export const StoryDetailView: React.FC = () => {
 
   // EFFECTS AND MEMOS - MUST BE BEFORE ANY CONDITIONAL RETURNS
 
+  // Fetch fresh story data when component mounts to ensure chapters are up to date
+  useEffect(() => {
+    if (!slug) return;
+
+    const fetchStoryData = async () => {
+      try {
+        const response = await fetch(`https://api.toptruyenaudio.site/api/v1/stories/${slug}`);
+        if (response.ok) {
+          const data = await response.json();
+          console.log('[StoryDetailView] Fetched story data:', data);
+          // Force refresh by triggering sync event
+          window.dispatchEvent(new Event('toptruyenaudio_admin_sync'));
+        }
+      } catch (error) {
+        console.error('[StoryDetailView] Failed to fetch story data:', error);
+      }
+    };
+
+    fetchStoryData();
+  }, [slug]);
+
   useEffect(() => {
 
     if (!story) {
