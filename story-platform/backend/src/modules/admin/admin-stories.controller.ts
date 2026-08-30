@@ -476,6 +476,27 @@ export class AdminStoriesController {
     }
   }
 
+  @Get(':id/chapters')
+  @ApiOperation({ summary: 'Lấy danh sách chương của truyện' })
+  async getChapters(@Param('id') id: string) {
+    try {
+      const chapters = await this.prisma.chapter.findMany({
+        where: { storyId: id },
+        orderBy: { number: 'asc' },
+      });
+      return {
+        success: true,
+        data: chapters,
+      };
+    } catch (error) {
+      console.error('Error fetching chapters:', error);
+      throw new BadRequestException({
+        code: 'FETCH_CHAPTERS_ERROR',
+        message: 'Lỗi khi lấy danh sách chương',
+      });
+    }
+  }
+
   @Post(':id/chapters')
   @ApiOperation({ summary: 'Thêm chương mới' })
   @ApiConsumes('multipart/form-data')
