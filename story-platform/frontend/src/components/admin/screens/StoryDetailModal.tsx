@@ -143,24 +143,28 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const toggleSelectAll = () => {
     if (isAllFilteredSelected) {
       // Remove all filtered from selection
-      const filteredSet = new Set(filteredChapters.map((c) => c.id));
+      const filteredChaptersArray = Array.isArray(filteredChapters) ? filteredChapters : [];
+      const filteredSet = new Set(filteredChaptersArray.map((c) => c.id));
       setSelectedChapterIds((prev) => prev.filter((id) => !filteredSet.has(id)));
     } else {
       // Add all filtered to selection
+      const selectedChapterIdsArray = Array.isArray(selectedChapterIds) ? selectedChapterIds : [];
+      const filteredChaptersArray = Array.isArray(filteredChapters) ? filteredChapters : [];
       const newSelected = new Set([
-        ...selectedChapterIds,
-        ...filteredChapters.map((c) => c.id),
+        ...selectedChapterIdsArray,
+        ...filteredChaptersArray.map((c) => c.id),
       ]);
       setSelectedChapterIds(Array.from(newSelected));
     }
   };
 
   const toggleChapterSelection = (chapterId: string) => {
-    setSelectedChapterIds((prev) =>
-      prev.includes(chapterId)
-        ? prev.filter((id) => id !== chapterId)
-        : [...prev, chapterId]
-    );
+    setSelectedChapterIds((prev) => {
+      const prevArray = Array.isArray(prev) ? prev : [];
+      return prevArray.includes(chapterId)
+        ? prevArray.filter((id) => id !== chapterId)
+        : [...prevArray, chapterId];
+    });
   };
 
   const handleSelectVipOnly = () => {

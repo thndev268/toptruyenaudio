@@ -97,15 +97,18 @@ export function HonoraryTitlesScreen() {
   };
 
   const addEffect = (type: TitleEffect['type']) => {
-    setEffects([...effects, { type, color: type === 'ICON' ? undefined : 'text-blue-500', iconName: type === 'ICON' ? 'Star' : undefined }]);
+    const effectsArray = Array.isArray(effects) ? effects : [];
+    setEffects([...effectsArray, { type, color: type === 'ICON' ? undefined : 'text-blue-500', iconName: type === 'ICON' ? 'Star' : undefined }]);
   };
 
   const removeEffect = (index: number) => {
-    setEffects(effects.filter((_, i) => i !== index));
+    const effectsArray = Array.isArray(effects) ? effects : [];
+    setEffects(effectsArray.filter((_, i) => i !== index));
   };
 
   const updateEffect = (index: number, updates: Partial<TitleEffect>) => {
-    const newEffects = [...effects];
+    const effectsArray = Array.isArray(effects) ? effects : [];
+    const newEffects = [...effectsArray];
     newEffects[index] = { ...newEffects[index], ...updates };
     setEffects(newEffects);
   };

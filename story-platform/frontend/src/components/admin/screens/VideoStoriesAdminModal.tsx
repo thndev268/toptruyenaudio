@@ -441,7 +441,8 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
                               type="text"
                               value={item.title || ''}
                               onChange={(e) => {
-                                const next = [...extractedItems];
+                                const extractedItemsArray = Array.isArray(extractedItems) ? extractedItems : [];
+                                const next = [...extractedItemsArray];
                                 next[idx].title = e.target.value;
                                 setExtractedItems(next);
                               }}
@@ -463,7 +464,8 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
                             rows={2}
                             value={item.summary || item.storyline || ''}
                             onChange={(e) => {
-                              const next = [...extractedItems];
+                              const extractedItemsArray = Array.isArray(extractedItems) ? extractedItems : [];
+                              const next = [...extractedItemsArray];
                               next[idx].summary = e.target.value;
                               next[idx].storyline = e.target.value;
                               setExtractedItems(next);
@@ -481,7 +483,8 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
                             rows={3}
                             value={item.audioContent || ''}
                             onChange={(e) => {
-                              const next = [...extractedItems];
+                              const extractedItemsArray = Array.isArray(extractedItems) ? extractedItems : [];
+                              const next = [...extractedItemsArray];
                               next[idx].audioContent = e.target.value;
                               setExtractedItems(next);
                             }}
