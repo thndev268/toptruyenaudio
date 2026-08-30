@@ -108,20 +108,6 @@ export const AudioPlayerView: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  if (!currentStory || !currentChapter) {
-    return (
-      <div className="text-center py-16 space-y-4">
-        <h2 className="text-xl font-bold text-white">Không tìm thấy tập truyện audio</h2>
-        <p className="text-xs text-slate-400">Vui lòng kiểm tra lại đường dẫn hoặc quay về trang chủ.</p>
-        <Link to="/" className="inline-block px-5 py-2.5 bg-cyan-500 text-slate-950 font-bold text-xs rounded-xl">
-          Trở Về Trang Chủ
-        </Link>
-      </div>
-    );
-  }
-
-  const isFav = favorites.includes(currentStory.id);
-
   const extractYouTubeId = (str?: string): string | null => {
     if (!str) return null;
     
@@ -138,9 +124,9 @@ export const AudioPlayerView: React.FC = () => {
     return match ? match[1] : null;
   };
 
-  const chapterIframeSrc = currentChapter.videoIframeUrl || currentChapter.iframeCode || currentStory.iframeUrl || currentStory.iframeCode || '';
+  const chapterIframeSrc = currentChapter?.videoIframeUrl || currentChapter?.iframeCode || currentStory?.iframeUrl || currentStory?.iframeCode || '';
   const ytId = extractYouTubeId(chapterIframeSrc);
-  const isVideoAllowedByAdmin = currentChapter.allowVideoDisplay !== false && currentChapter.isVideoEnabled !== false;
+  const isVideoAllowedByAdmin = currentChapter?.allowVideoDisplay !== false && currentChapter?.isVideoEnabled !== false;
   const canShowVideo = isVideoAllowedByAdmin && !!ytId;
 
   const videoIframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -203,6 +189,20 @@ export const AudioPlayerView: React.FC = () => {
       };
     }
   }, [canShowVideo, isDataSaverMode, ytId]);
+
+  if (!currentStory || !currentChapter) {
+    return (
+      <div className="text-center py-16 space-y-4">
+        <h2 className="text-xl font-bold text-white">Không tìm thấy tập truyện audio</h2>
+        <p className="text-xs text-slate-400">Vui lòng kiểm tra lại đường dẫn hoặc quay về trang chủ.</p>
+        <Link to="/" className="inline-block px-5 py-2.5 bg-cyan-500 text-slate-950 font-bold text-xs rounded-xl">
+          Trở Về Trang Chủ
+        </Link>
+      </div>
+    );
+  }
+
+  const isFav = favorites.includes(currentStory.id);
 
   const formatTime = (secs: number) => {
     if (isNaN(secs)) return '00:00';

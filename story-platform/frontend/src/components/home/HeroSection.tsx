@@ -14,24 +14,25 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ featuredStory }) => {
   const { isAuthenticated, role, user } = useAuth();
   const { playChapter, openAuthModal, openPremiumModal } = useAudioPlayer();
 
-  if (!featuredStory) return null;
-
-  const chapters = Array.isArray(featuredStory.chapters) ? featuredStory.chapters : [];
+  const chapters = featuredStory && Array.isArray(featuredStory.chapters) ? featuredStory.chapters : [];
   const firstChapter = chapters.length > 0 ? chapters[0] : null;
 
   // Extract YouTube Video ID from any available field
-  const ytId =
+  const ytId = featuredStory ? (
     extractYouTubeId(featuredStory.iframeUrl) ||
     extractYouTubeId(featuredStory.iframeCode) ||
     extractYouTubeId(firstChapter?.videoIframeUrl) ||
     extractYouTubeId(firstChapter?.iframeCode) ||
-    extractYouTubeId(firstChapter?.audioUrl);
+    extractYouTubeId(firstChapter?.audioUrl)
+  ) : null;
 
   const [thumbIndex, setThumbIndex] = useState<number>(0);
 
   useEffect(() => {
     setThumbIndex(0);
-  }, [ytId, featuredStory.id]);
+  }, [ytId, featuredStory?.id]);
+
+  if (!featuredStory) return null;
 
   const getThumbUrl = (): string => {
     if (!ytId) return featuredStory.bannerUrl || featuredStory.coverUrl || '/placeholder.jpg';

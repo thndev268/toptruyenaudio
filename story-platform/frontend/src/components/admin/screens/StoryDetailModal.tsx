@@ -117,10 +117,10 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     }
   }, [story?.id, isOpen]);
 
-  if (!isOpen || !story) return null;
-
   // Fetch chapters from backend when modal opens to ensure fresh data
   React.useEffect(() => {
+    if (!isOpen || !story) return;
+
     const fetchChapters = async () => {
       try {
         const response = await fetch(`https://api.toptruyenaudio.site/admin/stories/${story.id}/chapters`, {
@@ -143,7 +143,9 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     };
     
     fetchChapters();
-  }, [story.id, isOpen]);
+  }, [story?.id, isOpen]);
+
+  if (!isOpen || !story) return null;
 
   // Retrieve chapters dynamically from repository or props
   const rawChapters: AudioChapter[] = getStoryChapters

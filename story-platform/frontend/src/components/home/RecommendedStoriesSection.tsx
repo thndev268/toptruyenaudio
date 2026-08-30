@@ -23,8 +23,6 @@ export const RecommendedStoriesSection: React.FC<RecommendedStoriesSectionProps>
   const publicStories = adminRepository.getPublicStories();
   const effectiveStories = stories && stories.length > 0 ? stories : (publicStories);
 
-  if (!effectiveStories || effectiveStories.length === 0) return null;
-
   const navigate = useNavigate();
   const { listeningHistory, listeningProgressMap, favorites, playChapter } = useAudioPlayer();
 
@@ -150,6 +148,8 @@ export const RecommendedStoriesSection: React.FC<RecommendedStoriesSectionProps>
       item.story.genres?.some((genre) => genre.name === selectedGenreFilter)
     );
   }, [recommendedList, selectedGenreFilter]);
+
+  if (!effectiveStories || effectiveStories.length === 0) return null;
 
   return (
     <div className="space-y-4 bg-slate-900/60 border border-slate-800/80 rounded-3xl p-4 sm:p-6 shadow-xl relative overflow-hidden">
