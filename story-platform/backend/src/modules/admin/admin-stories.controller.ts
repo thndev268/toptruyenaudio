@@ -272,25 +272,21 @@ export class AdminStoriesController {
           });
         }
 
-        // Create Chapter 1 if iframe is provided (video story)
-        if (iframeUrl || iframeCode) {
-          const chapter = await tx.chapter.create({
-            data: {
-              storyId: newStory.id,
-              number: 1,
-              title: `Tập 1: ${newStory.title}`,
-              slug: `${newStory.slug}-tap-1`,
-              videoIframeUrl: iframeUrl,
-              iframeCode: iframeCode,
-              durationSeconds: 1800, // Default 30 minutes
-              accessLevel: 'FREE',
-              publishStatus: 'PUBLISHED',
-            },
-          });
-          return { ...newStory, firstChapterId: chapter.id };
-        }
-
-        return newStory;
+        // Create Chapter 1 for every story (default chapter)
+        const chapter = await tx.chapter.create({
+          data: {
+            storyId: newStory.id,
+            number: 1,
+            title: `Tập 1: ${newStory.title}`,
+            slug: `${newStory.slug}-tap-1`,
+            videoIframeUrl: iframeUrl,
+            iframeCode: iframeCode,
+            durationSeconds: 1800, // Default 30 minutes
+            accessLevel: 'FREE',
+            publishStatus: 'PUBLISHED',
+          },
+        });
+        return { ...newStory, firstChapterId: chapter.id };
       });
 
       // Fetch story with genres for response
