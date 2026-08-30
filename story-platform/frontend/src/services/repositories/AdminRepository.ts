@@ -966,6 +966,9 @@ class AdminRepositoryService {
           body: chapterFormData,
         });
         console.log('[addVideoStory] Default chapter 1 created with iframe audio source');
+        
+        // Fetch chapters to update local state and display in list
+        await this.fetchFromBackendApi();
       } catch (chapterError) {
         console.warn('[addVideoStory] Chapter creation failed (non-critical):', chapterError);
         // Don't fail the whole operation if chapter creation fails
