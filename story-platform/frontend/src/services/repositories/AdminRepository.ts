@@ -944,22 +944,28 @@ class AdminRepositoryService {
 
       console.log('[addVideoStory] Story created with ID:', storyId);
 
-      // Always create default chapter 1 for the story
+      // Always create default chapter 1 for the story with iframe as audio source
       try {
         const chapterFormData = new FormData();
         chapterFormData.append('number', '1');
         chapterFormData.append('title', `Tập 1: ${item.title}`);
         chapterFormData.append('durationSeconds', '1800');
         chapterFormData.append('accessLevel', item.accessLevel || 'FREE');
-        if (item.iframeUrl) chapterFormData.append('audioUrl', item.iframeUrl);
-        if (item.iframeCode) chapterFormData.append('iframeCode', item.iframeCode);
-        if (item.iframeUrl) chapterFormData.append('videoIframeUrl', item.iframeUrl);
+        
+        // Use iframe as the audio source by default
+        if (item.iframeUrl) {
+          chapterFormData.append('audioUrl', item.iframeUrl);
+          chapterFormData.append('videoIframeUrl', item.iframeUrl);
+        }
+        if (item.iframeCode) {
+          chapterFormData.append('iframeCode', item.iframeCode);
+        }
 
         await apiRequest(`/admin/stories/${storyId}/chapters`, {
           method: 'POST',
           body: chapterFormData,
         });
-        console.log('[addVideoStory] Default chapter 1 created successfully');
+        console.log('[addVideoStory] Default chapter 1 created with iframe audio source');
       } catch (chapterError) {
         console.warn('[addVideoStory] Chapter creation failed (non-critical):', chapterError);
         // Don't fail the whole operation if chapter creation fails
