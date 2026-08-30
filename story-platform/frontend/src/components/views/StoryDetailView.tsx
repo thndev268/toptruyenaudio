@@ -278,7 +278,7 @@ export const StoryDetailView: React.FC = () => {
 
     if (!story) return [];
 
-    const allPublic = publicStories;
+    const allPublic = Array.isArray(publicStories.stories) ? publicStories.stories : [];
 
     const combined = [...allPublic];
 
