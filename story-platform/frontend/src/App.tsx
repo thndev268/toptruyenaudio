@@ -96,6 +96,21 @@ export function App() {
   useEffect(() => {
     cleanupLegacyReferralStorage();
     
+    // Monkey patch Array.prototype.find to catch all .find calls
+    const originalFind = Array.prototype.find;
+    Array.prototype.find = function(callback: any, thisArg?: any) {
+      if (!Array.isArray(this)) {
+        console.error('[Array.prototype.find] .find called on non-array:', {
+          value: this,
+          type: typeof this,
+          constructor: (this as any)?.constructor?.name,
+          stack: new Error().stack
+        });
+        return undefined;
+      }
+      return originalFind.call(this, callback, thisArg);
+    };
+    
     // Global error handler to catch .find errors
     const handleError = (event: ErrorEvent) => {
       if (event.message?.includes('find is not a function')) {
@@ -122,7 +137,10 @@ export function App() {
     };
 
     window.addEventListener('error', handleError);
-    return () => window.removeEventListener('error', handleError);
+    return () => {
+      window.removeEventListener('error', handleError);
+      Array.prototype.find = originalFind;
+    };
   }, []);
 
   return (
