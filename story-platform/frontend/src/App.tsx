@@ -96,6 +96,28 @@ export function App() {
   useEffect(() => {
     cleanupLegacyReferralStorage();
     
+    // Clear potentially corrupted localStorage data
+    const clearCorruptedData = () => {
+      const keysToCheck = ['toptruyenaudio:admin-stories:v1', 'toptruyenaudio:admin-chapters:v1', 'toptruyenaudio:admin-data:v1'];
+      keysToCheck.forEach(key => {
+        try {
+          const value = localStorage.getItem(key);
+          if (value) {
+            const parsed = JSON.parse(value);
+            if (!Array.isArray(parsed) && (key.includes('stories') || key.includes('chapters'))) {
+              console.warn(`[App] Clearing corrupted data from ${key}`);
+              localStorage.removeItem(key);
+            }
+          }
+        } catch (e) {
+          console.warn(`[App] Failed to check ${key}, clearing it:`, e);
+          localStorage.removeItem(key);
+        }
+      });
+    };
+    
+    clearCorruptedData();
+    
     // Monkey patch Array.prototype.find to catch all .find calls
     const originalFind = Array.prototype.find;
     Array.prototype.find = function(callback: any, thisArg?: any) {
