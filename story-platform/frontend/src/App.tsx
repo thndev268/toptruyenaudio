@@ -95,6 +95,34 @@ export function App() {
 
   useEffect(() => {
     cleanupLegacyReferralStorage();
+    
+    // Global error handler to catch .find errors
+    const handleError = (event: ErrorEvent) => {
+      if (event.message?.includes('find is not a function')) {
+        console.error('[Global Error Handler] .find error detected:', event);
+        console.error('[Global Error Handler] Error stack:', event.error?.stack);
+        console.error('[Global Error Handler] Checking localStorage for corrupted data...');
+        
+        // Check localStorage for potential corrupted data
+        const keys = Object.keys(localStorage);
+        keys.forEach(key => {
+          try {
+            const value = localStorage.getItem(key);
+            if (value) {
+              const parsed = JSON.parse(value);
+              if (parsed && !Array.isArray(parsed) && (key.includes('stories') || key.includes('chapters') || key.includes('genres'))) {
+                console.warn(`[Global Error Handler] Potentially corrupted data in ${key}:`, typeof parsed, parsed);
+              }
+            }
+          } catch (e) {
+            console.warn(`[Global Error Handler] Failed to parse ${key}:`, e);
+          }
+        });
+      }
+    };
+
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
   }, []);
 
   return (
