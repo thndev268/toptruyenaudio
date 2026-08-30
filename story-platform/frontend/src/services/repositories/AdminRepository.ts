@@ -197,6 +197,9 @@ class AdminRepositoryService {
               }
               if (as.chapters && Array.isArray(as.chapters)) {
                 this.storyChapters[as.id] = as.chapters;
+              } else {
+                // Fetch chapters separately if not included in story response
+                this.fetchStoryChapters(as.id);
               }
             });
             this.stories = storiesArray;
@@ -1107,6 +1110,20 @@ class AdminRepositoryService {
   // --- Story Chapters Management ---
   getStoryChapters(storyId: string): AudioChapter[] {
     return [...(this.storyChapters[storyId] || [])];
+  }
+
+  async fetchStoryChapters(storyId: string): Promise<void> {
+    try {
+      const chaptersResponse = await apiRequest<any>(`/admin/stories/${storyId}/chapters`);
+      const chaptersData = chaptersResponse?.data || chaptersResponse;
+      if (Array.isArray(chaptersData)) {
+        this.storyChapters[storyId] = chaptersData;
+        this.persistState();
+        console.log('[fetchStoryChapters] Fetched chapters for story:', storyId, chaptersData.length);
+      }
+    } catch (error) {
+      console.error('[fetchStoryChapters] Failed to fetch chapters:', error);
+    }
   }
 
   async addStoryChapter(
