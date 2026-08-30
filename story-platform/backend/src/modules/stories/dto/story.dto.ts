@@ -98,6 +98,9 @@ export class AdminCreateStoryDto {
   @IsOptional()
   @IsString()
   metadata?: string; // JSON string for transcript/description
+
+  @IsOptional()
+  videoDurationSeconds?: number; // Duration in seconds for Chapter 1
 }
 
 export class UpdateStoryDto {

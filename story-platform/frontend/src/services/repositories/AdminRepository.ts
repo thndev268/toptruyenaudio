@@ -930,6 +930,7 @@ class AdminRepositoryService {
         storyStatus: item.storyStatus || 'ONGOING',
         publishStatus: item.publishStatus || 'PUBLISHED',
         genreIds: item.genreIds,
+        videoDurationSeconds: item.videoDurationSeconds || 1800, // Use user-provided duration or default 30 minutes
       };
 
       // Create story with JSON

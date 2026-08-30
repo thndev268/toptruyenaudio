@@ -272,42 +272,8 @@ export class AdminStoriesController {
           });
         }
 
-        // Fetch video duration from YouTube API if iframeUrl is provided
-        let videoDuration = 1800; // Default 30 minutes
-        if (iframeUrl) {
-          const youtubeRegex = /(?:youtube\.com\/embed\/|youtu\.be\/)([^"&?\/\s]{11})/;
-          const match = iframeUrl.match(youtubeRegex);
-          if (match) {
-            const videoId = match[1];
-            const youtubeApiKey = this.configService.get<string>('YOUTUBE_API_KEY');
-            if (youtubeApiKey) {
-              try {
-                const durationResponse = await fetch(
-                  `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=contentDetails&key=${youtubeApiKey}`
-                );
-                if (durationResponse.ok) {
-                  const durationData = await durationResponse.json();
-                  if (durationData.items && durationData.items.length > 0) {
-                    const duration = durationData.items[0].contentDetails?.duration;
-                    if (duration) {
-                      // Parse YouTube duration format (PT#M#S) to seconds
-                      const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-                      if (match) {
-                        const hours = parseInt(match[1] || '0', 10);
-                        const minutes = parseInt(match[2] || '0', 10);
-                        const seconds = parseInt(match[3] || '0', 10);
-                        videoDuration = hours * 3600 + minutes * 60 + seconds;
-                        console.log('[createStory] Fetched video duration:', videoDuration, 'seconds');
-                      }
-                    }
-                  }
-                }
-              } catch (error: any) {
-                console.error('[createStory] Failed to fetch video duration:', error);
-              }
-            }
-          }
-        }
+        // Use user-provided duration or default to 1800 seconds (30 minutes)
+        let videoDuration = dto.videoDurationSeconds || 1800;
 
         // Create Chapter 1 for every story (default chapter)
         const chapter = await tx.chapter.create({
