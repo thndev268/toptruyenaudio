@@ -944,53 +944,8 @@ class AdminRepositoryService {
 
       console.log('[addVideoStory] Story created with ID:', storyId);
 
-      // Always create default chapter 1 for the story with iframe as audio source
-      try {
-        const chapterFormData = new FormData();
-        chapterFormData.append('number', '1');
-        chapterFormData.append('title', `Tập 1: ${item.title}`);
-        chapterFormData.append('durationSeconds', '1800');
-        chapterFormData.append('accessLevel', item.accessLevel || 'FREE');
-        
-        // Use iframe as the audio source by default
-        if (item.iframeUrl) {
-          chapterFormData.append('audioUrl', item.iframeUrl);
-          chapterFormData.append('videoIframeUrl', item.iframeUrl);
-        }
-        if (item.iframeCode) {
-          chapterFormData.append('iframeCode', item.iframeCode);
-        }
-
-        await apiRequest(`/admin/stories/${storyId}/chapters`, {
-          method: 'POST',
-          body: chapterFormData,
-        });
-        console.log('[addVideoStory] Default chapter 1 created with iframe audio source');
-        
-        // Fetch chapters for the specific story using the chapters endpoint
-        try {
-          const chaptersResponse = await apiRequest<any>(`/admin/stories/${storyId}/chapters`);
-          const chaptersData = chaptersResponse?.data || chaptersResponse;
-          if (chaptersData && Array.isArray(chaptersData)) {
-            this.storyChapters[storyId] = chaptersData;
-            this.persistState();
-            console.log('[addVideoStory] Chapters updated for story:', storyId, chaptersData.length);
-          } else if (chaptersData && Array.isArray(chaptersData.chapters)) {
-            this.storyChapters[storyId] = chaptersData.chapters;
-            this.persistState();
-            console.log('[addVideoStory] Chapters updated for story:', storyId, chaptersData.chapters.length);
-          } else {
-            console.warn('[addVideoStory] No chapters in response:', chaptersData);
-          }
-        } catch (fetchError) {
-          console.warn('[addVideoStory] Failed to fetch story chapters:', fetchError);
-        }
-      } catch (chapterError) {
-        console.warn('[addVideoStory] Chapter creation failed (non-critical):', chapterError);
-        // Don't fail the whole operation if chapter creation fails
-      }
-
-      // Update local state immediately instead of refetching
+      // Backend already creates Chapter 1 with iframe when creating story
+      // No need to create chapter again, just ensure local state is updated
       const responseData = (res as any)?.data || res;
       if (responseData && responseData.id) {
         const storyIndex = this.stories.findIndex((s) => s.id === storyId);
@@ -1001,6 +956,7 @@ class AdminRepositoryService {
         }
         if (responseData.chapters && Array.isArray(responseData.chapters)) {
           this.storyChapters[storyId] = responseData.chapters;
+          console.log('[addVideoStory] Chapters from backend response:', responseData.chapters.length);
         }
         this.persistState();
       }
