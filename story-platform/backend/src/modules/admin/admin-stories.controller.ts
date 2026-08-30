@@ -102,7 +102,7 @@ export class AdminStoriesController {
           title = oembedData.title || title;
           thumbnail = oembedData.thumbnail_url || thumbnail;
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to fetch oEmbed data:', error);
       }
 
@@ -122,7 +122,7 @@ export class AdminStoriesController {
               }
             }
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Failed to fetch YouTube Data API:', error);
         }
       }
@@ -171,7 +171,7 @@ export class AdminStoriesController {
         data: transformedStories,
         message: 'Đã lấy danh sách truyện thành công',
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching stories:', error);
       throw new BadRequestException({
         code: 'FETCH_STORIES_ERROR',
@@ -272,6 +272,43 @@ export class AdminStoriesController {
           });
         }
 
+        // Fetch video duration from YouTube API if iframeUrl is provided
+        let videoDuration = 1800; // Default 30 minutes
+        if (iframeUrl) {
+          const youtubeRegex = /(?:youtube\.com\/embed\/|youtu\.be\/)([^"&?\/\s]{11})/;
+          const match = iframeUrl.match(youtubeRegex);
+          if (match) {
+            const videoId = match[1];
+            const youtubeApiKey = this.configService.get<string>('YOUTUBE_API_KEY');
+            if (youtubeApiKey) {
+              try {
+                const durationResponse = await fetch(
+                  `https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=contentDetails&key=${youtubeApiKey}`
+                );
+                if (durationResponse.ok) {
+                  const durationData = await durationResponse.json();
+                  if (durationData.items && durationData.items.length > 0) {
+                    const duration = durationData.items[0].contentDetails?.duration;
+                    if (duration) {
+                      // Parse YouTube duration format (PT#M#S) to seconds
+                      const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+                      if (match) {
+                        const hours = parseInt(match[1] || '0', 10);
+                        const minutes = parseInt(match[2] || '0', 10);
+                        const seconds = parseInt(match[3] || '0', 10);
+                        videoDuration = hours * 3600 + minutes * 60 + seconds;
+                        console.log('[createStory] Fetched video duration:', videoDuration, 'seconds');
+                      }
+                    }
+                  }
+                }
+              } catch (error: any) {
+                console.error('[createStory] Failed to fetch video duration:', error);
+              }
+            }
+          }
+        }
+
         // Create Chapter 1 for every story (default chapter)
         const chapter = await tx.chapter.create({
           data: {
@@ -281,7 +318,7 @@ export class AdminStoriesController {
             slug: `${newStory.slug}-tap-1`,
             videoIframeUrl: iframeUrl,
             iframeCode: iframeCode,
-            durationSeconds: 1800, // Default 30 minutes
+            durationSeconds: videoDuration,
             accessLevel: 'FREE',
             publishStatus: 'PUBLISHED',
           },
@@ -320,7 +357,7 @@ export class AdminStoriesController {
         data: transformedStory,
         message: 'Đã tạo truyện thành công',
       };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof BadRequestException) {
         throw error;
       }
@@ -381,7 +418,7 @@ export class AdminStoriesController {
       if (typeof genreIds === 'string') {
         try {
           genreIds = JSON.parse(genreIds);
-        } catch (e) {
+        } catch (e: any) {
           console.error('Failed to parse genreIds:', e);
           genreIds = undefined;
         }
@@ -460,7 +497,7 @@ export class AdminStoriesController {
         data: updatedStory,
         message: 'Đã cập nhật truyện thành công',
       };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof NotFoundException || error instanceof ConflictException) {
         throw error;
       }
@@ -484,7 +521,7 @@ export class AdminStoriesController {
         success: true,
         data: chapters,
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching chapters:', error);
       throw new BadRequestException({
         code: 'FETCH_CHAPTERS_ERROR',
@@ -596,7 +633,7 @@ export class AdminStoriesController {
         success: true,
         message: 'Đã xóa truyện thành công',
       };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof NotFoundException) {
         throw error;
       }
@@ -628,7 +665,7 @@ export class AdminStoriesController {
         success: true,
         message: 'Đã xóa chapter thành công',
       };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof NotFoundException) {
         throw error;
       }
@@ -669,7 +706,7 @@ export class AdminStoriesController {
         message: `Đã xóa thành công ${result.count} chapter`,
         deletedCount: result.count,
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting chapters batch:', error);
       throw new BadRequestException({
         code: 'DELETE_CHAPTERS_ERROR',
