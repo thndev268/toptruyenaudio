@@ -122,12 +122,16 @@ export function App() {
     const originalFind = Array.prototype.find;
     Array.prototype.find = function(callback: any, thisArg?: any) {
       if (!Array.isArray(this)) {
-        console.error('[Array.prototype.find] .find called on non-array:', {
-          value: this,
-          type: typeof this,
-          constructor: (this as any)?.constructor?.name,
-          stack: new Error().stack
-        });
+        const stack = new Error().stack || '';
+        // Only log if it's from our code, not external libraries
+        if (stack.includes('toptruyenaudio') && !stack.includes('www-widgetapi')) {
+          console.error('[Array.prototype.find] .find called on non-array:', {
+            value: this,
+            type: typeof this,
+            constructor: (this as any)?.constructor?.name,
+            stack
+          });
+        }
         return undefined;
       }
       return originalFind.call(this, callback, thisArg);
@@ -140,12 +144,16 @@ export function App() {
     
     Array.prototype.map = function(callback: any, thisArg?: any): any[] {
       if (!Array.isArray(this)) {
-        console.error('[Array.prototype.map] .map called on non-array:', {
-          value: this,
-          type: typeof this,
-          constructor: (this as any)?.constructor?.name,
-          stack: new Error().stack
-        });
+        const stack = new Error().stack || '';
+        // Only log if it's from our code, not external libraries
+        if (stack.includes('toptruyenaudio') && !stack.includes('www-widgetapi')) {
+          console.error('[Array.prototype.map] .map called on non-array:', {
+            value: this,
+            type: typeof this,
+            constructor: (this as any)?.constructor?.name,
+            stack
+          });
+        }
         return [];
       }
       return originalMap.call(this, callback, thisArg);
@@ -153,12 +161,16 @@ export function App() {
     
     Array.prototype.filter = function(callback: any, thisArg?: any): any[] {
       if (!Array.isArray(this)) {
-        console.error('[Array.prototype.filter] .filter called on non-array:', {
-          value: this,
-          type: typeof this,
-          constructor: (this as any)?.constructor?.name,
-          stack: new Error().stack
-        });
+        const stack = new Error().stack || '';
+        // Only log if it's from our code, not external libraries
+        if (stack.includes('toptruyenaudio') && !stack.includes('www-widgetapi')) {
+          console.error('[Array.prototype.filter] .filter called on non-array:', {
+            value: this,
+            type: typeof this,
+            constructor: (this as any)?.constructor?.name,
+            stack
+          });
+        }
         return [];
       }
       return originalFilter.call(this, callback, thisArg);
@@ -166,12 +178,16 @@ export function App() {
     
     Array.prototype.slice = function(start?: number, end?: number): any[] {
       if (!Array.isArray(this)) {
-        console.error('[Array.prototype.slice] .slice called on non-array:', {
-          value: this,
-          type: typeof this,
-          constructor: (this as any)?.constructor?.name,
-          stack: new Error().stack
-        });
+        const stack = new Error().stack || '';
+        // Only log if it's from our code, not external libraries
+        if (stack.includes('toptruyenaudio') && !stack.includes('www-widgetapi')) {
+          console.error('[Array.prototype.slice] .slice called on non-array:', {
+            value: this,
+            type: typeof this,
+            constructor: (this as any)?.constructor?.name,
+            stack
+          });
+        }
         return [];
       }
       return originalSlice.call(this, start, end);
