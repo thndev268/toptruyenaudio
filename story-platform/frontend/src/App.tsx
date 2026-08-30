@@ -133,6 +133,50 @@ export function App() {
       return originalFind.call(this, callback, thisArg);
     };
     
+    // Monkey patch for spread operator by wrapping common array methods
+    const originalMap = Array.prototype.map;
+    const originalFilter = Array.prototype.filter;
+    const originalSlice = Array.prototype.slice;
+    
+    Array.prototype.map = function(callback: any, thisArg?: any): any[] {
+      if (!Array.isArray(this)) {
+        console.error('[Array.prototype.map] .map called on non-array:', {
+          value: this,
+          type: typeof this,
+          constructor: (this as any)?.constructor?.name,
+          stack: new Error().stack
+        });
+        return [];
+      }
+      return originalMap.call(this, callback, thisArg);
+    };
+    
+    Array.prototype.filter = function(callback: any, thisArg?: any): any[] {
+      if (!Array.isArray(this)) {
+        console.error('[Array.prototype.filter] .filter called on non-array:', {
+          value: this,
+          type: typeof this,
+          constructor: (this as any)?.constructor?.name,
+          stack: new Error().stack
+        });
+        return [];
+      }
+      return originalFilter.call(this, callback, thisArg);
+    };
+    
+    Array.prototype.slice = function(start?: number, end?: number): any[] {
+      if (!Array.isArray(this)) {
+        console.error('[Array.prototype.slice] .slice called on non-array:', {
+          value: this,
+          type: typeof this,
+          constructor: (this as any)?.constructor?.name,
+          stack: new Error().stack
+        });
+        return [];
+      }
+      return originalSlice.call(this, start, end);
+    };
+    
     // Global error handler to catch .find errors
     const handleError = (event: ErrorEvent) => {
       if (event.message?.includes('find is not a function')) {
@@ -162,6 +206,9 @@ export function App() {
     return () => {
       window.removeEventListener('error', handleError);
       Array.prototype.find = originalFind;
+      Array.prototype.map = originalMap;
+      Array.prototype.filter = originalFilter;
+      Array.prototype.slice = originalSlice;
     };
   }, []);
 
