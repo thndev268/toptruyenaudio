@@ -133,7 +133,8 @@ export const StoryDetailView: React.FC = () => {
 
   const publicStories = useStories();
 
-  const story = publicStories.find((s) => s.slug === slug || s.id === slug) ;
+  const storiesArray = Array.isArray(publicStories.stories) ? publicStories.stories : [];
+  const story = storiesArray.find((s) => s.slug === slug || s.id === slug);
 
   const videoSettings = adminRepository.getVideoSettings();
 
