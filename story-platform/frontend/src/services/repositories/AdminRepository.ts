@@ -947,6 +947,10 @@ class AdminRepositoryService {
       // Backend already creates Chapter 1 with iframe when creating story
       // No need to create chapter again, just ensure local state is updated
       const responseData = (res as any)?.data || res;
+      console.log('[addVideoStory] Backend response:', responseData);
+      console.log('[addVideoStory] Response has chapters?', !!responseData?.chapters);
+      console.log('[addVideoStory] Chapters array:', responseData?.chapters);
+      
       if (responseData && responseData.id) {
         const storyIndex = this.stories.findIndex((s) => s.id === storyId);
         if (storyIndex !== -1) {
@@ -957,6 +961,19 @@ class AdminRepositoryService {
         if (responseData.chapters && Array.isArray(responseData.chapters)) {
           this.storyChapters[storyId] = responseData.chapters;
           console.log('[addVideoStory] Chapters from backend response:', responseData.chapters.length);
+        } else {
+          console.warn('[addVideoStory] No chapters in backend response, fetching separately');
+          // Fetch chapters separately if not included in response
+          try {
+            const chaptersResponse = await apiRequest<any>(`/admin/stories/${storyId}/chapters`);
+            const chaptersData = chaptersResponse?.data || chaptersResponse;
+            if (Array.isArray(chaptersData)) {
+              this.storyChapters[storyId] = chaptersData;
+              console.log('[addVideoStory] Fetched chapters separately:', chaptersData.length);
+            }
+          } catch (fetchError) {
+            console.error('[addVideoStory] Failed to fetch chapters separately:', fetchError);
+          }
         }
         this.persistState();
       }
