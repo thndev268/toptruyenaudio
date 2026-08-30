@@ -944,29 +944,25 @@ class AdminRepositoryService {
 
       console.log('[addVideoStory] Story created with ID:', storyId);
 
-      // Skip chapter creation if iframe is already stored in Story
-      // Video stories have iframeCode/iframeUrl directly on the Story model
-      if (item.iframeCode || item.iframeUrl) {
-        console.log('[addVideoStory] Skipping chapter creation - iframe already in Story');
-      } else {
-        // Create chapter only if no iframe in story
-        try {
-          const chapterFormData = new FormData();
-          chapterFormData.append('number', '1');
-          chapterFormData.append('title', `Video Audio Full: ${item.title}`);
-          chapterFormData.append('durationSeconds', '1800');
-          chapterFormData.append('accessLevel', item.accessLevel || 'FREE');
-          if (item.iframeUrl) chapterFormData.append('audioUrl', item.iframeUrl);
+      // Always create default chapter 1 for the story
+      try {
+        const chapterFormData = new FormData();
+        chapterFormData.append('number', '1');
+        chapterFormData.append('title', `Tập 1: ${item.title}`);
+        chapterFormData.append('durationSeconds', '1800');
+        chapterFormData.append('accessLevel', item.accessLevel || 'FREE');
+        if (item.iframeUrl) chapterFormData.append('audioUrl', item.iframeUrl);
+        if (item.iframeCode) chapterFormData.append('iframeCode', item.iframeCode);
+        if (item.iframeUrl) chapterFormData.append('videoIframeUrl', item.iframeUrl);
 
-          await apiRequest(`/admin/stories/${storyId}/chapters`, {
-            method: 'POST',
-            body: chapterFormData,
-          });
-          console.log('[addVideoStory] Chapter created successfully');
-        } catch (chapterError) {
-          console.warn('[addVideoStory] Chapter creation failed (non-critical):', chapterError);
-          // Don't fail the whole operation if chapter creation fails
-        }
+        await apiRequest(`/admin/stories/${storyId}/chapters`, {
+          method: 'POST',
+          body: chapterFormData,
+        });
+        console.log('[addVideoStory] Default chapter 1 created successfully');
+      } catch (chapterError) {
+        console.warn('[addVideoStory] Chapter creation failed (non-critical):', chapterError);
+        // Don't fail the whole operation if chapter creation fails
       }
 
       // Update local state immediately instead of refetching
