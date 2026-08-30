@@ -163,7 +163,7 @@ export class AdminStoriesController {
       // Transform genres from GenreToStory[] to Genre[]
       const transformedStories = stories.map(story => ({
         ...story,
-        genres: story.genres.map(g => g.genre),
+        genres: story.genres ? story.genres.map(g => g.genre) : [],
       }));
 
       return {
