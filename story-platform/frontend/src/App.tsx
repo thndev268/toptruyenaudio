@@ -118,81 +118,6 @@ export function App() {
     
     clearCorruptedData();
     
-    // Monkey patch Array.prototype.find to catch all .find calls
-    const originalFind = Array.prototype.find;
-    Array.prototype.find = function(callback: any, thisArg?: any) {
-      if (!Array.isArray(this)) {
-        const stack = new Error().stack || '';
-        // Only log if it's from our code, not external libraries
-        if (stack.includes('toptruyenaudio') && !stack.includes('www-widgetapi')) {
-          console.error('[Array.prototype.find] .find called on non-array:', {
-            value: this,
-            type: typeof this,
-            constructor: (this as any)?.constructor?.name,
-            stack
-          });
-        }
-        return undefined;
-      }
-      return originalFind.call(this, callback, thisArg);
-    };
-    
-    // Monkey patch for spread operator by wrapping common array methods
-    const originalMap = Array.prototype.map;
-    const originalFilter = Array.prototype.filter;
-    const originalSlice = Array.prototype.slice;
-    
-    Array.prototype.map = function(callback: any, thisArg?: any): any[] {
-      if (!Array.isArray(this)) {
-        const stack = new Error().stack || '';
-        // Only log if it's from our code, not external libraries
-        if (stack.includes('toptruyenaudio') && !stack.includes('www-widgetapi')) {
-          console.error('[Array.prototype.map] .map called on non-array:', {
-            value: this,
-            type: typeof this,
-            constructor: (this as any)?.constructor?.name,
-            stack
-          });
-        }
-        return [];
-      }
-      return originalMap.call(this, callback, thisArg);
-    };
-    
-    Array.prototype.filter = function(callback: any, thisArg?: any): any[] {
-      if (!Array.isArray(this)) {
-        const stack = new Error().stack || '';
-        // Only log if it's from our code, not external libraries
-        if (stack.includes('toptruyenaudio') && !stack.includes('www-widgetapi')) {
-          console.error('[Array.prototype.filter] .filter called on non-array:', {
-            value: this,
-            type: typeof this,
-            constructor: (this as any)?.constructor?.name,
-            stack
-          });
-        }
-        return [];
-      }
-      return originalFilter.call(this, callback, thisArg);
-    };
-    
-    Array.prototype.slice = function(start?: number, end?: number): any[] {
-      if (!Array.isArray(this)) {
-        const stack = new Error().stack || '';
-        // Only log if it's from our code, not external libraries
-        if (stack.includes('toptruyenaudio') && !stack.includes('www-widgetapi')) {
-          console.error('[Array.prototype.slice] .slice called on non-array:', {
-            value: this,
-            type: typeof this,
-            constructor: (this as any)?.constructor?.name,
-            stack
-          });
-        }
-        return [];
-      }
-      return originalSlice.call(this, start, end);
-    };
-    
     // Global error handler to catch .find errors
     const handleError = (event: ErrorEvent) => {
       if (event.message?.includes('find is not a function')) {
@@ -221,10 +146,6 @@ export function App() {
     window.addEventListener('error', handleError);
     return () => {
       window.removeEventListener('error', handleError);
-      Array.prototype.find = originalFind;
-      Array.prototype.map = originalMap;
-      Array.prototype.filter = originalFilter;
-      Array.prototype.slice = originalSlice;
     };
   }, []);
 
