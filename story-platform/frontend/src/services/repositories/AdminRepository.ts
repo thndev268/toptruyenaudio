@@ -967,14 +967,20 @@ class AdminRepositoryService {
         });
         console.log('[addVideoStory] Default chapter 1 created with iframe audio source');
         
-        // Fetch the specific story to get updated chapters
+        // Fetch chapters for the specific story using the chapters endpoint
         try {
-          const storyResponse = await apiRequest<any>(`/admin/stories/${storyId}`);
-          const storyData = storyResponse?.data || storyResponse;
-          if (storyData && storyData.chapters && Array.isArray(storyData.chapters)) {
-            this.storyChapters[storyId] = storyData.chapters;
+          const chaptersResponse = await apiRequest<any>(`/admin/stories/${storyId}/chapters`);
+          const chaptersData = chaptersResponse?.data || chaptersResponse;
+          if (chaptersData && Array.isArray(chaptersData)) {
+            this.storyChapters[storyId] = chaptersData;
             this.persistState();
-            console.log('[addVideoStory] Chapters updated for story:', storyId, storyData.chapters.length);
+            console.log('[addVideoStory] Chapters updated for story:', storyId, chaptersData.length);
+          } else if (chaptersData && Array.isArray(chaptersData.chapters)) {
+            this.storyChapters[storyId] = chaptersData.chapters;
+            this.persistState();
+            console.log('[addVideoStory] Chapters updated for story:', storyId, chaptersData.chapters.length);
+          } else {
+            console.warn('[addVideoStory] No chapters in response:', chaptersData);
           }
         } catch (fetchError) {
           console.warn('[addVideoStory] Failed to fetch story chapters:', fetchError);
