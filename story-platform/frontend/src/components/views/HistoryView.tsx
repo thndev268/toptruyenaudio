@@ -25,7 +25,8 @@ export const HistoryView: React.FC = () => {
   };
 
   const filteredHistory = useMemo(() => {
-    return listeningHistory.filter(item => {
+    const listeningHistoryArray = Array.isArray(listeningHistory) ? listeningHistory : [];
+    return listeningHistoryArray.filter(item => {
       const storiesArray = Array.isArray(allStories) ? allStories : [];
       const story = storiesArray.find(s => s.id === item.storyId);
       if (!story) return false;

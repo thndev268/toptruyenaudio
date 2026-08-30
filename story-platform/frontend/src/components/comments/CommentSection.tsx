@@ -42,7 +42,8 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
   const [editingComment, setEditingComment] = useState<StoryComment | null>(null);
 
   const filteredComments = useMemo(() => {
-    let list = [...comments];
+    const commentsArray = Array.isArray(comments) ? comments : [];
+    let list = [...commentsArray];
 
     if (filterOption === 'VERIFIED_ONLY') {
       list = list.filter((c) => c.verifiedListener);

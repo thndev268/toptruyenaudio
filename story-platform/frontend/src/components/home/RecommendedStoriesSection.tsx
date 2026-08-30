@@ -36,14 +36,18 @@ export const RecommendedStoriesSection: React.FC<RecommendedStoriesSectionProps>
 
   // Compute recommendation scores based on user's listening history and favorites
   const { recommendedList, userTopGenres, hasPersonalizedData } = useMemo(() => {
+    const listeningHistoryArray = Array.isArray(listeningHistory) ? listeningHistory : [];
+    const favoritesArray = Array.isArray(favorites) ? favorites : [];
+    const effectiveStoriesArray = Array.isArray(effectiveStories) ? effectiveStories : [];
+    
     // Collect all story IDs user interacted with
     const historyStoryIds = new Set<string>();
-    listeningHistory.forEach((h) => historyStoryIds.add(h.storyId));
+    listeningHistoryArray.forEach((h) => historyStoryIds.add(h.storyId));
     Object.values(listeningProgressMap).forEach((prog: any) => historyStoryIds.add(prog.storyId));
-    favorites.forEach((id) => historyStoryIds.add(id));
+    favoritesArray.forEach((id) => historyStoryIds.add(id));
 
     // Get stories the user has listened to or favorited
-    const interactedStories = effectiveStories.filter((s) => historyStoryIds.has(s.id));
+    const interactedStories = effectiveStoriesArray.filter((s) => historyStoryIds.has(s.id));
 
     const genreCounts: Record<string, number> = {};
     const narratorCounts: Record<string, number> = {};
