@@ -450,7 +450,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                 </div>
                 {story.genres && story.genres.length > 0 && (
                   <div className="flex flex-wrap gap-2">
-                    {story.genres?.map((genre) => (
+                    {story.genres.slice(0, 3).map((genre) => (
                       <span
                         key={genre.id}
                         className="px-3 py-1 bg-slate-800 text-slate-300 text-sm font-medium rounded-lg border border-slate-700"
@@ -460,7 +460,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     ))}
                   </div>
                 )}
-                {story.genres.length > 3 && (
+                {story.genres && story.genres.length > 3 && (
                   <span className="text-[10px] text-slate-500">+{story.genres.length - 3}</span>
                 )}
                 <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
@@ -936,7 +936,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                         {/* Audio preview button */}
                         <button
                           type="button"
-                          onClick={() => toggleChapterAudio(chapter.number, chapter.audioUrl)}
+                          onClick={() => toggleChapterAudio(chapter.number, chapter.audioUrl || '')}
                           className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 transition-all cursor-pointer ${
                             isPlaying
                               ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/30 animate-pulse'
