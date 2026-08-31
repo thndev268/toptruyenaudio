@@ -189,6 +189,11 @@ class AdminRepositoryService {
           if (storiesData.length > 0) {
             const storiesArray = Array.isArray(this.stories) ? this.stories : [];
             storiesData.forEach((as: any) => {
+              // Ensure genreIds is set from genres array if missing
+              if (as.genres && Array.isArray(as.genres) && as.genres.length > 0 && (!as.genreIds || as.genreIds.length === 0)) {
+                as.genreIds = as.genres.map((g: any) => g.id);
+              }
+              
               const existingIdx = storiesArray.findIndex((s) => s.id === as.id);
               if (existingIdx !== -1) {
                 storiesArray[existingIdx] = as;
@@ -204,7 +209,7 @@ class AdminRepositoryService {
             });
             this.stories = storiesArray;
             console.log('[fetchFromBackendApi] Fetched stories count:', this.stories.length);
-            console.log('[fetchFromBackendApi] Sample story data:', this.stories[0] ? { id: this.stories[0].id, title: this.stories[0].title, slug: this.stories[0].slug, genreIds: this.stories[0].genreIds } : 'No stories');
+            console.log('[fetchFromBackendApi] Sample story data:', this.stories[0] ? { id: this.stories[0].id, title: this.stories[0].title, slug: this.stories[0].slug, genreIds: this.stories[0].genreIds, genres: this.stories[0].genres } : 'No stories');
           }
         } catch (err) {
           console.warn('[fetchFromBackendApi] Failed to fetch stories:', err);
@@ -215,11 +220,16 @@ class AdminRepositoryService {
           if (genresResponse?.data && Array.isArray(genresResponse.data)) {
             this.genres = genresResponse.data;
             
-            // Map genre IDs to genre objects in stories
+            // Map genre IDs to genre objects in stories (only if genres is missing)
             const storiesArray = Array.isArray(this.stories) ? this.stories : [];
             storiesArray.forEach((story) => {
-              if (story.genreIds && Array.isArray(story.genreIds)) {
+              // Only map from genreIds if genres array is empty
+              if ((!story.genres || story.genres.length === 0) && story.genreIds && Array.isArray(story.genreIds)) {
                 story.genres = this.genres.filter((g) => story.genreIds && story.genreIds.includes(g.id));
+              }
+              // Ensure genreIds is set from genres if missing
+              if (story.genres && Array.isArray(story.genres) && story.genres.length > 0 && (!story.genreIds || story.genreIds.length === 0)) {
+                story.genreIds = story.genres.map((g: any) => g.id);
               }
             });
             
@@ -1034,6 +1044,9 @@ class AdminRepositoryService {
           this.stories[storyIndex] = { ...this.stories[storyIndex], ...response.data };
           console.log('[updateStory] Local state updated (not persisted to localStorage)');
         }
+
+        // Fetch fresh data from database to ensure genres are properly mapped
+        await this.fetchFromBackendApi();
 
         return { success: true, message: 'Cập nhật bộ truyện thành công.', story: response?.data };
       } catch (err: any) {
