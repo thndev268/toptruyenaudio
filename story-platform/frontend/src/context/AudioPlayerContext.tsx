@@ -1057,6 +1057,16 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     if (mode === 'API' && !finalAudioUrl) {
       try {
+        // Validate story.slug and chapter.slug before constructing URL
+        if (!story.slug || !chapter.slug) {
+          console.error('[AudioPlayerContext] Invalid story.slug or chapter.slug:', { storySlug: story.slug, chapterSlug: chapter.slug });
+          setAudioError({
+            code: 'INVALID_SLUG',
+            message: 'Invalid story or chapter slug',
+          });
+          return false;
+        }
+
         const accessData = await apiRequest<{ audioUrl: string; canListen: boolean }>(
           `/stories/${story.slug}/chapters/${chapter.slug}/access`
         );

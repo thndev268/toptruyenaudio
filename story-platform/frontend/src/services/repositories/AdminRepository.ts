@@ -203,6 +203,8 @@ class AdminRepositoryService {
               }
             });
             this.stories = storiesArray;
+            console.log('[fetchFromBackendApi] Fetched stories count:', this.stories.length);
+            console.log('[fetchFromBackendApi] Sample story data:', this.stories[0] ? { id: this.stories[0].id, title: this.stories[0].title, slug: this.stories[0].slug, genreIds: this.stories[0].genreIds } : 'No stories');
           }
         } catch (err) {
           console.warn('[fetchFromBackendApi] Failed to fetch stories:', err);
