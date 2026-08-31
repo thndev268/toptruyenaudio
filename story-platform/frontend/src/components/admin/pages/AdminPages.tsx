@@ -185,6 +185,7 @@ export const AdminStoriesPage: React.FC = () => {
         onDeleteChapter={ctx.handleDeleteChapter}
         onDeleteChapters={ctx.handleDeleteChapters}
         getStoryChapters={ctx.getStoryChapters}
+        onStoryUpdated={() => ctx.refreshAllData()}
       />
 
       <VideoStoriesAdminModal

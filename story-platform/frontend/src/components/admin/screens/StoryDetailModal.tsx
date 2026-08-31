@@ -43,6 +43,7 @@ interface StoryDetailModalProps {
   onDeleteChapter?: (story: AdminStoryItem, chapterId: string, chapterTitle?: string) => void;
   onDeleteChapters?: (story: AdminStoryItem, chapterIds: string[]) => void;
   getStoryChapters?: (storyId: string) => AudioChapter[];
+  onStoryUpdated?: (updatedStory: AdminStoryItem) => void;
 }
 
 export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
@@ -55,6 +56,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   onDeleteChapter,
   onDeleteChapters,
   getStoryChapters,
+  onStoryUpdated,
 }) => {
   const [playingChapterNumber, setPlayingChapterNumber] = useState<number | null>(null);
   const [audioElem, setAudioElem] = useState<HTMLAudioElement | null>(null);
@@ -348,6 +350,10 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     if (res.success) {
       setIsEditingStory(false);
       refreshChapters();
+      // Notify parent component that story was updated to refresh the story list
+      if (onStoryUpdated) {
+        onStoryUpdated(res.story || story);
+      }
     } else {
       setSaveError(res.message);
     }

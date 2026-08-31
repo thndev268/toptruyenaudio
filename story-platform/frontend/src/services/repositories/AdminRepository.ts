@@ -1038,11 +1038,11 @@ class AdminRepositoryService {
         });
         console.log('[updateStory] API response:', response);
 
-        // Update local state immediately
+        // Update local state immediately with the returned story data (including genres)
         const storyIndex = this.stories.findIndex((s) => s.id === storyId);
         if (storyIndex !== -1 && response?.data) {
-          this.stories[storyIndex] = { ...this.stories[storyIndex], ...response.data };
-          console.log('[updateStory] Local state updated (not persisted to localStorage)');
+          this.stories[storyIndex] = { ...response.data };
+          console.log('[updateStory] Local state updated with genres:', response.data.genres);
         }
 
         // Fetch fresh data from database to ensure genres are properly mapped
