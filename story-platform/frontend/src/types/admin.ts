@@ -113,6 +113,7 @@ export interface AdminStoryItem {
   isVideoStory?: boolean;
   iframeCode?: string;
   iframeUrl?: string;
+  videoDurationSeconds?: number; // Duration in seconds for Chapter 1 (video stories)
 }
 
 export interface AdminChapterItem {

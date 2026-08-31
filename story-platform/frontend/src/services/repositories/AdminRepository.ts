@@ -203,8 +203,6 @@ class AdminRepositoryService {
               }
             });
             this.stories = storiesArray;
-            localStorage.setItem('toptruyenaudio:admin-stories:v1', JSON.stringify(this.stories));
-            localStorage.setItem('toptruyenaudio:admin-chapters:v1', JSON.stringify(this.storyChapters));
           }
         } catch (err) {
           console.warn('[fetchFromBackendApi] Failed to fetch stories:', err);
@@ -254,8 +252,7 @@ class AdminRepositoryService {
   public persistState() {
     try {
       if (typeof window === 'undefined') return;
-      localStorage.setItem('toptruyenaudio:admin-stories:v1', JSON.stringify(this.stories));
-      localStorage.setItem('toptruyenaudio:admin-chapters:v1', JSON.stringify(this.storyChapters));
+      // Only persist UI preferences (video settings) - stories/chapters always from database
       localStorage.setItem('toptruyenaudio:video-settings:v1', JSON.stringify(this.videoSettings));
     } catch (err) {
       console.warn('Failed to persist state:', err);
@@ -874,7 +871,6 @@ class AdminRepositoryService {
 
         // Remove from local state immediately
         this.stories = this.stories.filter((s) => s.id !== storyId);
-        localStorage.setItem('toptruyenaudio:admin-stories:v1', JSON.stringify(this.stories));
 
         return { success: true, message: 'Đã xóa truyện thành công.' };
       } catch (err: any) {
@@ -1034,8 +1030,7 @@ class AdminRepositoryService {
         const storyIndex = this.stories.findIndex((s) => s.id === storyId);
         if (storyIndex !== -1 && response?.data) {
           this.stories[storyIndex] = { ...this.stories[storyIndex], ...response.data };
-          localStorage.setItem('toptruyenaudio:admin-stories:v1', JSON.stringify(this.stories));
-          console.log('[updateStory] Local state updated');
+          console.log('[updateStory] Local state updated (not persisted to localStorage)');
         }
 
         return { success: true, message: 'Cập nhật bộ truyện thành công.', story: response?.data };
