@@ -332,13 +332,17 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     if (!story || isSaving) return;
     setIsSaving(true);
     setSaveError(null);
+    
+    // Filter out null/undefined values from genreIds
+    const validGenreIds = editStoryGenreIds.filter(id => id !== null && id !== undefined && id !== '');
+    
     const res = await adminRepository.updateStory(story.id, {
       title: editStoryTitle,
       authorName: editStoryAuthor,
       narratorName: editStoryNarrator,
       coverUrl: editStoryCoverUrl,
       summary: editStorySummary,
-      genreIds: editStoryGenreIds,
+      genreIds: validGenreIds,
     });
     setIsSaving(false);
     if (res.success) {

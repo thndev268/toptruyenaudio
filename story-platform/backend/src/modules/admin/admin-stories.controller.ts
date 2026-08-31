@@ -263,13 +263,18 @@ export class AdminStoriesController {
 
         // Create genre relations if genreIds provided
         if (dto.genreIds && Array.isArray(dto.genreIds) && dto.genreIds.length > 0) {
-          const genreRelations = dto.genreIds.map((genreId) => ({
-            storyId: newStory.id,
-            genreId,
-          }));
-          await tx.genreToStory.createMany({
-            data: genreRelations,
-          });
+          // Filter out null/undefined values from genreIds
+          const validGenreIds = dto.genreIds.filter((genreId: any) => genreId !== null && genreId !== undefined && genreId !== '');
+          
+          if (validGenreIds.length > 0) {
+            const genreRelations = validGenreIds.map((genreId) => ({
+              storyId: newStory.id,
+              genreId,
+            }));
+            await tx.genreToStory.createMany({
+              data: genreRelations,
+            });
+          }
         }
 
         // Use user-provided duration or default to 1800 seconds (30 minutes)
@@ -424,15 +429,22 @@ export class AdminStoriesController {
 
           // Create new genre relations if genreIds is not empty
           if (Array.isArray(genreIds) && genreIds.length > 0) {
-            const genreRelations = genreIds.map((genreId: string) => ({
-              storyId: id,
-              genreId,
-            }));
-            console.log('[updateStory] Creating new genre relations:', genreRelations);
-            await tx.genreToStory.createMany({
-              data: genreRelations,
-            });
-            console.log('[updateStory] Created genre relations successfully');
+            // Filter out null/undefined values from genreIds
+            const validGenreIds = genreIds.filter((genreId: any) => genreId !== null && genreId !== undefined && genreId !== '');
+            
+            if (validGenreIds.length > 0) {
+              const genreRelations = validGenreIds.map((genreId: string) => ({
+                storyId: id,
+                genreId,
+              }));
+              console.log('[updateStory] Creating new genre relations:', genreRelations);
+              await tx.genreToStory.createMany({
+                data: genreRelations,
+              });
+              console.log('[updateStory] Created genre relations successfully');
+            } else {
+              console.log('[updateStory] All genreIds are invalid (null/undefined/empty), skipping creation');
+            }
           } else {
             console.log('[updateStory] genreIds is empty or not an array, skipping creation');
           }
