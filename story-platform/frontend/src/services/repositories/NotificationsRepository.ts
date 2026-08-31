@@ -36,15 +36,19 @@ export class NotificationsRepository {
 
   async fetchNotifications(userId?: string): Promise<Notification[]> {
     try {
+      console.log('[NotificationsRepository] Fetching notifications for userId:', userId);
       const response = await apiRequest<{ success: boolean; data: Notification[] }>('/notifications');
+      console.log('[NotificationsRepository] Response:', response);
       if (response?.success && Array.isArray(response.data)) {
         this.notifications = response.data;
+        console.log('[NotificationsRepository] Fetched notifications count:', this.notifications.length);
         this.notifyListeners();
         return this.notifications;
       }
+      console.warn('[NotificationsRepository] Invalid response format:', response);
       return [];
     } catch (error) {
-      console.error('Failed to fetch notifications:', error);
+      console.error('[NotificationsRepository] Failed to fetch notifications:', error);
       return [];
     }
   }
