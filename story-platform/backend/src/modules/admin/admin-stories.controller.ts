@@ -381,11 +381,13 @@ export class AdminStoriesController {
       
       // Parse genreIds if sent as JSON string from FormData
       let genreIds = body.genreIds;
+      console.log('[updateStory] Received genreIds from request:', genreIds);
       if (typeof genreIds === 'string') {
         try {
           genreIds = JSON.parse(genreIds);
+          console.log('[updateStory] Parsed genreIds:', genreIds);
         } catch (e: any) {
-          console.error('Failed to parse genreIds:', e);
+          console.error('[updateStory] Failed to parse genreIds:', e);
           genreIds = undefined;
         }
       }
@@ -414,9 +416,11 @@ export class AdminStoriesController {
         });
 
         // Handle genre relations if genreIds is provided in body
+        console.log('[updateStory] Handling genre relations, genreIds:', genreIds);
         if (genreIds !== undefined) {
           // Delete existing genre relations
-          await tx.genreToStory.deleteMany({ where: { storyId: id } });
+          const deleteResult = await tx.genreToStory.deleteMany({ where: { storyId: id } });
+          console.log('[updateStory] Deleted existing genre relations:', deleteResult.count);
 
           // Create new genre relations if genreIds is not empty
           if (Array.isArray(genreIds) && genreIds.length > 0) {
@@ -424,10 +428,16 @@ export class AdminStoriesController {
               storyId: id,
               genreId,
             }));
+            console.log('[updateStory] Creating new genre relations:', genreRelations);
             await tx.genreToStory.createMany({
               data: genreRelations,
             });
+            console.log('[updateStory] Created genre relations successfully');
+          } else {
+            console.log('[updateStory] genreIds is empty or not an array, skipping creation');
           }
+        } else {
+          console.log('[updateStory] genreIds is undefined, not updating genre relations');
         }
 
         // Fetch story with genres for response
