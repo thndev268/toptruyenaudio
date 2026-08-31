@@ -450,7 +450,8 @@ class AdminRepositoryService {
   ];
 
   constructor() {
-    this.loadFromStorage();
+    // Don't load stories from localStorage - always fetch fresh from backend
+    // Only load UI preferences (video settings)
     this.loadPersistedState();
   }
 
