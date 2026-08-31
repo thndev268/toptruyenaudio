@@ -1001,6 +1001,7 @@ class AdminRepositoryService {
 
     const updatePromise = (async () => {
       try {
+        console.log('[updateStory] Starting update for story:', storyId, updated);
         const formData = new FormData();
         if (updated.title) formData.append('title', updated.title);
         if (updated.slug) formData.append('slug', updated.slug);
@@ -1017,19 +1018,23 @@ class AdminRepositoryService {
         if (updated.audioContent !== undefined) formData.append('audioContent', updated.audioContent);
         if (updated.isVideoStory !== undefined) formData.append('isVideoStory', String(updated.isVideoStory));
         if (updated.genreIds !== undefined) {
+          console.log('[updateStory] genreIds being sent:', updated.genreIds);
           formData.append('genreIds', JSON.stringify(updated.genreIds));
         }
 
+        console.log('[updateStory] Sending API request to /admin/stories/${storyId}');
         const response = await apiRequest<{ success: boolean; data: any }>(`/admin/stories/${storyId}`, {
           method: 'PUT',
           body: formData,
         });
+        console.log('[updateStory] API response:', response);
 
         // Update local state immediately
         const storyIndex = this.stories.findIndex((s) => s.id === storyId);
         if (storyIndex !== -1 && response?.data) {
           this.stories[storyIndex] = { ...this.stories[storyIndex], ...response.data };
           localStorage.setItem('toptruyenaudio:admin-stories:v1', JSON.stringify(this.stories));
+          console.log('[updateStory] Local state updated');
         }
 
         return { success: true, message: 'Cập nhật bộ truyện thành công.', story: response?.data };
