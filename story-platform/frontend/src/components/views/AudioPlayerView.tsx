@@ -381,7 +381,7 @@ export const AudioPlayerView: React.FC = () => {
             <div className="relative w-full aspect-video rounded-2xl overflow-hidden border border-slate-800 bg-black shadow-2xl">
               <iframe
                 ref={videoIframeRef}
-                src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&enablejsapi=1&rel=0`}
+                src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&enablejsapi=1&rel=0&origin=${window.location.origin}`}
                 title={currentChapter.title}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen

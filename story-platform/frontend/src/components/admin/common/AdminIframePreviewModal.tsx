@@ -33,7 +33,7 @@ export const AdminIframePreviewModal: React.FC<AdminIframePreviewModalProps> = (
   // Determine final embed src URL or iframe HTML
   let embedUrl = '';
   if (ytId) {
-    embedUrl = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&enablejsapi=1`;
+    embedUrl = `https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&enablejsapi=1&origin=${window.location.origin}`;
   } else if (currentText.includes('<iframe')) {
     const srcMatch = currentText.match(/src=["']([^"']+)["']/i);
     if (srcMatch && srcMatch[1]) {

@@ -555,6 +555,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
             playsinline: 1,
             rel: 0,
             enablejsapi: 1,
+            origin: window.location.origin,
           },
           events: {
             onReady: (event: any) => {
