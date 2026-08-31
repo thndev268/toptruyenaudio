@@ -30,6 +30,7 @@ import { AdminStoryItem, AdminGenreItem } from '../../../types/admin';
 import { AudioChapter } from '../../../types';
 import { FocusTrap } from '../../common/FocusTrap';
 import { adminRepository } from '../../../services/repositories/AdminRepository';
+import { apiRequest } from '../../../services/apiClient';
 import { AdminIframePreviewModal } from '../common/AdminIframePreviewModal';
 
 interface StoryDetailModalProps {
@@ -117,25 +118,19 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     }
   }, [story?.id, isOpen]);
 
+  const [localChapters, setLocalChapters] = useState<AudioChapter[] | null>(null);
+
   // Fetch chapters from backend when modal opens to ensure fresh data
   React.useEffect(() => {
     if (!isOpen || !story) return;
 
     const fetchChapters = async () => {
       try {
-        const response = await fetch(`https://api.toptruyenaudio.site/admin/stories/${story.id}/chapters`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('sb-access-token')}`,
-          },
-        });
-        if (response.ok) {
-          const data = await response.json();
-          const chapters = data?.data || data;
-          if (Array.isArray(chapters)) {
-            console.log('[StoryDetailModal] Fetched chapters:', chapters.length);
-            // Force refresh by triggering a sync event
-            window.dispatchEvent(new Event('toptruyenaudio_admin_sync'));
-          }
+        const data = await apiRequest(`/admin/stories/${story.id}/chapters`);
+        const chapters = data?.data || data;
+        if (Array.isArray(chapters)) {
+          setLocalChapters(chapters);
+          console.log('[StoryDetailModal] Fetched chapters:', chapters.length);
         }
       } catch (error) {
         console.error('[StoryDetailModal] Failed to fetch chapters:', error);
@@ -143,14 +138,19 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     };
     
     fetchChapters();
+    
+    const handleSync = () => fetchChapters();
+    window.addEventListener('toptruyenaudio_admin_sync', handleSync);
+    return () => window.removeEventListener('toptruyenaudio_admin_sync', handleSync);
   }, [story?.id, isOpen]);
 
   if (!isOpen || !story) return null;
 
   // Retrieve chapters dynamically from repository or props
-  const rawChapters: AudioChapter[] = getStoryChapters
+  const repoChapters = getStoryChapters
     ? getStoryChapters(story.id)
     : adminRepository.getStoryChapters(story.id);
+  const rawChapters: AudioChapter[] = localChapters !== null ? localChapters : repoChapters;
 
   // Filtered chapters for search and access filter
   const filteredChapters = rawChapters.filter((chapter) => {
@@ -580,26 +580,39 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
 
               <div className="space-y-1">
                 <label className="text-[11px] font-bold text-slate-300">Thể Loại</label>
-                <select
-                  multiple
-                  value={editStoryGenreIds}
-                  onChange={(e) => {
-                    const options = Array.from(e.target.selectedOptions, (option) => option.value);
-                    setEditStoryGenreIds(options);
-                  }}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-cyan-500 min-h-[80px]"
-                >
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-2.5 min-h-[80px] max-h-[160px] overflow-y-auto">
                   {genres.length > 0 ? (
-                    genres.map((genre) => (
-                      <option key={genre.id} value={genre.id}>
-                        {genre.name}
-                      </option>
-                    ))
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {genres.map((genre) => (
+                        <label
+                          key={genre.id}
+                          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-all text-xs ${
+                            editStoryGenreIds.includes(genre.id)
+                              ? 'bg-cyan-500/20 border border-cyan-500/40 text-cyan-300'
+                              : 'bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-750'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={editStoryGenreIds.includes(genre.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setEditStoryGenreIds([...editStoryGenreIds, genre.id]);
+                              } else {
+                                setEditStoryGenreIds(editStoryGenreIds.filter((id) => id !== genre.id));
+                              }
+                            }}
+                            className="w-3.5 h-3.5 rounded border-slate-600 bg-slate-700 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-slate-900"
+                          />
+                          <span className="truncate">{genre.name}</span>
+                        </label>
+                      ))}
+                    </div>
                   ) : (
-                    <option disabled>Đang tải thể loại...</option>
+                    <div className="text-xs text-slate-500 py-2">Đang tải thể loại...</div>
                   )}
-                </select>
-                <p className="text-[10px] text-slate-500">Giữ Ctrl/Cmd để chọn nhiều thể loại</p>
+                </div>
+                <p className="text-[10px] text-slate-500">Đã chọn: {editStoryGenreIds.length} thể loại</p>
               </div>
 
               <div className="flex flex-col gap-2 pt-2 border-t border-slate-800">
