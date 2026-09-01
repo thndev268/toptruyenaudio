@@ -108,9 +108,12 @@ export class RestBadgeRepository implements BadgeRepository {
       const response = await apiRequest<{ success: boolean; data: UserBadgeAssignment[] }>(`/admin/users/${userId}/badges`);
       return response?.data || [];
     } catch (e) {
-      console.warn('[RestBadgeRepository] Error fetching user badges:', e);
+      console.warn('[RestBadgeRepository] Error fetching user badges, falling back to local:', e);
+      // Fallback to local repository if API fails
+      const { LocalBadgeRepository } = await import('./LocalBadgeRepository');
+      const localRepo = new LocalBadgeRepository();
+      return await localRepo.getUserBadges(userId);
     }
-    return [];
   }
 
   async getPublicUserBadges(userId: string): Promise<UserBadgeAssignment[]> {
