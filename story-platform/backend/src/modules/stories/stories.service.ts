@@ -128,7 +128,7 @@ export class StoriesService {
     });
     if (!chapter) throw new NotFoundException('Chương không tồn tại');
 
-    // Guest user - only allow FREE content
+    // Guest user - only allow FREE content with 15 minute limit
     if (!user) {
       const isFree = chapter.accessLevel === 'FREE';
       if (!isFree) {
@@ -148,6 +148,8 @@ export class StoriesService {
         title: chapter.title,
         number: chapter.number,
         storyTitle: story.title,
+        isGuest: true,
+        guestLimitMinutes: 15,
       };
     }
 
