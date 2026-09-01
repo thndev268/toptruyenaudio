@@ -108,6 +108,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (err) {
       console.error('Backend API profile fetch failed:', err);
+      // If backend fails, still return basic profile from session data
+      // This ensures user is considered authenticated even if backend is down
+      const basicProfile: UserProfile = {
+        id: userId,
+        name: email.split('@')[0],
+        email: email,
+        role: UserRole.USER,
+        isPremium: false,
+        membership: {
+          tier: 'FREE',
+          subscriptionStatus: 'ACTIVE',
+        }
+      };
+      return basicProfile;
     }
     return null;
   };
