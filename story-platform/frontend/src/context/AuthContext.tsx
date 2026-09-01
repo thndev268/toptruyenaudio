@@ -43,6 +43,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Cache keys for localStorage
+const AUTH_CACHE_KEY = 'toptruyen_auth_cache';
+const PROFILE_CACHE_KEY = 'toptruyen_profile_cache';
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [authData, setAuthData] = useState<{ role: UserRole | 'GUEST'; user: UserProfile | null }>({ role: 'GUEST', user: null });
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -52,6 +56,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   // Track last fetched session to prevent duplicate calls
   const lastFetchedSessionRef = useRef<string | null>(null);
+
+  // Save profile to cache
+  const saveProfileToCache = (profile: UserProfile | null) => {
+    if (profile) {
+      localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profile));
+    } else {
+      localStorage.removeItem(PROFILE_CACHE_KEY);
+    }
+  };
+
+  // Load profile from cache
+  const loadProfileFromCache = (): UserProfile | null => {
+    try {
+      const cached = localStorage.getItem(PROFILE_CACHE_KEY);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (e) {
+      console.error('[AuthContext] Failed to load profile from cache:', e);
+    }
+    return null;
+  };
 
   const checkBannedStatus = useCallback((profile: UserProfile | null) => {
     if (!profile) {
@@ -104,11 +130,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             subscriptionStatus: data.membership?.subscriptionStatus || 'ACTIVE',
           }
         };
+        
+        // Save to cache
+        saveProfileToCache(profile);
+        
         return profile;
       }
     } catch (err) {
-      console.error('Backend API profile fetch failed:', err);
-      // If backend fails, still return basic profile from session data
+      console.error('[AuthContext] Backend API profile fetch failed:', err);
+      // Try to load from cache as fallback
+      const cachedProfile = loadProfileFromCache();
+      if (cachedProfile && cachedProfile.id === userId) {
+        console.log('[AuthContext] Using cached profile as fallback');
+        return cachedProfile;
+      }
+      
+      // If backend fails and no cache, return basic profile from session data
       // This ensures user is considered authenticated even if backend is down
       const basicProfile: UserProfile = {
         id: userId,
@@ -132,6 +169,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const initializeAuth = async () => {
       setIsLoading(true);
       try {
+        // First, try to load from cache for immediate UX
+        const cachedProfile = loadProfileFromCache();
+        if (cachedProfile) {
+          console.log('[AuthContext] Loading profile from cache');
+          setAuthData({ role: cachedProfile.role, user: cachedProfile });
+          checkBannedStatus(cachedProfile);
+        }
+
+        // Then fetch fresh session from Supabase
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (session && session.user && isMounted) {
@@ -142,11 +188,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           } else {
             setAuthData({ role: 'GUEST', user: null });
           }
-        } else {
+        } else if (!cachedProfile) {
+          // Only set to GUEST if no cache either
           setAuthData({ role: 'GUEST', user: null });
         }
       } catch (err) {
-        console.error('Failed to initialize auth', err);
+        console.error('[AuthContext] Failed to initialize auth:', err);
+        // If initialization fails but we have cache, keep using cache
+        if (!authData.user) {
+          setAuthData({ role: 'GUEST', user: null });
+        }
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -245,6 +296,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     lastFetchedSessionRef.current = null;
+    // Clear profile cache on logout
+    saveProfileToCache(null);
     await supabase.auth.signOut();
     setAuthData({ role: 'GUEST', user: null });
   };
