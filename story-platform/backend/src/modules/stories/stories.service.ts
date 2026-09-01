@@ -32,6 +32,18 @@ export class StoriesService {
         _count: {
           select: { chapters: true },
         },
+        chapters: {
+          where: { publishStatus: 'PUBLISHED' },
+          orderBy: { number: 'asc' },
+          select: {
+            id: true,
+            number: true,
+            title: true,
+            slug: true,
+            durationSeconds: true,
+            accessLevel: true,
+          },
+        },
       },
       orderBy: { listenCount: 'desc' },
       skip,
