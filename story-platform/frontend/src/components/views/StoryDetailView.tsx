@@ -533,9 +533,25 @@ export const StoryDetailView: React.FC = () => {
 
   const handleAddChapterToPlaylist = (chapter: any) => {
     console.log('[StoryDetailView] handleAddChapterToPlaylist called with chapter:', chapter);
+    
+    // If no chapter provided, create a temporary chapter from story
+    if (!chapter && story) {
+      chapter = {
+        id: story.id,
+        storyId: story.id,
+        number: 1,
+        title: story.title,
+        slug: story.slug,
+        durationSeconds: 0,
+        accessLevel: 'FREE',
+        publishStatus: 'PUBLISHED',
+      };
+      console.log('[StoryDetailView] Created temporary chapter from story:', chapter);
+    }
+    
     if (!chapter) {
-      console.error('[StoryDetailView] Chapter is undefined');
-      showToast('error', 'Lỗi', 'Không tìm thấy tập audio để thêm vào danh sách');
+      console.error('[StoryDetailView] Chapter is undefined and story is also undefined');
+      showToast('error', 'Lỗi', 'Không tìm thấy thông tin truyện');
       return;
     }
     setSelectedChapterForPlaylist(chapter);
