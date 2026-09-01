@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AudioPlayerProvider } from './context/AudioPlayerContext';
 import { AuthProvider } from './context/AuthContext';
@@ -7,6 +7,7 @@ import { NotificationProvider } from './context/NotificationContext';
 import { ToastProvider } from './context/ToastContext';
 import { BadgeToastProvider } from './context/BadgeToastContext';
 import { cleanupLegacyReferralStorage } from './config/features';
+import { storage } from './services/storage';
 
 import { UserRole } from './types';
 
@@ -90,6 +91,26 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { PwaInstallGuideModal } from './components/common/PwaInstallGuideModal';
 import { usePwaInstall } from './context/PwaInstallContext';
 
+// Component to restore audio navigation
+const AudioRestorationHandler = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    // Only restore if we're on the home page and not already on a story page
+    if (location.pathname === '/' || location.pathname === '/explore') {
+      const currentAudio = storage.getCurrentAudio();
+      if (currentAudio && currentAudio.storySlug) {
+        console.log('[AudioRestorationHandler] Restoring navigation to story:', currentAudio.storySlug);
+        // Navigate to the story detail page
+        navigate(`/story/${currentAudio.storySlug}`, { replace: true });
+      }
+    }
+  }, [location.pathname, navigate]);
+
+  return null;
+};
+
 export function App() {
   const pwa = usePwaInstall();
 
@@ -159,6 +180,7 @@ export function App() {
                 <NotificationProvider>
                   <BadgeToastProvider>
                     <AudioPlayerProvider>
+                      <AudioRestorationHandler />
                       <Routes>
               
               {/* Public Website Routes */}

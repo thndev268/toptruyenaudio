@@ -202,6 +202,18 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [isAuthenticated, user?.id]);
 
+  // Restore current audio state on mount
+  useEffect(() => {
+    if (authLoading) return; // Wait for auth to load
+    
+    const currentAudio = storage.getCurrentAudio();
+    if (currentAudio) {
+      console.log('[AudioPlayerContext] Restoring current audio from storage:', currentAudio);
+      // Note: We can't automatically navigate here as we need the story data
+      // The story detail page should check this and navigate accordingly
+    }
+  }, [authLoading]);
+
   // Update refs when state changes
   useEffect(() => {
     userRef.current = user;
@@ -1240,6 +1252,15 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     setCurrentStory(story);
     setCurrentChapter({ ...chapter, audioUrl: finalAudioUrl || chapter.audioUrl });
+
+    // Save current audio state to localStorage for restoration after reload
+    storage.saveCurrentAudio({
+      storyId: story.id,
+      chapterId: chapter.id,
+      storySlug: story.slug,
+      chapterNumber: chapter.number,
+      timestamp: Date.now(),
+    });
 
     // If no audio source available but story has iframe, iframe is the audio source
     if (!ytId && !hasWebAudio) {
