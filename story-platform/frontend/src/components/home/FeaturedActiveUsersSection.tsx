@@ -101,7 +101,7 @@ export const FeaturedActiveUsersSection: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
-        {[].slice(0, 3).map((user) => (
+        {activeUsers.slice(0, 3).map((user) => (
           <div
             key={user.userId}
             onClick={() => setSelectedUser(user)}
