@@ -128,6 +128,29 @@ export class StoriesService {
     });
     if (!chapter) throw new NotFoundException('Chương không tồn tại');
 
+    // Guest user - only allow FREE content
+    if (!user) {
+      const isFree = chapter.accessLevel === 'FREE';
+      if (!isFree) {
+        return {
+          canListen: false,
+          requiresAuth: true,
+          denialReason: 'AUTH_REQUIRED',
+          chapter: {
+            title: chapter.title,
+            number: chapter.number,
+          },
+        };
+      }
+      return {
+        canListen: true,
+        audioUrl: chapter.audioUrl,
+        title: chapter.title,
+        number: chapter.number,
+        storyTitle: story.title,
+      };
+    }
+
     // Kiểm tra account bị suspended (defense-in-depth)
     if (user.status === 'SUSPENDED') {
       return {

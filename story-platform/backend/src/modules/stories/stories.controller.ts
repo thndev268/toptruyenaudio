@@ -5,6 +5,8 @@ import { StoriesService } from './stories.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
+import { SkipThrottle } from '@nestjs/throttler';
 
 @ApiTags('Public Stories & Readers')
 @Controller('stories')
@@ -139,8 +141,8 @@ export class StoriesController {
   }
 
   @Get(':slug/chapters/:chapterSlug/access')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
+  @Public()
+  @SkipThrottle()
   @ApiOperation({ summary: 'Lấy quyền truy cập và URL audio của chương' })
   async getChapterAccess(
     @Param('slug') slug: string,
