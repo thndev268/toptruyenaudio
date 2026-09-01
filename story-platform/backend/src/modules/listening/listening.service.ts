@@ -203,4 +203,68 @@ export class ListeningService {
     const res = await this.prisma.listeningProgress.deleteMany({ where: { profileId: userId, chapterId } });
     return { deletedCount: res.count };
   }
+
+  async getUserRankings(period: string = 'week', limit: number = 10) {
+    if (this.isMemoryProvider) return [];
+
+    const now = new Date();
+    let startDate: Date;
+
+    switch (period) {
+      case 'day':
+        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        break;
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    }
+
+    const rankings = await this.prisma.listeningSession.groupBy({
+      by: ['profileId'],
+      where: {
+        startedAt: { gte: startDate },
+        validListeningSeconds: { gt: 0 },
+      },
+      _sum: {
+        validListeningSeconds: true,
+      },
+      orderBy: {
+        _sum: {
+          validListeningSeconds: 'desc',
+        },
+      },
+      take: limit,
+    });
+
+    const userIds = rankings.map(r => r.profileId);
+    const users = await this.prisma.profile.findMany({
+      where: { id: { in: userIds } },
+      select: {
+        id: true,
+        fullName: true,
+        username: true,
+        avatarUrl: true,
+        level: true,
+      },
+    });
+
+    const userMap = new Map(users.map(u => [u.id, u]));
+
+    return rankings.map(ranking => {
+      const user = userMap.get(ranking.profileId);
+      return {
+        userId: ranking.profileId,
+        displayName: user?.fullName || user?.username || 'Unknown',
+        avatarUrl: user?.avatarUrl || null,
+        level: user?.level || 1,
+        validListeningMinutes: (ranking._sum.validListeningSeconds || 0) / 60,
+        achievements: [],
+      };
+    });
+  }
 }
