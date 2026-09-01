@@ -36,6 +36,7 @@ export type AudioErrorCode =
   | 'AUDIO_NOT_FOUND'
   | 'AUDIO_LOAD_FAILED'
   | 'NETWORK_OFFLINE'
+  | 'INVALID_SLUG'
   | 'PLAYBACK_BLOCKED'
   | 'UNSUPPORTED_FORMAT'
   | 'CHAPTER_LOCKED';
@@ -260,7 +261,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const { isAuthenticated, user } = useAuth();
   const mode = getDataSourceMode();
-  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const heartbeatIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // User state restored from Storage Adapter
   const [favorites, setFavorites] = useState<string[]>([]);
