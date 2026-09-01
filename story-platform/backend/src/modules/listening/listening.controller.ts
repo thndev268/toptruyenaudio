@@ -3,6 +3,8 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ListeningService } from './listening.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
+import { SkipThrottle } from '@nestjs/throttler';
 import { StartSessionDto, HeartbeatDto, UpsertListeningProgressDto } from './dto/listening.dto';
 
 @ApiTags('Listening Analytics & Session')
@@ -80,6 +82,8 @@ export class ListeningController {
   }
 
   @Get('rankings/users')
+  @Public()
+  @SkipThrottle()
   @ApiOperation({ summary: 'Lấy bảng xếp hạng người dùng theo thời gian nghe' })
   async getUserRankings(@Query('period') period: string = 'week', @Query('limit') limit: string = '10') {
     const limitNum = parseInt(limit) || 10;
