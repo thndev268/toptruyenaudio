@@ -18,9 +18,8 @@ export const GenresView: React.FC = () => {
       try {
         setIsLoading(true);
         setError(null);
-        // Genres are already loaded by useGenres hook
-        // This is just to ensure we have fresh data
-        await apiRequest('/admin/genres');
+        // Use public genres endpoint instead of admin endpoint
+        await apiRequest('/stories/genres/all');
       } catch (err: any) {
         console.error('Failed to load genres:', err);
         setError('Không thể tải danh sách thể loại. Vui lòng thử lại sau.');

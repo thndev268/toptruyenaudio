@@ -107,6 +107,8 @@ export const StoryDetailView: React.FC = () => {
 
     isAuthenticated,
 
+    isLoading: authLoading,
+
   } = useAuth();
 
 
@@ -311,7 +313,7 @@ export const StoryDetailView: React.FC = () => {
 
       let score = 0;
 
-      const commonGenres = (s.genres || []).filter((g) => (story.genres || []).includes(g));
+      const commonGenres = (s.genres || []).filter((g: any) => (story.genres || []).includes(g));
 
       score += commonGenres.length * 10;
 
@@ -532,11 +534,30 @@ export const StoryDetailView: React.FC = () => {
   // HANDLERS - MUST BE BEFORE ANY CONDITIONAL RETURNS
 
   const handleAddChapterToPlaylist = (chapter: any) => {
-
+    console.log('[StoryDetailView] handleAddChapterToPlaylist called with chapter:', chapter);
+    
+    // If no chapter provided, create a temporary chapter from story
+    if (!chapter && story) {
+      chapter = {
+        id: story.id,
+        storyId: story.id,
+        number: 1,
+        title: story.title,
+        slug: story.slug,
+        durationSeconds: 0,
+        accessLevel: 'FREE',
+        publishStatus: 'PUBLISHED',
+      };
+      console.log('[StoryDetailView] Created temporary chapter from story:', chapter);
+    }
+    
+    if (!chapter) {
+      console.error('[StoryDetailView] Chapter is undefined and story is also undefined');
+      showToast('error', 'Lỗi', 'Không tìm thấy thông tin truyện');
+      return;
+    }
     setSelectedChapterForPlaylist(chapter);
-
     setIsPlaylistMenuOpen(true);
-
   };
 
 
@@ -593,6 +614,13 @@ export const StoryDetailView: React.FC = () => {
 
   }) => {
 
+    if (authLoading) {
+
+      // Wait for auth to load before checking
+      return;
+
+    }
+
     if (!user || !isAuthenticated) {
 
       navigate('/login');
@@ -638,6 +666,13 @@ export const StoryDetailView: React.FC = () => {
   // Handle Vote Review Helpful
 
   const handleVoteReviewHelpful = async (reviewId: string) => {
+
+    if (authLoading) {
+
+      // Wait for auth to load before checking
+      return;
+
+    }
 
     if (!user || !isAuthenticated) {
 
@@ -690,6 +725,13 @@ export const StoryDetailView: React.FC = () => {
   // Handle Add Comment
 
   const handleAddComment = async (content: string, hasSpoiler: boolean, parentId?: string | null) => {
+
+    if (authLoading) {
+
+      // Wait for auth to load before checking
+      return;
+
+    }
 
     if (!user || !isAuthenticated) {
 
@@ -774,6 +816,13 @@ export const StoryDetailView: React.FC = () => {
   // Handle Vote Comment Helpful
 
   const handleVoteCommentHelpful = async (commentId: string) => {
+
+    if (authLoading) {
+
+      // Wait for auth to load before checking
+      return;
+
+    }
 
     if (!user || !isAuthenticated) {
 
@@ -880,7 +929,7 @@ export const StoryDetailView: React.FC = () => {
 
     if (progress) {
 
-      const chapter = story.chapters.find(c => c.id === progress.chapterId) || story.chapters[0];
+      const chapter = story.chapters.find((c: any) => c.id === progress.chapterId) || story.chapters[0];
 
       if (chapter) {
 
@@ -900,7 +949,7 @@ export const StoryDetailView: React.FC = () => {
 
       if (story.isVideoStory || story.iframeCode || story.iframeUrl) {
 
-        targetChapter = story.chapters.find(c => c.iframeCode || c.videoIframeUrl || c.iframeUrl) || story.chapters[0];
+        targetChapter = story.chapters.find((c: any) => c.iframeCode || c.videoIframeUrl || c.iframeUrl) || story.chapters[0];
 
       }
 
@@ -1188,7 +1237,7 @@ export const StoryDetailView: React.FC = () => {
 
           <div className="space-y-2.5">
 
-            {story.chapters.map((chapter) => {
+            {story.chapters.map((chapter: any) => {
 
               const isPremiumChapter = chapter.accessLevel === 'PREMIUM';
 
@@ -1392,7 +1441,7 @@ export const StoryDetailView: React.FC = () => {
 
                   </button>
 
-                  {(story.genres || []).map((genre) => (
+                  {(story.genres || []).map((genre: any) => (
 
                     <button
 

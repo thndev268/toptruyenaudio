@@ -72,9 +72,11 @@ export class AuthService {
         await this.notificationsService.sendBroadcast({
           title: 'Chào mừng thành viên mới!',
           content: `${user.displayName} vừa gia nhập cộng đồng TOP TRUYỆN AUDIO.`,
+          type: 'NEW_USER',
           targetAudience: 'ALL',
+          createdBy: user.id,
         });
-        this.logger.log(`Created notification for new user registration: ${user.email}`);
+        this.logger.log(`Created NEW_USER notification for new user registration: ${user.email}`);
       } else {
         this.logger.log(`New user notification is disabled, skipping notification creation`);
       }

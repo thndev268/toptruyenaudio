@@ -92,6 +92,7 @@ export class ApiUserProfileRepository implements UserProfileRepository {
       const body: Record<string, any> = {};
       if (input.name !== undefined) body.displayName = input.name.trim();
       if (input.username !== undefined) body.username = input.username.trim();
+      if (input.avatarUrl !== undefined) body.avatarUrl = input.avatarUrl;
       if (input.expectedVersion !== undefined) body.expectedVersion = input.expectedVersion;
 
       const response = await apiRequest<{ data: any } | any>('/users/me', {

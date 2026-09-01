@@ -1,42 +1,69 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+
+export type NotificationType = 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER';
+export type NotificationStatus = 'DRAFT' | 'SCHEDULED' | 'SENDING' | 'SENT' | 'CANCELLED';
+export type TargetAudience = 'ALL' | 'REGULAR' | 'PREMIUM' | 'CREATOR' | 'SPECIFIC_USER';
 
 @Injectable()
 export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getUserNotifications(userId: string) {
-    const notifications = await this.prisma.notification.findMany({
-      where: {
-        OR: [
-          { targetUserId: userId },
-          { targetAudience: 'ALL' },
-          { targetAudience: 'PREMIUM' },
-          { targetAudience: 'CREATOR' },
-          { targetAudience: 'PARTNER' },
-        ],
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    // Get user's role and premium status to filter
     const user = await this.prisma.profile.findUnique({
       where: { id: userId },
       select: { role: true, membershipTier: true },
     });
 
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Get all notifications that match user's audience
+    const notifications = await this.prisma.notification.findMany({
+      where: {
+        status: 'SENT',
+        OR: [
+          { targetUserId: userId },
+          { targetAudience: 'ALL' },
+          { targetAudience: 'REGULAR' },
+          { targetAudience: 'PREMIUM' },
+          { targetAudience: 'CREATOR' },
+        ],
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Filter based on user's role and membership
     const filtered = notifications.filter((notif) => {
       if (notif.targetUserId === userId) return true;
       if (notif.targetAudience === 'ALL') return true;
-      if (notif.targetAudience === 'PREMIUM' && user?.membershipTier === 'PREMIUM') return true;
-      if (notif.targetAudience === 'CREATOR' && (user?.role === 'CREATOR' || user?.role === 'OWNER_ADMIN')) return true;
-      if (notif.targetAudience === 'PARTNER' && (user?.role === 'PARTNER' || user?.role === 'OWNER_ADMIN')) return true;
+      if (notif.targetAudience === 'REGULAR') return true;
+      if (notif.targetAudience === 'PREMIUM' && user.membershipTier === 'PREMIUM') return true;
+      if (notif.targetAudience === 'CREATOR' && (user.role === 'CREATOR' || user.role === 'OWNER_ADMIN')) return true;
       return false;
     });
 
+    // Get user's notification read status
+    const notificationIds = filtered.map(n => n.id);
+    const userNotifications = await this.prisma.userNotification.findMany({
+      where: {
+        userId,
+        notificationId: { in: notificationIds },
+      },
+    });
+
+    const readStatusMap = new Map(userNotifications.map(un => [un.notificationId, un.isRead]));
+
+    // Combine notifications with read status
+    const result = filtered.map(notif => ({
+      ...notif,
+      isRead: readStatusMap.get(notif.id) || false,
+    }));
+
     return {
       success: true,
-      data: filtered,
+      data: result,
     };
   }
 
@@ -49,9 +76,24 @@ export class NotificationsService {
       throw new NotFoundException('Notification not found');
     }
 
-    await this.prisma.notification.update({
-      where: { id: notificationId },
-      data: { isRead: true },
+    // Create or update UserNotification record
+    await this.prisma.userNotification.upsert({
+      where: {
+        notificationId_userId: {
+          notificationId,
+          userId,
+        },
+      },
+      update: {
+        isRead: true,
+        readAt: new Date(),
+      },
+      create: {
+        notificationId,
+        userId,
+        isRead: true,
+        readAt: new Date(),
+      },
     });
 
     return {
@@ -61,13 +103,62 @@ export class NotificationsService {
   }
 
   async markAllAsRead(userId: string) {
-    await this.prisma.notification.updateMany({
-      where: {
-        targetUserId: userId,
-        isRead: false,
-      },
-      data: { isRead: true },
+    // Get all sent notifications for this user
+    const user = await this.prisma.profile.findUnique({
+      where: { id: userId },
+      select: { role: true, membershipTier: true },
     });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const notifications = await this.prisma.notification.findMany({
+      where: {
+        status: 'SENT',
+        OR: [
+          { targetUserId: userId },
+          { targetAudience: 'ALL' },
+          { targetAudience: 'REGULAR' },
+          { targetAudience: 'PREMIUM' },
+          { targetAudience: 'CREATOR' },
+        ],
+      },
+      select: { id: true },
+    });
+
+    const filtered = notifications.filter((notif) => {
+      if (notif.targetUserId === userId) return true;
+      if (notif.targetAudience === 'ALL') return true;
+      if (notif.targetAudience === 'REGULAR') return true;
+      if (notif.targetAudience === 'PREMIUM' && user.membershipTier === 'PREMIUM') return true;
+      if (notif.targetAudience === 'CREATOR' && (user.role === 'CREATOR' || user.role === 'OWNER_ADMIN')) return true;
+      return false;
+    });
+
+    const notificationIds = filtered.map(n => n.id);
+
+    // Create UserNotification records for all unread notifications
+    for (const notificationId of notificationIds) {
+      await this.prisma.userNotification.upsert({
+        where: {
+          notificationId_userId: {
+            notificationId,
+            userId,
+          },
+        },
+        update: {
+          isRead: true,
+          readAt: new Date(),
+        },
+        create: {
+          notificationId,
+          userId,
+          isRead: true,
+          readAt: new Date(),
+        },
+      });
+    }
 
     return {
       success: true,
@@ -76,16 +167,26 @@ export class NotificationsService {
   }
 
   async deleteNotification(userId: string, notificationId: string) {
-    const notification = await this.prisma.notification.findUnique({
-      where: { id: notificationId },
+    const userNotification = await this.prisma.userNotification.findUnique({
+      where: {
+        notificationId_userId: {
+          notificationId,
+          userId,
+        },
+      },
     });
 
-    if (!notification) {
-      throw new NotFoundException('Notification not found');
+    if (!userNotification) {
+      throw new NotFoundException('Notification not found or not assigned to user');
     }
 
-    await this.prisma.notification.delete({
-      where: { id: notificationId },
+    await this.prisma.userNotification.delete({
+      where: {
+        notificationId_userId: {
+          notificationId,
+          userId,
+        },
+      },
     });
 
     return {
@@ -97,8 +198,10 @@ export class NotificationsService {
   async sendBroadcast(body: {
     title: string;
     content: string;
-    targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER';
+    type?: NotificationType;
+    targetAudience?: TargetAudience;
     targetUserId?: string;
+    createdBy?: string;
   }) {
     // Check for duplicate notification (same title, content, audience within last 5 minutes)
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
@@ -106,7 +209,7 @@ export class NotificationsService {
       where: {
         title: body.title,
         content: body.content,
-        targetAudience: body.targetAudience,
+        targetAudience: body.targetAudience || 'ALL',
         targetUserId: body.targetUserId,
         createdAt: {
           gte: fiveMinutesAgo,
@@ -127,9 +230,12 @@ export class NotificationsService {
       data: {
         title: body.title,
         content: body.content,
-        targetAudience: body.targetAudience,
+        type: body.type || 'SYSTEM',
+        targetAudience: body.targetAudience || 'ALL',
         targetUserId: body.targetUserId,
-        isRead: false,
+        status: 'SENT',
+        sentAt: new Date(),
+        createdBy: body.createdBy,
       },
     });
 
@@ -140,28 +246,192 @@ export class NotificationsService {
     };
   }
 
-  async getAllNotifications(query: { page?: number; limit?: number }) {
+  async createDraft(body: {
+    title: string;
+    content: string;
+    type?: NotificationType;
+    targetAudience?: TargetAudience;
+    targetUserId?: string;
+    createdBy?: string;
+  }) {
+    const notification = await this.prisma.notification.create({
+      data: {
+        title: body.title,
+        content: body.content,
+        type: body.type || 'SYSTEM',
+        targetAudience: body.targetAudience || 'ALL',
+        targetUserId: body.targetUserId,
+        status: 'DRAFT',
+        createdBy: body.createdBy,
+      },
+    });
+
+    return {
+      success: true,
+      data: notification,
+      message: 'Đã tạo nháp thông báo',
+    };
+  }
+
+  async scheduleNotification(body: {
+    notificationId: string;
+    scheduledAt: Date;
+    adminId: string;
+  }) {
+    const notification = await this.prisma.notification.findUnique({
+      where: { id: body.notificationId },
+    });
+
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    if (notification.status !== 'DRAFT') {
+      throw new BadRequestException('Only draft notifications can be scheduled');
+    }
+
+    if (body.scheduledAt <= new Date()) {
+      throw new BadRequestException('Scheduled time must be in the future');
+    }
+
+    const updated = await this.prisma.notification.update({
+      where: { id: body.notificationId },
+      data: {
+        status: 'SCHEDULED',
+        scheduledAt: body.scheduledAt,
+      },
+    });
+
+    return {
+      success: true,
+      data: updated,
+      message: 'Đã lên lịch gửi thông báo',
+    };
+  }
+
+  async cancelNotification(notificationId: string, adminId: string) {
+    const notification = await this.prisma.notification.findUnique({
+      where: { id: notificationId },
+    });
+
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    if (notification.status === 'SENT' || notification.status === 'SENDING') {
+      throw new BadRequestException('Cannot cancel sent or sending notifications');
+    }
+
+    const updated = await this.prisma.notification.update({
+      where: { id: notificationId },
+      data: {
+        status: 'CANCELLED',
+      },
+    });
+
+    return {
+      success: true,
+      data: updated,
+      message: 'Đã hủy thông báo',
+    };
+  }
+
+  async updateNotification(notificationId: string, body: {
+    title?: string;
+    content?: string;
+    type?: NotificationType;
+    targetAudience?: TargetAudience;
+    targetUserId?: string;
+    scheduledAt?: Date;
+  }) {
+    const notification = await this.prisma.notification.findUnique({
+      where: { id: notificationId },
+    });
+
+    if (!notification) {
+      throw new NotFoundException('Notification not found');
+    }
+
+    if (notification.status === 'SENT' || notification.status === 'SENDING') {
+      throw new BadRequestException('Cannot update sent or sending notifications');
+    }
+
+    const updated = await this.prisma.notification.update({
+      where: { id: notificationId },
+      data: body,
+    });
+
+    return {
+      success: true,
+      data: updated,
+      message: 'Đã cập nhật thông báo',
+    };
+  }
+
+  async getAllNotifications(query: {
+    page?: number;
+    limit?: number;
+    type?: NotificationType;
+    status?: NotificationStatus;
+    targetAudience?: TargetAudience;
+  }) {
     const page = query.page || 1;
     const limit = Math.min(query.limit || 20, 100);
     const skip = (page - 1) * limit;
 
+    const where: any = {};
+    if (query.type) where.type = query.type;
+    if (query.status) where.status = query.status;
+    if (query.targetAudience) where.targetAudience = query.targetAudience;
+
     const [notifications, total] = await Promise.all([
       this.prisma.notification.findMany({
+        where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
+        include: {
+          _count: {
+            select: { userNotifications: true },
+          },
+        },
       }),
-      this.prisma.notification.count(),
+      this.prisma.notification.count({ where }),
     ]);
 
     return {
       success: true,
-      data: notifications,
+      data: notifications.map(n => ({
+        ...n,
+        recipientCount: n._count.userNotifications,
+        _count: undefined,
+      })),
       meta: {
         page,
         limit,
         total,
         totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getNotificationStats() {
+    const [total, sent, scheduled, draft, cancelled] = await Promise.all([
+      this.prisma.notification.count(),
+      this.prisma.notification.count({ where: { status: 'SENT' } }),
+      this.prisma.notification.count({ where: { status: 'SCHEDULED' } }),
+      this.prisma.notification.count({ where: { status: 'DRAFT' } }),
+      this.prisma.notification.count({ where: { status: 'CANCELLED' } }),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        total,
+        sent,
+        scheduled,
+        draft,
+        cancelled,
       },
     };
   }

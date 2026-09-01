@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Query, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Query, Param, Patch, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -46,17 +46,90 @@ export class NotificationsController {
   async sendBroadcast(@Body() body: {
     title: string;
     content: string;
-    targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER';
+    type?: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER';
+    targetAudience?: 'ALL' | 'REGULAR' | 'PREMIUM' | 'CREATOR' | 'SPECIFIC_USER';
     targetUserId?: string;
   }) {
     return this.notificationsService.sendBroadcast(body);
+  }
+
+  @Post('draft')
+  @UseGuards(RolesGuard)
+  @Roles(AccountRole.OWNER_ADMIN)
+  @ApiOperation({ summary: 'Tạo nháp thông báo' })
+  async createDraft(@Body() body: {
+    title: string;
+    content: string;
+    type?: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER';
+    targetAudience?: 'ALL' | 'REGULAR' | 'PREMIUM' | 'CREATOR' | 'SPECIFIC_USER';
+    targetUserId?: string;
+  }) {
+    return this.notificationsService.createDraft(body);
+  }
+
+  @Post('schedule')
+  @UseGuards(RolesGuard)
+  @Roles(AccountRole.OWNER_ADMIN)
+  @ApiOperation({ summary: 'Lên lịch gửi thông báo' })
+  async scheduleNotification(@Body() body: {
+    notificationId: string;
+    scheduledAt: string;
+  }) {
+    return this.notificationsService.scheduleNotification({
+      notificationId: body.notificationId,
+      scheduledAt: new Date(body.scheduledAt),
+      adminId: 'admin', // Will be replaced with actual admin ID from CurrentUser
+    });
+  }
+
+  @Post('cancel/:id')
+  @UseGuards(RolesGuard)
+  @Roles(AccountRole.OWNER_ADMIN)
+  @ApiOperation({ summary: 'Hủy thông báo đã lên lịch' })
+  async cancelNotification(@Param('id') notificationId: string) {
+    return this.notificationsService.cancelNotification(notificationId, 'admin');
+  }
+
+  @Patch(':id')
+  @UseGuards(RolesGuard)
+  @Roles(AccountRole.OWNER_ADMIN)
+  @ApiOperation({ summary: 'Cập nhật thông báo (chỉ nháp hoặc đã lên lịch)' })
+  async updateNotification(
+    @Param('id') notificationId: string,
+    @Body() body: {
+      title?: string;
+      content?: string;
+      type?: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER';
+      targetAudience?: 'ALL' | 'REGULAR' | 'PREMIUM' | 'CREATOR' | 'SPECIFIC_USER';
+      targetUserId?: string;
+      scheduledAt?: string;
+    }
+  ) {
+    return this.notificationsService.updateNotification(notificationId, {
+      ...body,
+      scheduledAt: body.scheduledAt ? new Date(body.scheduledAt) : undefined,
+    });
   }
 
   @Get('admin/all')
   @UseGuards(RolesGuard)
   @Roles(AccountRole.OWNER_ADMIN)
   @ApiOperation({ summary: 'Lấy tất cả thông báo (Admin)' })
-  async getAllNotifications(@Query() query: { page?: number; limit?: number }) {
+  async getAllNotifications(@Query() query: {
+    page?: number;
+    limit?: number;
+    type?: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER';
+    status?: 'DRAFT' | 'SCHEDULED' | 'SENDING' | 'SENT' | 'CANCELLED';
+    targetAudience?: 'ALL' | 'REGULAR' | 'PREMIUM' | 'CREATOR' | 'SPECIFIC_USER';
+  }) {
     return this.notificationsService.getAllNotifications(query);
+  }
+
+  @Get('admin/stats')
+  @UseGuards(RolesGuard)
+  @Roles(AccountRole.OWNER_ADMIN)
+  @ApiOperation({ summary: 'Lấy thống kê thông báo (Admin)' })
+  async getNotificationStats() {
+    return this.notificationsService.getNotificationStats();
   }
 }

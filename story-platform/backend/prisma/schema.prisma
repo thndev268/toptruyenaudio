@@ -44,6 +44,7 @@ model Profile {
   payments             Payment[]
   paymentHistory        PaymentHistory[]
   comments              Comment[]
+  userNotifications     UserNotification[]
 
   @@map("profiles")
 }
@@ -617,14 +618,37 @@ model PayOSConfig {
 // -----------------------------------------------------------------------------
 
 model Notification {
-  id            String   @id @default(cuid())
-  title         String
-  content       String
-  targetAudience String  @default("ALL") // ALL, PREMIUM, CREATOR, PARTNER, SPECIFIC_USER
-  targetUserId  String?
-  isRead        Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String   @id @default(cuid())
+  title           String
+  content         String
+  type            String   @default("SYSTEM") // NEW_USER, NEW_STORY, NEW_CHAPTER, PROMOTION, SYSTEM, OTHER
+  targetAudience  String   @default("ALL") // ALL, REGULAR, PREMIUM, CREATOR, SPECIFIC_USER
+  targetUserId    String?
+  status          String   @default("DRAFT") // DRAFT, SCHEDULED, SENDING, SENT, CANCELLED
+  scheduledAt     DateTime?
+  sentAt          DateTime?
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  userNotifications UserNotification[]
 
   @@map("notifications")
+}
+
+model UserNotification {
+  id              String   @id @default(cuid())
+  notificationId  String
+  userId          String
+  isRead          Boolean  @default(false)
+  readAt          DateTime?
+  createdAt       DateTime @default(now())
+
+  notification    Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user            Profile     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId])
+  @@index([userId])
+  @@index([notificationId])
+  @@map("user_notifications")
 }

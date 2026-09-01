@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bell, X, Check, Eye, Sparkles, Radio, Info } from 'lucide-react';
+import { Bell, X, Check, Eye, Sparkles, Radio, Info, User, BookOpen, FileText, Gift, Settings } from 'lucide-react';
 import { notificationsRepository, Notification as NotificationType } from '../services/repositories/NotificationsRepository';
 import { useAuth } from './AuthContext';
 import { NotificationDetailModal } from '../components/common/NotificationDetailModal';
@@ -8,6 +8,7 @@ import { BannedUserModal } from '../components/common/BannedUserModal';
 
 export interface Notification extends NotificationType {
   isRead: boolean;
+  type?: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER';
 }
 
 export interface ToastNotification {
@@ -45,6 +46,42 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const knownNotifIdsRef = useRef<Set<string>>(new Set());
   const isFirstLoadRef = useRef<boolean>(true);
+
+  // Helper function to get icon based on notification type
+  const getNotificationIcon = (type?: string) => {
+    switch (type) {
+      case 'NEW_USER':
+        return User;
+      case 'NEW_STORY':
+        return BookOpen;
+      case 'NEW_CHAPTER':
+        return FileText;
+      case 'PROMOTION':
+        return Gift;
+      case 'SYSTEM':
+        return Settings;
+      default:
+        return Radio;
+    }
+  };
+
+  // Helper function to get notification type label
+  const getNotificationTypeLabel = (type?: string) => {
+    switch (type) {
+      case 'NEW_USER':
+        return 'Thành Viên Mới';
+      case 'NEW_STORY':
+        return 'Truyện Mới';
+      case 'NEW_CHAPTER':
+        return 'Tập Mới';
+      case 'PROMOTION':
+        return 'Khuyến Mãi';
+      case 'SYSTEM':
+        return 'Hệ Thống';
+      default:
+        return 'Thông Báo';
+    }
+  };
 
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));

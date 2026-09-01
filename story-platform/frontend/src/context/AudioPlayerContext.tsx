@@ -36,6 +36,7 @@ export type AudioErrorCode =
   | 'AUDIO_NOT_FOUND'
   | 'AUDIO_LOAD_FAILED'
   | 'NETWORK_OFFLINE'
+  | 'INVALID_SLUG'
   | 'PLAYBACK_BLOCKED'
   | 'UNSUPPORTED_FORMAT'
   | 'CHAPTER_LOCKED';
@@ -128,6 +129,8 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const ytReadyRef = useRef<boolean>(false);
   const pendingYtIdRef = useRef<string | null>(null);
   const lastSaveTimeRef = useRef<number>(0);
+  const wakeLockRef = useRef<any>(null);
+  const backgroundVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // Restore saved preferences
   const savedPrefs = storage.getPreferences();
@@ -149,6 +152,102 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [autoPlayNext, setAutoPlayNextState] = useState<boolean>(savedPrefs.autoPlayNext ?? true);
   const [isDataSaverMode, setIsDataSaverModeState] = useState<boolean>(savedPrefs.isDataSaverMode ?? true);
   const [audioQuality, setAudioQualityState] = useState<AudioQuality>(savedPrefs.audioQuality ?? 'AUTO');
+
+  // Navigation state (backward compatibility)
+  const [currentRoute, setCurrentRoute] = useState<ViewRoute>('home');
+  const [selectedStorySlug, setSelectedStorySlug] = useState<string | null>(null);
+  const [isFullPlayerOpen, setIsFullPlayerOpen] = useState<boolean>(false);
+  const [isPlayerDismissed, setIsPlayerDismissed] = useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState<boolean>(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  const { isAuthenticated, user, isLoading: authLoading } = useAuth();
+  const mode = getDataSourceMode();
+  const heartbeatIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // User state restored from Storage Adapter
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [listeningProgressMap, setListeningProgressMap] = useState<Record<string, ListeningProgress>>({});
+  const [listeningHistory, setListeningHistory] = useState<ListeningProgress[]>([]);
+
+  // Refs to avoid stale closures in listeners
+  const userRef = useRef<any>(user);
+  const isAuthenticatedRef = useRef<boolean>(isAuthenticated);
+  const currentStoryRef = useRef<AudioStory | null>(currentStory);
+  const currentChapterRef = useRef<AudioChapter | null>(currentChapter);
+  const currentTimeRef = useRef<number>(currentTime);
+  const durationRef = useRef<number>(duration);
+  const listeningProgressMapRef = useRef<Record<string, ListeningProgress>>(listeningProgressMap);
+  const listeningHistoryRef = useRef<ListeningProgress[]>(listeningHistory);
+  const autoPlayNextRef = useRef<boolean>(autoPlayNext);
+  const playbackRateRef = useRef<number>(playbackRate);
+
+  // Load listening progress from localStorage on mount and when user changes
+  useEffect(() => {
+    if (isAuthenticated && user?.id && isValidProgressId(user.id)) {
+      const progressMap = storage.getProgressMap(user.id);
+      setListeningProgressMap(progressMap);
+      
+      const history = storage.getListeningHistory(user.id);
+      setListeningHistory(history);
+      
+      const userFavorites = storage.getFavorites(user.id);
+      setFavorites(userFavorites);
+    } else {
+      // Clear data when not authenticated
+      setListeningProgressMap({});
+      setListeningHistory([]);
+      setFavorites([]);
+    }
+  }, [isAuthenticated, user?.id]);
+
+  // Restore current audio state on mount
+  useEffect(() => {
+    if (authLoading) return; // Wait for auth to load
+    
+    const currentAudio = storage.getCurrentAudio();
+    if (currentAudio) {
+      console.log('[AudioPlayerContext] Restoring current audio from storage:', currentAudio);
+      // Don't auto-play, just log for debugging
+      // The AudioPlayerView will handle loading from URL
+    }
+  }, [authLoading]);
+
+  // Update refs when state changes
+  useEffect(() => {
+    userRef.current = user;
+    isAuthenticatedRef.current = isAuthenticated;
+  }, [user, isAuthenticated]);
+
+  useEffect(() => {
+    currentStoryRef.current = currentStory;
+    currentChapterRef.current = currentChapter;
+  }, [currentStory, currentChapter]);
+
+  useEffect(() => {
+    currentTimeRef.current = currentTime;
+  }, [currentTime]);
+
+  useEffect(() => {
+    durationRef.current = duration;
+  }, [duration]);
+
+  useEffect(() => {
+    listeningProgressMapRef.current = listeningProgressMap;
+  }, [listeningProgressMap]);
+
+  useEffect(() => {
+    listeningHistoryRef.current = listeningHistory;
+  }, [listeningHistory]);
+
+  useEffect(() => {
+    autoPlayNextRef.current = autoPlayNext;
+  }, [autoPlayNext]);
+
+  useEffect(() => {
+    playbackRateRef.current = playbackRate;
+  }, [playbackRate]);
 
   // Helper to synchronize website audio muted & volume of the audio element before playing
   const syncAudioStateBeforePlay = (): number => {
@@ -209,6 +308,11 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const pauseAudio = () => {
     saveProgressImmediately();
+    // Release wake lock when pausing
+    if (wakeLockRef.current) {
+      wakeLockRef.current.release();
+      wakeLockRef.current = null;
+    }
     if (activeEngineRef.current === 'youtube') {
       if (ytPlayerRef.current && ytReadyRef.current) {
         try {
@@ -222,7 +326,15 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
 
-  const resumeAudio = () => {
+  const resumeAudio = async () => {
+    // Request wake lock when playing
+    if ('wakeLock' in navigator) {
+      try {
+        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+      } catch (e) {
+        console.log('[AudioPlayerContext] Wake Lock request failed:', e);
+      }
+    }
     if (activeEngineRef.current === 'youtube') {
       if (ytPlayerRef.current && ytReadyRef.current) {
         try {
@@ -248,70 +360,6 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   // Sleep timer state
   const [sleepTimer, setSleepTimer] = useState<SleepTimerOption>(0);
   const [sleepTimerRemaining, setSleepTimerRemaining] = useState<number>(0);
-
-  // Navigation state (backward compatibility)
-  const [currentRoute, setCurrentRoute] = useState<ViewRoute>('home');
-  const [selectedStorySlug, setSelectedStorySlug] = useState<string | null>(null);
-  const [isFullPlayerOpen, setIsFullPlayerOpen] = useState<boolean>(false);
-  const [isPlayerDismissed, setIsPlayerDismissed] = useState<boolean>(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
-  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState<boolean>(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-
-  const { isAuthenticated, user } = useAuth();
-  const mode = getDataSourceMode();
-  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // User state restored from Storage Adapter
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const [listeningProgressMap, setListeningProgressMap] = useState<Record<string, ListeningProgress>>({});
-  const [listeningHistory, setListeningHistory] = useState<ListeningProgress[]>([]);
-
-  // Refs to avoid stale closures in listeners
-  const userRef = useRef<any>(user);
-  const isAuthenticatedRef = useRef<boolean>(isAuthenticated);
-  const currentStoryRef = useRef<AudioStory | null>(currentStory);
-  const currentChapterRef = useRef<AudioChapter | null>(currentChapter);
-  const currentTimeRef = useRef<number>(currentTime);
-  const durationRef = useRef<number>(duration);
-  const listeningProgressMapRef = useRef<Record<string, ListeningProgress>>(listeningProgressMap);
-  const listeningHistoryRef = useRef<ListeningProgress[]>(listeningHistory);
-  const autoPlayNextRef = useRef<boolean>(autoPlayNext);
-  const playbackRateRef = useRef<number>(playbackRate);
-
-  useEffect(() => {
-    userRef.current = user;
-    isAuthenticatedRef.current = isAuthenticated;
-  }, [user, isAuthenticated]);
-
-  useEffect(() => {
-    currentStoryRef.current = currentStory;
-    currentChapterRef.current = currentChapter;
-  }, [currentStory, currentChapter]);
-
-  useEffect(() => {
-    currentTimeRef.current = currentTime;
-  }, [currentTime]);
-
-  useEffect(() => {
-    durationRef.current = duration;
-  }, [duration]);
-
-  useEffect(() => {
-    listeningProgressMapRef.current = listeningProgressMap;
-  }, [listeningProgressMap]);
-
-  useEffect(() => {
-    listeningHistoryRef.current = listeningHistory;
-  }, [listeningHistory]);
-
-  useEffect(() => {
-    autoPlayNextRef.current = autoPlayNext;
-  }, [autoPlayNext]);
-
-  useEffect(() => {
-    playbackRateRef.current = playbackRate;
-  }, [playbackRate]);
 
   // Synchronous immediate save to localStorage (reads directly from latest refs)
   const saveProgressImmediately = useCallback(() => {
@@ -801,6 +849,49 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     audio.playbackRate = playbackRate;
     audioRef.current = audio;
 
+    // Create background video element for iOS background audio workaround
+    const backgroundVideo = document.createElement('video');
+    backgroundVideo.src = '/branding/video_loop.mp4';
+    backgroundVideo.muted = true;
+    backgroundVideo.loop = true;
+    backgroundVideo.playsInline = true;
+    backgroundVideo.style.position = 'fixed';
+    backgroundVideo.style.top = '50%';
+    backgroundVideo.style.left = '50%';
+    backgroundVideo.style.transform = 'translate(-50%, -50%)';
+    backgroundVideo.style.width = '200px';
+    backgroundVideo.style.height = '112px';
+    backgroundVideo.style.objectFit = 'cover';
+    backgroundVideo.style.zIndex = '9999';
+    backgroundVideo.style.opacity = '0.3';
+    backgroundVideo.style.pointerEvents = 'none';
+    backgroundVideo.style.borderRadius = '12px';
+    backgroundVideo.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
+    backgroundVideo.preload = 'auto';
+    document.body.appendChild(backgroundVideo);
+    backgroundVideoRef.current = backgroundVideo;
+
+    // Handle visibility change - show video when hidden, hide when visible
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        // Hide video when app comes to foreground
+        try {
+          if (backgroundVideoRef.current) {
+            backgroundVideoRef.current.style.opacity = '0';
+            backgroundVideoRef.current.pause();
+          }
+          // Resume audio if it was playing
+          if (isPlaying && audioRef.current && audioRef.current.paused) {
+            await audioRef.current.play();
+          }
+        } catch (e) {
+          console.log('[AudioPlayerContext] Failed to handle visibility change:', e);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     const onTimeUpdate = () => {
       if (activeEngineRef.current !== 'audio') return;
       setCurrentTime(audio.currentTime);
@@ -870,12 +961,24 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     audio.addEventListener('play', onPlay);
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('ended', onEnded);
       audio.removeEventListener('error', onError);
       audio.removeEventListener('pause', onPause);
       audio.removeEventListener('play', onPlay);
       audio.pause();
+      // Release wake lock on cleanup
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      }
+      // Cleanup background video
+      if (backgroundVideoRef.current) {
+        backgroundVideoRef.current.pause();
+        backgroundVideoRef.current.remove();
+        backgroundVideoRef.current = null;
+      }
     };
   }, [saveProgressImmediately]);
 
@@ -901,6 +1004,23 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [saveProgressImmediately]);
+
+  // Sync video visibility with audio playback state
+  useEffect(() => {
+    if (backgroundVideoRef.current) {
+      if (isPlaying && activeEngineRef.current === 'audio') {
+        // Show video when audio is playing
+        backgroundVideoRef.current.style.opacity = '0.3';
+        backgroundVideoRef.current.play().catch(e => {
+          console.log('[AudioPlayerContext] Failed to play background video:', e);
+        });
+      } else {
+        // Hide video when audio is paused or not using audio engine
+        backgroundVideoRef.current.style.opacity = '0';
+        backgroundVideoRef.current.pause();
+      }
+    }
+  }, [isPlaying]);
 
   // Sync volume & rate across both audio engines
   useEffect(() => {
@@ -1032,6 +1152,11 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setAudioError(null);
     setIsPlayerDismissed(false);
 
+    if (authLoading) {
+      // Wait for auth to load before checking
+      return false;
+    }
+
     if (!isAuthenticated) {
       setIsAuthModalOpen(true);
       return false;
@@ -1127,6 +1252,15 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     setCurrentStory(story);
     setCurrentChapter({ ...chapter, audioUrl: finalAudioUrl || chapter.audioUrl });
+
+    // Save current audio state to localStorage for restoration after reload
+    storage.saveCurrentAudio({
+      storyId: story.id,
+      chapterId: chapter.id,
+      storySlug: story.slug,
+      chapterNumber: chapter.number,
+      timestamp: Date.now(),
+    });
 
     // If no audio source available but story has iframe, iframe is the audio source
     if (!ytId && !hasWebAudio) {
@@ -1294,6 +1428,11 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const togglePlayPause = async () => {
     if (!currentChapter || !currentStory) return;
     setAudioError(null);
+
+    if (authLoading) {
+      // Wait for auth to load before checking
+      return;
+    }
 
     if (!isAuthenticated) {
       setIsAuthModalOpen(true);
@@ -1534,6 +1673,10 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const isFavorite = (storyId: string) => favorites.includes(storyId);
 
   const toggleFavorite = (storyId: string) => {
+    if (authLoading) {
+      // Wait for auth to load before checking
+      return;
+    }
     if (!isAuthenticated) {
       setIsAuthModalOpen(true);
       return;

@@ -44,7 +44,8 @@ export const Navbar: React.FC = () => {
 
   const [isMobileNotifOpen, setIsMobileNotifOpen] = useState(false);
 
-  useBodyScrollLock(mobileMenuOpen);
+  // Remove duplicate scroll lock - useBodyScrollLock hook is sufficient
+  // useBodyScrollLock(mobileMenuOpen);
 
   const navigate = useNavigate();
 
@@ -53,18 +54,6 @@ export const Navbar: React.FC = () => {
     openNotificationModal(notif);
     setIsMobileNotifOpen(false);
   };
-
-  // Lock body scroll on mobile drawer open
-  useEffect(() => {
-    if (mobileMenuOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [mobileMenuOpen]);
 
   const navItems = [
     { path: '/', label: 'Trang Chủ', icon: Headphones },
@@ -359,8 +348,9 @@ export const Navbar: React.FC = () => {
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
               className="relative ml-auto w-[85vw] max-w-sm bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 h-full p-6 overflow-y-auto mobile-optimized-scroll space-y-6 shadow-2xl flex flex-col justify-between z-[101] gpu-accelerated"
+              style={{ willChange: 'transform' }}
             >
             <div className="space-y-6">
               <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">

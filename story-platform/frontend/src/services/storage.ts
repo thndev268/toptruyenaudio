@@ -29,6 +29,7 @@ export const STORAGE_KEYS = {
   VALID_LISTENING: 'toptruyenaudio:valid-listening:v1',
   USER_ACTIVITY: 'toptruyenaudio:user-activity:v1',
   RANKING_PREFS: 'toptruyenaudio:ranking-preferences:v1',
+  CURRENT_AUDIO: 'toptruyenaudio:current-audio:v1',
 };
 
 // Legacy keys mapping for migration
@@ -58,6 +59,14 @@ export interface UserPreferencesStorage {
   lastStoryId?: string;
   lastChapterId?: string;
   lastTime?: number;
+}
+
+export interface CurrentAudioStorage {
+  storyId: string;
+  chapterId: string;
+  storySlug: string;
+  chapterNumber: number;
+  timestamp: number;
 }
 
 export interface MockAuthStorage {
@@ -209,6 +218,26 @@ class StorageAdapter {
     if (!isValidProgressId(userId)) return;
     const key = `${STORAGE_KEYS.LISTENING_HISTORY}:${userId}`;
     this.setItem(key, history);
+  }
+
+  // Current Audio State
+  getCurrentAudio(): CurrentAudioStorage | null {
+    try {
+      const item = localStorage.getItem(STORAGE_KEYS.CURRENT_AUDIO);
+      if (!item) return null;
+      return JSON.parse(item) as CurrentAudioStorage;
+    } catch (e) {
+      console.warn('[StorageAdapter] Failed to parse current audio', e);
+      return null;
+    }
+  }
+
+  saveCurrentAudio(audio: CurrentAudioStorage): void {
+    this.setItem(STORAGE_KEYS.CURRENT_AUDIO, audio);
+  }
+
+  clearCurrentAudio(): void {
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_AUDIO);
   }
 
   // Reset

@@ -16,7 +16,7 @@ interface AddToPlaylistMenuProps {
 }
 
 export const AddToPlaylistMenu: React.FC<AddToPlaylistMenuProps> = ({ storyId, chapterId, onClose, onSuccess }) => {
-  const { user } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const [playlists, setPlaylists] = useState<UserPlaylist[]>([]);
@@ -26,6 +26,17 @@ export const AddToPlaylistMenu: React.FC<AddToPlaylistMenuProps> = ({ storyId, c
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (authLoading) {
+      // Wait for auth to load before checking
+      return;
+    }
+
+    if (!isAuthenticated) {
+      showToast('error', 'Lỗi', 'Vui lòng đăng nhập để sử dụng tính năng danh sách phát');
+      onClose();
+      navigate('/login');
+      return;
+    }
     loadPlaylists();
     setLimits(localPlaylistRepository.getPlaylistLimits(isPremium));
     
@@ -36,7 +47,7 @@ export const AddToPlaylistMenu: React.FC<AddToPlaylistMenuProps> = ({ storyId, c
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [user, isPremium]);
+  }, [user, isPremium, isAuthenticated, authLoading]);
 
   const loadPlaylists = async () => {
     if (!user) return;
