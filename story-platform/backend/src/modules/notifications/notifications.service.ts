@@ -124,7 +124,6 @@ export class NotificationsService {
           { targetAudience: 'CREATOR' },
         ],
       },
-      select: { id: true },
     });
 
     const filtered = notifications.filter((notif) => {
