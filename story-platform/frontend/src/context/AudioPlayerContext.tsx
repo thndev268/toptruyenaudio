@@ -130,6 +130,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const pendingYtIdRef = useRef<string | null>(null);
   const lastSaveTimeRef = useRef<number>(0);
   const wakeLockRef = useRef<any>(null);
+  const backgroundVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // Restore saved preferences
   const savedPrefs = storage.getPreferences();
@@ -836,15 +837,50 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     audio.playbackRate = playbackRate;
     audioRef.current = audio;
 
-    // Handle visibility change - resume audio when app comes back to foreground
+    // Create background video element for iOS background audio workaround
+    const backgroundVideo = document.createElement('video');
+    backgroundVideo.src = '/branding/video_loop.mp4';
+    backgroundVideo.muted = true;
+    backgroundVideo.loop = true;
+    backgroundVideo.playsInline = true;
+    backgroundVideo.style.position = 'fixed';
+    backgroundVideo.style.top = '0';
+    backgroundVideo.style.left = '0';
+    backgroundVideo.style.width = '100%';
+    backgroundVideo.style.height = '100%';
+    backgroundVideo.style.objectFit = 'cover';
+    backgroundVideo.style.zIndex = '-1';
+    backgroundVideo.style.opacity = '0';
+    backgroundVideo.style.pointerEvents = 'none';
+    backgroundVideo.preload = 'auto';
+    document.body.appendChild(backgroundVideo);
+    backgroundVideoRef.current = backgroundVideo;
+
+    // Handle visibility change - show video when hidden, hide when visible
     const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible' && isPlaying && activeEngineRef.current === 'audio') {
+      if (document.visibilityState === 'hidden' && isPlaying && activeEngineRef.current === 'audio') {
+        // Show video when app goes to background to keep audio playing
         try {
-          if (audioRef.current && audioRef.current.paused) {
+          if (backgroundVideoRef.current) {
+            backgroundVideoRef.current.style.opacity = '1';
+            await backgroundVideoRef.current.play();
+          }
+        } catch (e) {
+          console.log('[AudioPlayerContext] Failed to play background video:', e);
+        }
+      } else if (document.visibilityState === 'visible') {
+        // Hide video when app comes to foreground
+        try {
+          if (backgroundVideoRef.current) {
+            backgroundVideoRef.current.style.opacity = '0';
+            backgroundVideoRef.current.pause();
+          }
+          // Resume audio if it was playing
+          if (isPlaying && audioRef.current && audioRef.current.paused) {
             await audioRef.current.play();
           }
         } catch (e) {
-          console.log('[AudioPlayerContext] Failed to resume audio on visibility change:', e);
+          console.log('[AudioPlayerContext] Failed to handle visibility change:', e);
         }
       }
     };
@@ -931,6 +967,12 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       if (wakeLockRef.current) {
         wakeLockRef.current.release();
         wakeLockRef.current = null;
+      }
+      // Cleanup background video
+      if (backgroundVideoRef.current) {
+        backgroundVideoRef.current.pause();
+        backgroundVideoRef.current.remove();
+        backgroundVideoRef.current = null;
       }
     };
   }, [saveProgressImmediately]);
