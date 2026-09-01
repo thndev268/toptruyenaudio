@@ -17,7 +17,15 @@ export class StoriesController {
   @Get()
   @ApiOperation({ summary: 'Lấy danh sách các bộ truyện công khai' })
   async getPublicStories(@Query() query: any) {
-    return this.storiesService.findAllPublic(query);
+    try {
+      console.log('[StoriesController] Fetching public stories with query:', query);
+      const result = await this.storiesService.findAllPublic(query);
+      console.log('[StoriesController] Returning stories count:', Array.isArray(result) ? result.length : 'not array');
+      return result;
+    } catch (error) {
+      console.error('[StoriesController] Error fetching public stories:', error);
+      throw error;
+    }
   }
 
   @Get('genres/all')

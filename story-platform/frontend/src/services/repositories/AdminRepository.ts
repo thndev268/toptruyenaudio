@@ -179,6 +179,8 @@ class AdminRepositoryService {
         try {
           const storiesResponse = await apiRequest<{ success: boolean; data: any[] } | any[]>('/stories');
           
+          console.log('[fetchFromBackendApi] Stories response:', storiesResponse);
+          
           // Handle both response formats: { success, data } and direct array
           let storiesData: any[] = [];
           if (Array.isArray(storiesResponse)) {
@@ -186,8 +188,11 @@ class AdminRepositoryService {
           } else if (storiesResponse?.data && Array.isArray(storiesResponse.data)) {
             storiesData = storiesResponse.data;
           }
+          
+          // Always update stories array, even if empty
+          const storiesArray = Array.isArray(this.stories) ? this.stories : [];
+          
           if (storiesData.length > 0) {
-            const storiesArray = Array.isArray(this.stories) ? this.stories : [];
             storiesData.forEach((as: any) => {
               // Ensure genreIds is set from genres array if missing
               if (as.genres && Array.isArray(as.genres) && as.genres.length > 0 && (!as.genreIds || as.genreIds.length === 0)) {
@@ -210,10 +215,11 @@ class AdminRepositoryService {
                 this.fetchStoryChapters(as.id);
               }
             });
-            this.stories = storiesArray;
-            console.log('[fetchFromBackendApi] Fetched stories count:', this.stories.length);
-            console.log('[fetchFromBackendApi] Sample story data:', this.stories[0] ? { id: this.stories[0].id, title: this.stories[0].title, slug: this.stories[0].slug, genreIds: this.stories[0].genreIds, genres: this.stories[0].genres } : 'No stories');
           }
+          
+          this.stories = storiesArray;
+          console.log('[fetchFromBackendApi] Fetched stories count:', this.stories.length);
+          console.log('[fetchFromBackendApi] Sample story data:', this.stories[0] ? { id: this.stories[0].id, title: this.stories[0].title, slug: this.stories[0].slug, genreIds: this.stories[0].genreIds, genres: this.stories[0].genres } : 'No stories');
         } catch (err) {
           console.warn('[fetchFromBackendApi] Failed to fetch stories:', err);
         }
