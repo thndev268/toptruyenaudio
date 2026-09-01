@@ -582,13 +582,13 @@ export const StoryDetailView: React.FC = () => {
 
         <button
 
-          onClick={() => navigate('/explore')}
+          onClick={() => navigate('/')}
 
           className="px-6 py-3 bg-cyan-500 text-slate-950 font-bold rounded-xl transition-all hover:bg-cyan-400"
 
         >
 
-          Khám phá truyện khác
+          Về Trang Chủ
 
         </button>
 
