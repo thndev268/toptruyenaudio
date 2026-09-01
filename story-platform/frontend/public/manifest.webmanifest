@@ -41,5 +41,6 @@
   "display_override": ["standalone", "minimal-ui", "window-controls-overlay"],
   "background_sync": {
     "name": "audio-background-sync"
-  }
+  },
+  "prefer_related_applications": false
 }
