@@ -192,7 +192,10 @@ class AdminRepositoryService {
               // Ensure genreIds is set from genres array if missing
               if (as.genres && Array.isArray(as.genres) && as.genres.length > 0 && (!as.genreIds || as.genreIds.length === 0)) {
                 as.genreIds = as.genres.map((g: any) => g.id);
+                console.log('[fetchFromBackendApi] Set genreIds from genres for story:', as.id, 'genreIds:', as.genreIds);
               }
+              
+              console.log('[fetchFromBackendApi] Processing story:', as.id, 'genres:', as.genres, 'genreIds:', as.genreIds);
               
               const existingIdx = storiesArray.findIndex((s) => s.id === as.id);
               if (existingIdx !== -1) {
@@ -219,6 +222,7 @@ class AdminRepositoryService {
           const genresResponse = await apiRequest<{ success: boolean; data: any[] }>('/stories/genres/all');
           if (genresResponse?.data && Array.isArray(genresResponse.data)) {
             this.genres = genresResponse.data;
+            console.log('[fetchFromBackendApi] Fetched genres:', this.genres.length);
             
             // Map genre IDs to genre objects in stories (only if genres is missing)
             const storiesArray = Array.isArray(this.stories) ? this.stories : [];
@@ -226,6 +230,7 @@ class AdminRepositoryService {
               // Only map from genreIds if genres array is empty
               if ((!story.genres || story.genres.length === 0) && story.genreIds && Array.isArray(story.genreIds)) {
                 story.genres = this.genres.filter((g) => story.genreIds && story.genreIds.includes(g.id));
+                console.log('[fetchFromBackendApi] Mapped genres for story:', story.id, 'genres:', story.genres);
               }
               // Ensure genreIds is set from genres if missing
               if (story.genres && Array.isArray(story.genres) && story.genres.length > 0 && (!story.genreIds || story.genreIds.length === 0)) {
@@ -245,6 +250,7 @@ class AdminRepositoryService {
               };
             });
             this.genres = genresWithCount;
+            console.log('[fetchFromBackendApi] Genres with story counts:', this.genres);
             window.dispatchEvent(new Event('toptruyenaudio_admin_sync'));
           }
         } catch (err) {
