@@ -851,7 +851,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     backgroundVideo.style.height = '112px';
     backgroundVideo.style.objectFit = 'cover';
     backgroundVideo.style.zIndex = '9999';
-    backgroundVideo.style.opacity = '0';
+    backgroundVideo.style.opacity = '0.3';
     backgroundVideo.style.pointerEvents = 'none';
     backgroundVideo.style.borderRadius = '12px';
     backgroundVideo.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
@@ -861,17 +861,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     // Handle visibility change - show video when hidden, hide when visible
     const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'hidden' && isPlaying && activeEngineRef.current === 'audio') {
-        // Show video when app goes to background to keep audio playing
-        try {
-          if (backgroundVideoRef.current) {
-            backgroundVideoRef.current.style.opacity = '1';
-            await backgroundVideoRef.current.play();
-          }
-        } catch (e) {
-          console.log('[AudioPlayerContext] Failed to play background video:', e);
-        }
-      } else if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible') {
         // Hide video when app comes to foreground
         try {
           if (backgroundVideoRef.current) {
@@ -1002,6 +992,23 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [saveProgressImmediately]);
+
+  // Sync video visibility with audio playback state
+  useEffect(() => {
+    if (backgroundVideoRef.current) {
+      if (isPlaying && activeEngineRef.current === 'audio') {
+        // Show video when audio is playing
+        backgroundVideoRef.current.style.opacity = '0.3';
+        backgroundVideoRef.current.play().catch(e => {
+          console.log('[AudioPlayerContext] Failed to play background video:', e);
+        });
+      } else {
+        // Hide video when audio is paused or not using audio engine
+        backgroundVideoRef.current.style.opacity = '0';
+        backgroundVideoRef.current.pause();
+      }
+    }
+  }, [isPlaying]);
 
   // Sync volume & rate across both audio engines
   useEffect(() => {
