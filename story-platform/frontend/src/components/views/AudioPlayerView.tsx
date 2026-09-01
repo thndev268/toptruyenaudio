@@ -35,6 +35,9 @@ export const AudioPlayerView: React.FC = () => {
   const { storySlug, chapterId } = useParams<{ storySlug: string; chapterId: string }>();
   const navigate = useNavigate();
 
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const {
     currentStory,
     currentChapter,
@@ -80,22 +83,54 @@ export const AudioPlayerView: React.FC = () => {
   );
 
   useEffect(() => {
-    if (storySlug) {
-      const publicStories = adminRepository.getPublicStories();
-      const storiesArray = Array.isArray(publicStories) ? publicStories : [];
-      const foundStory = storiesArray.find((s) => s.slug === storySlug || s.id === storySlug) ;
-      if (foundStory) {
+    const loadStoryAndChapter = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      if (!storySlug || !chapterId) {
+        setError('Thiếu thông tin storySlug hoặc chapterId trong URL');
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const publicStories = adminRepository.getPublicStories();
+        const storiesArray = Array.isArray(publicStories) ? publicStories : [];
+        const foundStory = storiesArray.find((s) => s.slug === storySlug || s.id === storySlug);
+
+        if (!foundStory) {
+          setError('Không tìm thấy truyện audio');
+          setIsLoading(false);
+          return;
+        }
+
         const chapters = Array.isArray(foundStory.chapters) ? foundStory.chapters : [];
         let foundChapter = chapters.find((c) => c.id === chapterId || c.number.toString() === chapterId);
+
         if (!foundChapter && chapters.length > 0) {
           foundChapter = chapters[0];
         }
 
-        if (foundChapter && (currentStory?.id !== foundStory.id || currentChapter?.id !== foundChapter.id)) {
-          playChapter(foundStory, foundChapter);
+        if (!foundChapter) {
+          setError('Không tìm thấy tập truyện audio');
+          setIsLoading(false);
+          return;
         }
+
+        // Only play chapter if it's different from current
+        if (currentStory?.id !== foundStory.id || currentChapter?.id !== foundChapter.id) {
+          await playChapter(foundStory, foundChapter);
+        }
+
+        setIsLoading(false);
+      } catch (err) {
+        console.error('[AudioPlayerView] Error loading story/chapter:', err);
+        setError('Có lỗi xảy ra khi tải dữ liệu');
+        setIsLoading(false);
       }
-    }
+    };
+
+    loadStoryAndChapter();
   }, [storySlug, chapterId]);
 
   useEffect(() => {
@@ -190,9 +225,33 @@ export const AudioPlayerView: React.FC = () => {
     }
   }, [canShowVideo, isDataSaverMode, ytId]);
 
+  if (isLoading) {
+    return (
+      <div className="text-center py-16 space-y-4">
+        <RefreshCw className="w-12 h-12 text-cyan-400 animate-spin mx-auto" />
+        <h2 className="text-xl font-bold text-white">Đang tải tập truyện audio...</h2>
+        <p className="text-xs text-slate-400">Vui lòng đợi trong giây lát.</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-16 space-y-4">
+        <AlertTriangle className="w-12 h-12 text-rose-400 mx-auto" />
+        <h2 className="text-xl font-bold text-white">{error}</h2>
+        <p className="text-xs text-slate-400">Vui lòng kiểm tra lại đường dẫn hoặc quay về trang chủ.</p>
+        <Link to="/" className="inline-block px-5 py-2.5 bg-cyan-500 text-slate-950 font-bold text-xs rounded-xl">
+          Trở Về Trang Chủ
+        </Link>
+      </div>
+    );
+  }
+
   if (!currentStory || !currentChapter) {
     return (
       <div className="text-center py-16 space-y-4">
+        <AlertTriangle className="w-12 h-12 text-rose-400 mx-auto" />
         <h2 className="text-xl font-bold text-white">Không tìm thấy tập truyện audio</h2>
         <p className="text-xs text-slate-400">Vui lòng kiểm tra lại đường dẫn hoặc quay về trang chủ.</p>
         <Link to="/" className="inline-block px-5 py-2.5 bg-cyan-500 text-slate-950 font-bold text-xs rounded-xl">

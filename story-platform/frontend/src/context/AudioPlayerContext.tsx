@@ -209,8 +209,8 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const currentAudio = storage.getCurrentAudio();
     if (currentAudio) {
       console.log('[AudioPlayerContext] Restoring current audio from storage:', currentAudio);
-      // Note: We can't automatically navigate here as we need the story data
-      // The story detail page should check this and navigate accordingly
+      // Don't auto-play, just log for debugging
+      // The AudioPlayerView will handle loading from URL
     }
   }, [authLoading]);
 
