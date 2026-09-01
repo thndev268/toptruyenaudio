@@ -151,6 +151,90 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [isDataSaverMode, setIsDataSaverModeState] = useState<boolean>(savedPrefs.isDataSaverMode ?? true);
   const [audioQuality, setAudioQualityState] = useState<AudioQuality>(savedPrefs.audioQuality ?? 'AUTO');
 
+  // Navigation state (backward compatibility)
+  const [currentRoute, setCurrentRoute] = useState<ViewRoute>('home');
+  const [selectedStorySlug, setSelectedStorySlug] = useState<string | null>(null);
+  const [isFullPlayerOpen, setIsFullPlayerOpen] = useState<boolean>(false);
+  const [isPlayerDismissed, setIsPlayerDismissed] = useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState<boolean>(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  const { isAuthenticated, user } = useAuth();
+  const mode = getDataSourceMode();
+  const heartbeatIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // User state restored from Storage Adapter
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [listeningProgressMap, setListeningProgressMap] = useState<Record<string, ListeningProgress>>({});
+  const [listeningHistory, setListeningHistory] = useState<ListeningProgress[]>([]);
+
+  // Refs to avoid stale closures in listeners
+  const userRef = useRef<any>(user);
+  const isAuthenticatedRef = useRef<boolean>(isAuthenticated);
+  const currentStoryRef = useRef<AudioStory | null>(currentStory);
+  const currentChapterRef = useRef<AudioChapter | null>(currentChapter);
+  const currentTimeRef = useRef<number>(currentTime);
+  const durationRef = useRef<number>(duration);
+  const listeningProgressMapRef = useRef<Record<string, ListeningProgress>>(listeningProgressMap);
+  const listeningHistoryRef = useRef<ListeningProgress[]>(listeningHistory);
+  const autoPlayNextRef = useRef<boolean>(autoPlayNext);
+  const playbackRateRef = useRef<number>(playbackRate);
+
+  // Load listening progress from localStorage on mount and when user changes
+  useEffect(() => {
+    if (isAuthenticated && user?.id && isValidProgressId(user.id)) {
+      const progressMap = storage.getProgressMap(user.id);
+      setListeningProgressMap(progressMap);
+      
+      const history = storage.getListeningHistory(user.id);
+      setListeningHistory(history);
+      
+      const userFavorites = storage.getFavorites(user.id);
+      setFavorites(userFavorites);
+    } else {
+      // Clear data when not authenticated
+      setListeningProgressMap({});
+      setListeningHistory([]);
+      setFavorites([]);
+    }
+  }, [isAuthenticated, user?.id]);
+
+  // Update refs when state changes
+  useEffect(() => {
+    userRef.current = user;
+    isAuthenticatedRef.current = isAuthenticated;
+  }, [user, isAuthenticated]);
+
+  useEffect(() => {
+    currentStoryRef.current = currentStory;
+    currentChapterRef.current = currentChapter;
+  }, [currentStory, currentChapter]);
+
+  useEffect(() => {
+    currentTimeRef.current = currentTime;
+  }, [currentTime]);
+
+  useEffect(() => {
+    durationRef.current = duration;
+  }, [duration]);
+
+  useEffect(() => {
+    listeningProgressMapRef.current = listeningProgressMap;
+  }, [listeningProgressMap]);
+
+  useEffect(() => {
+    listeningHistoryRef.current = listeningHistory;
+  }, [listeningHistory]);
+
+  useEffect(() => {
+    autoPlayNextRef.current = autoPlayNext;
+  }, [autoPlayNext]);
+
+  useEffect(() => {
+    playbackRateRef.current = playbackRate;
+  }, [playbackRate]);
+
   // Helper to synchronize website audio muted & volume of the audio element before playing
   const syncAudioStateBeforePlay = (): number => {
     let targetVol = volume;
@@ -249,70 +333,6 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   // Sleep timer state
   const [sleepTimer, setSleepTimer] = useState<SleepTimerOption>(0);
   const [sleepTimerRemaining, setSleepTimerRemaining] = useState<number>(0);
-
-  // Navigation state (backward compatibility)
-  const [currentRoute, setCurrentRoute] = useState<ViewRoute>('home');
-  const [selectedStorySlug, setSelectedStorySlug] = useState<string | null>(null);
-  const [isFullPlayerOpen, setIsFullPlayerOpen] = useState<boolean>(false);
-  const [isPlayerDismissed, setIsPlayerDismissed] = useState<boolean>(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
-  const [isPremiumModalOpen, setIsPremiumModalOpen] = useState<boolean>(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-
-  const { isAuthenticated, user } = useAuth();
-  const mode = getDataSourceMode();
-  const heartbeatIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // User state restored from Storage Adapter
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const [listeningProgressMap, setListeningProgressMap] = useState<Record<string, ListeningProgress>>({});
-  const [listeningHistory, setListeningHistory] = useState<ListeningProgress[]>([]);
-
-  // Refs to avoid stale closures in listeners
-  const userRef = useRef<any>(user);
-  const isAuthenticatedRef = useRef<boolean>(isAuthenticated);
-  const currentStoryRef = useRef<AudioStory | null>(currentStory);
-  const currentChapterRef = useRef<AudioChapter | null>(currentChapter);
-  const currentTimeRef = useRef<number>(currentTime);
-  const durationRef = useRef<number>(duration);
-  const listeningProgressMapRef = useRef<Record<string, ListeningProgress>>(listeningProgressMap);
-  const listeningHistoryRef = useRef<ListeningProgress[]>(listeningHistory);
-  const autoPlayNextRef = useRef<boolean>(autoPlayNext);
-  const playbackRateRef = useRef<number>(playbackRate);
-
-  useEffect(() => {
-    userRef.current = user;
-    isAuthenticatedRef.current = isAuthenticated;
-  }, [user, isAuthenticated]);
-
-  useEffect(() => {
-    currentStoryRef.current = currentStory;
-    currentChapterRef.current = currentChapter;
-  }, [currentStory, currentChapter]);
-
-  useEffect(() => {
-    currentTimeRef.current = currentTime;
-  }, [currentTime]);
-
-  useEffect(() => {
-    durationRef.current = duration;
-  }, [duration]);
-
-  useEffect(() => {
-    listeningProgressMapRef.current = listeningProgressMap;
-  }, [listeningProgressMap]);
-
-  useEffect(() => {
-    listeningHistoryRef.current = listeningHistory;
-  }, [listeningHistory]);
-
-  useEffect(() => {
-    autoPlayNextRef.current = autoPlayNext;
-  }, [autoPlayNext]);
-
-  useEffect(() => {
-    playbackRateRef.current = playbackRate;
-  }, [playbackRate]);
 
   // Synchronous immediate save to localStorage (reads directly from latest refs)
   const saveProgressImmediately = useCallback(() => {
