@@ -129,6 +129,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const ytReadyRef = useRef<boolean>(false);
   const pendingYtIdRef = useRef<string | null>(null);
   const lastSaveTimeRef = useRef<number>(0);
+  const wakeLockRef = useRef<any>(null);
 
   // Restore saved preferences
   const savedPrefs = storage.getPreferences();
@@ -294,6 +295,11 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
   const pauseAudio = () => {
     saveProgressImmediately();
+    // Release wake lock when pausing
+    if (wakeLockRef.current) {
+      wakeLockRef.current.release();
+      wakeLockRef.current = null;
+    }
     if (activeEngineRef.current === 'youtube') {
       if (ytPlayerRef.current && ytReadyRef.current) {
         try {
@@ -307,7 +313,15 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
 
-  const resumeAudio = () => {
+  const resumeAudio = async () => {
+    // Request wake lock when playing
+    if ('wakeLock' in navigator) {
+      try {
+        wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+      } catch (e) {
+        console.log('[AudioPlayerContext] Wake Lock request failed:', e);
+      }
+    }
     if (activeEngineRef.current === 'youtube') {
       if (ytPlayerRef.current && ytReadyRef.current) {
         try {
@@ -822,6 +836,21 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     audio.playbackRate = playbackRate;
     audioRef.current = audio;
 
+    // Handle visibility change - resume audio when app comes back to foreground
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible' && isPlaying && activeEngineRef.current === 'audio') {
+        try {
+          if (audioRef.current && audioRef.current.paused) {
+            await audioRef.current.play();
+          }
+        } catch (e) {
+          console.log('[AudioPlayerContext] Failed to resume audio on visibility change:', e);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     const onTimeUpdate = () => {
       if (activeEngineRef.current !== 'audio') return;
       setCurrentTime(audio.currentTime);
@@ -891,12 +920,18 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     audio.addEventListener('play', onPlay);
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('ended', onEnded);
       audio.removeEventListener('error', onError);
       audio.removeEventListener('pause', onPause);
       audio.removeEventListener('play', onPlay);
       audio.pause();
+      // Release wake lock on cleanup
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release();
+        wakeLockRef.current = null;
+      }
     };
   }, [saveProgressImmediately]);
 
