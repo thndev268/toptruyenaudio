@@ -1067,10 +1067,27 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
           return false;
         }
 
-        const accessData = await apiRequest<{ audioUrl: string; canListen: boolean }>(
+        const accessData = await apiRequest<{ audioUrl: string; canListen: boolean; isGuest?: boolean; guestLimitMinutes?: number }>(
           `/stories/${story.slug}/chapters/${chapter.slug}/access`
         );
         finalAudioUrl = accessData.audioUrl;
+        
+        // Handle guest limit
+        if (accessData.isGuest && accessData.guestLimitMinutes) {
+          const guestLimitMs = accessData.guestLimitMinutes * 60 * 1000;
+          const guestListenKey = 'guest_listen_start';
+          const listenStart = localStorage.getItem(guestListenKey);
+          
+          if (!listenStart) {
+            localStorage.setItem(guestListenKey, Date.now().toString());
+          } else {
+            const elapsed = Date.now() - parseInt(listenStart);
+            if (elapsed >= guestLimitMs) {
+              setIsAuthModalOpen(true);
+              return false;
+            }
+          }
+        }
       } catch (err: any) {
         if (err.status === 401) {
           setIsAuthModalOpen(true);

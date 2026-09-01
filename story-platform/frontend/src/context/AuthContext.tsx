@@ -192,6 +192,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw error;
     }
 
+    // Clear guest listening timer on login
+    localStorage.removeItem('guest_listen_start');
+
     // Profile will be loaded by onAuthStateChange
   };
 
@@ -235,6 +238,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (data?.user && data?.session === null) {
       throw new Error('Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.');
     }
+    
+    // Clear guest listening timer on register
+    localStorage.removeItem('guest_listen_start');
   };
 
   const logout = async () => {
