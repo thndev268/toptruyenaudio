@@ -311,7 +311,7 @@ export const StoryDetailView: React.FC = () => {
 
       let score = 0;
 
-      const commonGenres = (s.genres || []).filter((g) => (story.genres || []).includes(g));
+      const commonGenres = (s.genres || []).filter((g: any) => (story.genres || []).includes(g));
 
       score += commonGenres.length * 10;
 
@@ -883,7 +883,7 @@ export const StoryDetailView: React.FC = () => {
 
     if (progress) {
 
-      const chapter = story.chapters.find(c => c.id === progress.chapterId) || story.chapters[0];
+      const chapter = story.chapters.find((c: any) => c.id === progress.chapterId) || story.chapters[0];
 
       if (chapter) {
 
@@ -903,7 +903,7 @@ export const StoryDetailView: React.FC = () => {
 
       if (story.isVideoStory || story.iframeCode || story.iframeUrl) {
 
-        targetChapter = story.chapters.find(c => c.iframeCode || c.videoIframeUrl || c.iframeUrl) || story.chapters[0];
+        targetChapter = story.chapters.find((c: any) => c.iframeCode || c.videoIframeUrl || c.iframeUrl) || story.chapters[0];
 
       }
 
@@ -1191,7 +1191,7 @@ export const StoryDetailView: React.FC = () => {
 
           <div className="space-y-2.5">
 
-            {story.chapters.map((chapter) => {
+            {story.chapters.map((chapter: any) => {
 
               const isPremiumChapter = chapter.accessLevel === 'PREMIUM';
 
@@ -1395,7 +1395,7 @@ export const StoryDetailView: React.FC = () => {
 
                   </button>
 
-                  {(story.genres || []).map((genre) => (
+                  {(story.genres || []).map((genre: any) => (
 
                     <button
 
