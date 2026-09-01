@@ -100,6 +100,29 @@ export class NotificationsService {
     targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER';
     targetUserId?: string;
   }) {
+    // Check for duplicate notification (same title, content, audience within last 5 minutes)
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const duplicate = await this.prisma.notification.findFirst({
+      where: {
+        title: body.title,
+        content: body.content,
+        targetAudience: body.targetAudience,
+        targetUserId: body.targetUserId,
+        createdAt: {
+          gte: fiveMinutesAgo,
+        },
+      },
+    });
+
+    if (duplicate) {
+      console.log('[NotificationsService] Skipping duplicate notification creation');
+      return {
+        success: true,
+        data: duplicate,
+        message: 'Thông báo đã tồn tại (trùng lặp)',
+      };
+    }
+
     const notification = await this.prisma.notification.create({
       data: {
         title: body.title,

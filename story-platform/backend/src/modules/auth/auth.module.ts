@@ -6,6 +6,8 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { SupabaseStrategy } from './supabase.strategy';
 import { PrismaModule } from '../../prisma/prisma.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { FeatureFlagsModule } from '../feature-flags/feature-flags.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { PrismaModule } from '../../prisma/prisma.module';
       inject: [ConfigService],
     }),
     PrismaModule,
+    NotificationsModule,
+    FeatureFlagsModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, SupabaseStrategy],

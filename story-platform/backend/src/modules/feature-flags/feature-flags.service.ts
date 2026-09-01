@@ -72,6 +72,14 @@ export class FeatureFlagsService {
         isEnabled: false,
         isLocked: true, // Permanent Lock in Phase 1
       },
+      {
+        key: 'newUserNotificationEnabled',
+        name: 'Thông Báo Thành Viên Mới',
+        descriptionVi: 'Tự động tạo thông báo khi có thành viên mới đăng ký',
+        category: 'NOTIFICATION',
+        isEnabled: true,
+        isLocked: false,
+      },
     ];
 
     for (const flag of defaults) {

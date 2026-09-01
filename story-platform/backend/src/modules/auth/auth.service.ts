@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -12,14 +13,20 @@ import { AccountRole, AccountStatus, MembershipTier, SubscriptionStatus } from '
 import { RegisterDto, LoginDto, ChangePasswordDto, UpdateProfileDto } from './dto/auth.dto';
 import { PasswordHasherService } from '../../common/services/password-hasher.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly passwordHasher: PasswordHasherService,
     private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+    private readonly featureFlagsService: FeatureFlagsService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -55,6 +62,27 @@ export class AuthService {
         status: SubscriptionStatus.NONE,
       }
     });
+
+    // Create notification for new user registration (if enabled)
+    try {
+      const flags = await this.featureFlagsService.getAllFlags();
+      const notificationEnabled = flags.find(f => f.key === 'newUserNotificationEnabled')?.isEnabled ?? true;
+      
+      if (notificationEnabled) {
+        await this.notificationsService.sendBroadcast({
+          title: 'Chào mừng thành viên mới!',
+          content: `${user.displayName} vừa gia nhập cộng đồng TOP TRUYỆN AUDIO.`,
+          targetAudience: 'ALL',
+        });
+        this.logger.log(`Created notification for new user registration: ${user.email}`);
+      } else {
+        this.logger.log(`New user notification is disabled, skipping notification creation`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.warn(`Failed to create notification for new user: ${errorMessage}`);
+      // Don't fail registration if notification creation fails
+    }
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
 
