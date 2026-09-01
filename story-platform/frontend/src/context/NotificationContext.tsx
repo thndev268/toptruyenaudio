@@ -105,9 +105,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     window.addEventListener('toptruyenaudio_admin_sync', handleSync);
     window.addEventListener('storage', handleSync);
 
+    // Set up polling for new notifications every 30 seconds
+    const pollingInterval = setInterval(() => {
+      syncNotifications();
+    }, 30000);
+
     return () => {
       window.removeEventListener('toptruyenaudio_admin_sync', handleSync);
       window.removeEventListener('storage', handleSync);
+      clearInterval(pollingInterval);
     };
   }, [user, role]);
 
