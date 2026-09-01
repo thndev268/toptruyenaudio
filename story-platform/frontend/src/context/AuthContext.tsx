@@ -3,6 +3,7 @@ import { UserRole, UserTitle } from '../types';
 import { supabase } from '../lib/supabase';
 import { adminRepository } from '../services/repositories/AdminRepository';
 import { apiRequest } from '../services/apiClient';
+import { LoadingScreen } from '../components/loading/LoadingScreen';
 
 export { UserRole };
 
@@ -50,6 +51,7 @@ const PROFILE_CACHE_KEY = 'toptruyen_profile_cache';
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [authData, setAuthData] = useState<{ role: UserRole | 'GUEST'; user: UserProfile | null }>({ role: 'GUEST', user: null });
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [showLoadingScreen, setShowLoadingScreen] = useState<boolean>(false);
   const [devModeRoleOverride, setDevModeRoleOverride] = useState<boolean>(false);
   const [isBanned, setIsBanned] = useState<boolean>(false);
   const [banReason, setBanReason] = useState<string>('');
@@ -214,10 +216,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (profile) {
             setAuthData({ role: profile.role, user: profile });
             checkBannedStatus(profile);
+            
+            // Hide loading screen after profile is loaded
+            if (showLoadingScreen) {
+              setTimeout(() => setShowLoadingScreen(false), 500);
+            }
           }
         }
       } else if (event === 'SIGNED_OUT') {
         setAuthData({ role: 'GUEST', user: null });
+        setShowLoadingScreen(false);
       }
     });
 
@@ -242,6 +250,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       throw error;
     }
+
+    // Show loading screen on successful login
+    setShowLoadingScreen(true);
 
     // Clear guest listening timer on login
     localStorage.removeItem('guest_listen_start');
@@ -356,6 +367,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setDevModeRoleOverride,
       }}
     >
+      {showLoadingScreen && <LoadingScreen />}
       {children}
     </AuthContext.Provider>
   );
