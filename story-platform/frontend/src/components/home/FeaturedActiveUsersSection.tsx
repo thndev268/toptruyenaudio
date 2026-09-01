@@ -13,17 +13,10 @@ export const FeaturedActiveUsersSection: React.FC = () => {
     const fetchActiveUsers = async () => {
       try {
         setIsLoading(true);
-        const response = await apiRequest<{ success: boolean; data: UserActivityRanking[] }>('/admin/active-users?limit=10&timeRange=7d');
+        const response = await apiRequest<UserActivityRanking[]>('/listening/rankings/users?period=week&limit=10');
         console.log('[FeaturedActiveUsersSection] Active users response:', response);
         
-        // Handle both direct array and wrapped response
-        let users: UserActivityRanking[] = [];
-        if (Array.isArray(response)) {
-          users = response;
-        } else if (response?.success && Array.isArray(response.data)) {
-          users = response.data;
-        }
-        
+        const users = Array.isArray(response) ? response : [];
         console.log('[FeaturedActiveUsersSection] Setting active users:', users);
         setActiveUsers(users);
       } catch (error) {

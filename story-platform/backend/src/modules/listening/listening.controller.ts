@@ -1,4 +1,4 @@
-import { Controller, Post, Patch, Get, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Post, Patch, Get, Put, Delete, Body, Param, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ListeningService } from './listening.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -77,5 +77,12 @@ export class ListeningController {
   @ApiOperation({ summary: 'Xóa toàn bộ tiến độ' })
   async deleteAllListeningProgress(@CurrentUser() user: any) {
     return this.listeningService.clearListeningProgress(user.id);
+  }
+
+  @Get('rankings/users')
+  @ApiOperation({ summary: 'Lấy bảng xếp hạng người dùng theo thời gian nghe' })
+  async getUserRankings(@Query('period') period: string = 'week', @Query('limit') limit: string = '10') {
+    const limitNum = parseInt(limit) || 10;
+    return this.listeningService.getUserRankings(period, limitNum);
   }
 }
