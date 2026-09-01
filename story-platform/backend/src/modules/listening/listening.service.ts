@@ -246,10 +246,9 @@ export class ListeningService {
       where: { id: { in: userIds } },
       select: {
         id: true,
-        fullName: true,
+        displayName: true,
         username: true,
         avatarUrl: true,
-        level: true,
       },
     });
 
@@ -259,9 +258,9 @@ export class ListeningService {
       const user = userMap.get(ranking.profileId);
       return {
         userId: ranking.profileId,
-        displayName: user?.fullName || user?.username || 'Unknown',
+        displayName: user?.displayName || user?.username || 'Unknown',
         avatarUrl: user?.avatarUrl || null,
-        level: user?.level || 1,
+        level: 1,
         validListeningMinutes: (ranking._sum.validListeningSeconds || 0) / 60,
         achievements: [],
       };
