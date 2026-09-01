@@ -107,6 +107,8 @@ export const StoryDetailView: React.FC = () => {
 
     isAuthenticated,
 
+    isLoading: authLoading,
+
   } = useAuth();
 
 
@@ -612,6 +614,13 @@ export const StoryDetailView: React.FC = () => {
 
   }) => {
 
+    if (authLoading) {
+
+      // Wait for auth to load before checking
+      return;
+
+    }
+
     if (!user || !isAuthenticated) {
 
       navigate('/login');
@@ -657,6 +666,13 @@ export const StoryDetailView: React.FC = () => {
   // Handle Vote Review Helpful
 
   const handleVoteReviewHelpful = async (reviewId: string) => {
+
+    if (authLoading) {
+
+      // Wait for auth to load before checking
+      return;
+
+    }
 
     if (!user || !isAuthenticated) {
 
@@ -709,6 +725,13 @@ export const StoryDetailView: React.FC = () => {
   // Handle Add Comment
 
   const handleAddComment = async (content: string, hasSpoiler: boolean, parentId?: string | null) => {
+
+    if (authLoading) {
+
+      // Wait for auth to load before checking
+      return;
+
+    }
 
     if (!user || !isAuthenticated) {
 
@@ -793,6 +816,13 @@ export const StoryDetailView: React.FC = () => {
   // Handle Vote Comment Helpful
 
   const handleVoteCommentHelpful = async (commentId: string) => {
+
+    if (authLoading) {
+
+      // Wait for auth to load before checking
+      return;
+
+    }
 
     if (!user || !isAuthenticated) {
 

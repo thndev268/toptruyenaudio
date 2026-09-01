@@ -162,7 +162,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [isPremiumModalOpen, setIsPremiumModalOpen] = useState<boolean>(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
 
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, isLoading: authLoading } = useAuth();
   const mode = getDataSourceMode();
   const heartbeatIntervalRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -1140,6 +1140,11 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     setAudioError(null);
     setIsPlayerDismissed(false);
 
+    if (authLoading) {
+      // Wait for auth to load before checking
+      return false;
+    }
+
     if (!isAuthenticated) {
       setIsAuthModalOpen(true);
       return false;
@@ -1403,6 +1408,11 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     if (!currentChapter || !currentStory) return;
     setAudioError(null);
 
+    if (authLoading) {
+      // Wait for auth to load before checking
+      return;
+    }
+
     if (!isAuthenticated) {
       setIsAuthModalOpen(true);
       return;
@@ -1642,6 +1652,10 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const isFavorite = (storyId: string) => favorites.includes(storyId);
 
   const toggleFavorite = (storyId: string) => {
+    if (authLoading) {
+      // Wait for auth to load before checking
+      return;
+    }
     if (!isAuthenticated) {
       setIsAuthModalOpen(true);
       return;
