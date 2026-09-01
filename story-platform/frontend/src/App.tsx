@@ -281,14 +281,7 @@ export function App() {
                     </ProtectedRoute>
                   }
                 />
-                <Route
-                  path="/premium"
-                  element={
-                    <ProtectedRoute>
-                      <PremiumView />
-                    </ProtectedRoute>
-                  }
-                />
+                <Route path="/premium" element={<PremiumView />} />
                 <Route
                   path="/library/playlists"
                   element={
