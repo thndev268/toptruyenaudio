@@ -13,14 +13,14 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    let startTime: number;
+    let startTime: number | null = null;
     let animationFrame: number;
 
     const animate = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
+      if (startTime === null) startTime = timestamp;
       const elapsed = timestamp - startTime;
       const percentage = Math.min((elapsed / duration) * 100, 100);
-      
+
       setProgress(percentage);
 
       if (percentage < 100) {
