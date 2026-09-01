@@ -5,6 +5,14 @@ export type NotificationType = 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMO
 export type NotificationStatus = 'DRAFT' | 'SCHEDULED' | 'SENDING' | 'SENT' | 'CANCELLED';
 export type TargetAudience = 'ALL' | 'REGULAR' | 'PREMIUM' | 'CREATOR' | 'SPECIFIC_USER';
 
+export type NotificationType = 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER';
+export type NotificationStatus = 'DRAFT' | 'SCHEDULED' | 'SENDING' | 'SENT' | 'CANCELLED';
+export type TargetAudience = 'ALL' | 'REGULAR' | 'PREMIUM' | 'CREATOR' | 'SPECIFIC_USER';
+
+export type NotificationType = 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER';
+export type NotificationStatus = 'DRAFT' | 'SCHEDULED' | 'SENDING' | 'SENT' | 'CANCELLED';
+export type TargetAudience = 'ALL' | 'REGULAR' | 'PREMIUM' | 'CREATOR' | 'SPECIFIC_USER';
+
 @Injectable()
 export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -20,12 +28,36 @@ export class NotificationsService {
     }
 
     // Get all notifications that match user's audience
+    const user = await this.prisma.profile.findUnique({
+      where: { id: userId },
+      select: { role: true, membershipTier: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Get all notifications that match user's audience
+    const user = await this.prisma.profile.findUnique({
+      where: { id: userId },
+      select: { role: true, membershipTier: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Get all notifications that match user's audience
     const notifications = await this.prisma.notification.findMany({
       where: {
+        status: 'SENT',
+        status: 'SENT',
         status: 'SENT',
         OR: [
           { targetUserId: userId },
           { targetAudience: 'ALL' },
+          { targetAudience: 'REGULAR' },
+          { targetAudience: 'REGULAR' },
           { targetAudience: 'REGULAR' },
           { targetAudience: 'PREMIUM' },
           { targetAudience: 'CREATOR' },
@@ -43,6 +75,40 @@ export class NotificationsService {
       if (notif.targetAudience === 'CREATOR' && (user.role === 'CREATOR' || user.role === 'OWNER_ADMIN')) return true;
       return false;
     });
+
+    // Get user's notification read status
+    const notificationIds = filtered.map(n => n.id);
+    const userNotifications = await this.prisma.userNotification.findMany({
+      where: {
+        userId,
+        notificationId: { in: notificationIds },
+      },
+    });
+
+    const readStatusMap = new Map(userNotifications.map(un => [un.notificationId, un.isRead]));
+
+    // Combine notifications with read status
+    const result = filtered.map(notif => ({
+      ...notif,
+      isRead: readStatusMap.get(notif.id) || false,
+    }));
+
+    // Get user's notification read status
+    const notificationIds = filtered.map(n => n.id);
+    const userNotifications = await this.prisma.userNotification.findMany({
+      where: {
+        userId,
+        notificationId: { in: notificationIds },
+      },
+    });
+
+    const readStatusMap = new Map(userNotifications.map(un => [un.notificationId, un.isRead]));
+
+    // Combine notifications with read status
+    const result = filtered.map(notif => ({
+      ...notif,
+      isRead: readStatusMap.get(notif.id) || false,
+    }));
 
     // Get user's notification read status
     const notificationIds = filtered.map(n => n.id);
@@ -124,7 +190,6 @@ export class NotificationsService {
           { targetAudience: 'CREATOR' },
         ],
       },
-      select: { id: true },
     });
 
     const filtered = notifications.filter((notif) => {
@@ -202,6 +267,8 @@ export class NotificationsService {
     targetAudience?: TargetAudience;
     targetUserId?: string;
     createdBy?: string;
+    createdBy?: string;
+    createdBy?: string;
   }) {
     // Check for duplicate notification (same title, content, audience within last 5 minutes)
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
@@ -209,7 +276,11 @@ export class NotificationsService {
       where: {
         title: body.title,
         content: body.content,
+<<<<<<< HEAD
         targetAudience: body.targetAudience || 'ALL',
+=======
+        targetAudience: body.targetAudience || 'ALL',
+>>>>>>> origin/main
         targetUserId: body.targetUserId,
         createdAt: {
           gte: fiveMinutesAgo,
@@ -384,12 +455,29 @@ export class NotificationsService {
     if (query.status) where.status = query.status;
     if (query.targetAudience) where.targetAudience = query.targetAudience;
 
+    const where: any = {};
+    if (query.type) where.type = query.type;
+    if (query.status) where.status = query.status;
+    if (query.targetAudience) where.targetAudience = query.targetAudience;
+
+    const where: any = {};
+    if (query.type) where.type = query.type;
+    if (query.status) where.status = query.status;
+    if (query.targetAudience) where.targetAudience = query.targetAudience;
+
     const [notifications, total] = await Promise.all([
       this.prisma.notification.findMany({
+        where,
+        where,
         where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
+        include: {
+          _count: {
+            select: { userNotifications: true },
+          },
+        },
         include: {
           _count: {
             select: { userNotifications: true },
@@ -411,6 +499,48 @@ export class NotificationsService {
         limit,
         total,
         totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getNotificationStats() {
+    const [total, sent, scheduled, draft, cancelled] = await Promise.all([
+      this.prisma.notification.count(),
+      this.prisma.notification.count({ where: { status: 'SENT' } }),
+      this.prisma.notification.count({ where: { status: 'SCHEDULED' } }),
+      this.prisma.notification.count({ where: { status: 'DRAFT' } }),
+      this.prisma.notification.count({ where: { status: 'CANCELLED' } }),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        total,
+        sent,
+        scheduled,
+        draft,
+        cancelled,
+      },
+    };
+  }
+
+  async getNotificationStats() {
+    const [total, sent, scheduled, draft, cancelled] = await Promise.all([
+      this.prisma.notification.count(),
+      this.prisma.notification.count({ where: { status: 'SENT' } }),
+      this.prisma.notification.count({ where: { status: 'SCHEDULED' } }),
+      this.prisma.notification.count({ where: { status: 'DRAFT' } }),
+      this.prisma.notification.count({ where: { status: 'CANCELLED' } }),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        total,
+        sent,
+        scheduled,
+        draft,
+        cancelled,
       },
     };
   }
