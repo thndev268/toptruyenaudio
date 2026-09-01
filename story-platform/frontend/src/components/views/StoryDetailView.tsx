@@ -532,11 +532,14 @@ export const StoryDetailView: React.FC = () => {
   // HANDLERS - MUST BE BEFORE ANY CONDITIONAL RETURNS
 
   const handleAddChapterToPlaylist = (chapter: any) => {
-
+    console.log('[StoryDetailView] handleAddChapterToPlaylist called with chapter:', chapter);
+    if (!chapter) {
+      console.error('[StoryDetailView] Chapter is undefined');
+      showToast('error', 'Lỗi', 'Không tìm thấy tập audio để thêm vào danh sách');
+      return;
+    }
     setSelectedChapterForPlaylist(chapter);
-
     setIsPlaylistMenuOpen(true);
-
   };
 
 
