@@ -29,6 +29,9 @@ export class StoriesService {
         genres: {
           include: { genre: true },
         },
+        _count: {
+          select: { chapters: true },
+        },
       },
       orderBy: { listenCount: 'desc' },
       skip,
@@ -36,9 +39,11 @@ export class StoriesService {
     });
 
     // Transform genres from GenreToStory[] to Genre[] for consistent API response
+    // Add totalChapters count
     return stories.map(story => ({
       ...story,
       genres: story.genres ? story.genres.map(g => g.genre) : [],
+      totalChapters: story._count.chapters || 0,
     }));
   }
 
@@ -117,7 +122,10 @@ export class StoriesService {
     const story = await this.prisma.story.findFirst({
       where: { slug: storySlug, publishStatus: 'PUBLISHED' },
     });
-    if (!story) throw new NotFoundException('Truyện không tồn tại hoặc chưa xuất bản');
+    if (!story) {
+      this.logger.warn(`Story not found with slug: ${storySlug}`);
+      throw new NotFoundException('Truyện không tồn tại hoặc chưa xuất bản');
+    }
 
     const chapter = await this.prisma.chapter.findFirst({
       where: {
@@ -126,7 +134,10 @@ export class StoriesService {
         publishStatus: 'PUBLISHED',
       },
     });
-    if (!chapter) throw new NotFoundException('Chương không tồn tại');
+    if (!chapter) {
+      this.logger.warn(`Chapter not found with slug: ${chapterSlug} for story: ${storySlug}`);
+      throw new NotFoundException('Chương không tồn tại');
+    }
 
     // Guest user - only allow FREE content with 15 minute limit
     if (!user) {
