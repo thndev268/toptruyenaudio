@@ -12,7 +12,7 @@ export class StoriesService {
     const { genre, search, page = 1, limit = 20 } = query;
     const skip = (Number(page) - 1) * Number(limit);
 
-    return this.prisma.story.findMany({
+    const stories = await this.prisma.story.findMany({
       where: {
         publishStatus: 'PUBLISHED',
         ...(genre && {
@@ -34,6 +34,12 @@ export class StoriesService {
       skip,
       take: Number(limit),
     });
+
+    // Transform genres from GenreToStory[] to Genre[] for consistent API response
+    return stories.map(story => ({
+      ...story,
+      genres: story.genres ? story.genres.map(g => g.genre) : [],
+    }));
   }
 
   async findBySlug(slug: string) {

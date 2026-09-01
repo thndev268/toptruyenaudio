@@ -900,7 +900,7 @@ export const StoryDetailView: React.FC = () => {
 
       if (story.isVideoStory || story.iframeCode || story.iframeUrl) {
 
-        targetChapter = story.chapters.find(c => c.iframeCode || c.videoIframeUrl) || story.chapters[0];
+        targetChapter = story.chapters.find(c => c.iframeCode || c.videoIframeUrl || c.iframeUrl) || story.chapters[0];
 
       }
 

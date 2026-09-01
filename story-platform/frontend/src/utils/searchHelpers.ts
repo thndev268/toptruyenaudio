@@ -67,7 +67,7 @@ export function filterStoryList<T extends {
   authorName: string;
   narratorName: string;
   summary: string;
-  genres: string[];
+  genres: any[];
   storyStatus?: string;
   chapters: Array<{ durationSeconds: number; accessLevel: string }>;
   stats: { listenCount: number; viewCount: number };
