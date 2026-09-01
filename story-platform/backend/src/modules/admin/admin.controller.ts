@@ -264,4 +264,11 @@ export class AdminController {
   async deleteComment(@Param('id') id: string, @Body() body: { reason?: string }) {
     return this.adminService.deleteComment(id, body.reason);
   }
+
+  @Get('active-users')
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Lấy danh sách người dùng tích cực nhất' })
+  async getActiveUsers(@Query() query: { limit?: number; timeRange?: string }) {
+    return this.adminService.getActiveUsers(query);
+  }
 }

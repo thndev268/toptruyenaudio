@@ -1,13 +1,88 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Award, Clock, Crown, UserCheck } from 'lucide-react';
 import { UserActivityRanking } from '../../types';
 import { ActiveUserDetailModal } from './ActiveUserDetailModal';
+import { apiRequest } from '../../services/apiClient';
 
 export const FeaturedActiveUsersSection: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<UserActivityRanking | null>(null);
-  const activeUsers: any[] = [];
+  const [activeUsers, setActiveUsers] = useState<UserActivityRanking[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (activeUsers.length === 0) return null;
+  useEffect(() => {
+    const fetchActiveUsers = async () => {
+      try {
+        setIsLoading(true);
+        const response = await apiRequest<{ success: boolean; data: UserActivityRanking[] }>('/admin/active-users?limit=10&timeRange=7d');
+        console.log('[FeaturedActiveUsersSection] Active users response:', response);
+        
+        // Handle both direct array and wrapped response
+        let users: UserActivityRanking[] = [];
+        if (Array.isArray(response)) {
+          users = response;
+        } else if (response?.success && Array.isArray(response.data)) {
+          users = response.data;
+        }
+        
+        console.log('[FeaturedActiveUsersSection] Setting active users:', users);
+        setActiveUsers(users);
+      } catch (error) {
+        console.error('[FeaturedActiveUsersSection] Failed to fetch active users:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchActiveUsers();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-indigo-500/10 text-indigo-400 rounded-xl">
+              <Award className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-xl font-bold text-white">Thính Giả Tích Cực Trong Tuần</h2>
+              <p className="text-xs text-slate-400">
+                Nhấn vào thính giả để xem thành tích & thông tin chi tiết
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 h-24 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (activeUsers.length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-indigo-500/10 text-indigo-400 rounded-xl">
+              <Award className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-xl font-bold text-white">Thính Giả Tích Cực Trong Tuần</h2>
+              <p className="text-xs text-slate-400">
+                Nhấn vào thính giả để xem thành tích & thông tin chi tiết
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-12 text-center">
+          <p className="text-slate-400 text-sm">Chưa có dữ liệu thính giả tích cực</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

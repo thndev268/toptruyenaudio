@@ -647,12 +647,106 @@ export class AdminService {
         isActive: body.isActive ?? true,
       },
     });
+  }
 
-    return {
-      success: true,
-      data: badge,
-      message: 'Đã tạo badge thành công',
-    };
+  async getActiveUsers(query: { limit?: number; timeRange?: string }) {
+    const limit = Math.min(query.limit || 10, 50);
+    const timeRange = query.timeRange || '7d';
+    
+    // Calculate date based on time range
+    const now = new Date();
+    let startDate: Date;
+    
+    switch (timeRange) {
+      case '1d':
+        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        break;
+      case '7d':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case '30d':
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    }
+
+    // Get listening sessions and calculate total listening time per user
+    const sessions = await this.prisma.listeningSession.findMany({
+      where: {
+        startedAt: { gte: startDate },
+        status: { in: ['ACTIVE', 'COMPLETED'] },
+      },
+      include: {
+        profile: true,
+      },
+    });
+
+    // Aggregate listening time per user
+    const userListeningTime = new Map<string, number>();
+    const userChaptersCount = new Map<string, number>();
+    const userStoriesCount = new Map<string, Set<string>>();
+
+    sessions.forEach(session => {
+      const userId = session.profileId;
+      const validMinutes = Math.floor(session.validListeningSeconds / 60);
+      
+      userListeningTime.set(userId, (userListeningTime.get(userId) || 0) + validMinutes);
+      userChaptersCount.set(userId, (userChaptersCount.get(userId) || 0) + 1);
+      
+      if (session.storyId) {
+        if (!userStoriesCount.has(userId)) {
+          userStoriesCount.set(userId, new Set());
+        }
+        userStoriesCount.get(userId)!.add(session.storyId);
+      }
+    });
+
+    // Sort users by total listening time
+    const sortedUsers = Array.from(userListeningTime.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit);
+
+    // Get user profiles with listening statistics
+    const userIds = sortedUsers.map(([userId]) => userId);
+    const profiles = await this.prisma.profile.findMany({
+      where: {
+        id: { in: userIds },
+        status: 'ACTIVE',
+      },
+    });
+
+    // Format user activity data
+    const activeUsers = profiles.map(profile => {
+      const totalMinutes = userListeningTime.get(profile.id) || 0;
+      const totalHours = Math.round(totalMinutes / 60);
+      const chaptersListened = userChaptersCount.get(profile.id) || 0;
+      const storiesListened = userStoriesCount.get(profile.id)?.size || 0;
+      
+      // Calculate level based on listening hours
+      const level = Math.floor(totalHours / 10) + 1;
+      
+      return {
+        userId: profile.id,
+        displayName: profile.displayName || profile.email?.split('@')[0] || 'Người dùng',
+        avatarUrl: profile.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+        level,
+        activityPoints: totalMinutes,
+        validListeningMinutes: totalMinutes,
+        completedStories: storiesListened,
+        listenHistoryCount: chaptersListened,
+        helpfulReviews: 0,
+        activeDays: Math.ceil(totalHours / 2), // Estimate active days
+        rank: sortedUsers.findIndex(([id]) => id === profile.id) + 1,
+        achievements: [
+          totalHours > 100 ? 'Master Listener' : null,
+          totalHours > 50 ? 'Regular Listener' : null,
+          totalHours > 10 ? 'New Listener' : null,
+        ].filter(Boolean),
+      };
+    });
+
+    return activeUsers;
   }
 
   async updateBadge(id: string, body: { name: string; description: string; effects: any[]; isActive: boolean }) {
@@ -662,7 +756,7 @@ export class AdminService {
         name: body.name,
         description: body.description,
         effects: body.effects,
-        isActive: body.isActive,
+        isActive: body.isActive ?? true,
       },
     });
 
