@@ -66,6 +66,8 @@ export async function apiRequest<T = any>(
     // Only get session for protected endpoints
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
+    console.log('[apiClient] Fetching session for endpoint:', endpoint);
+    
     if (sessionError) {
       console.error('[apiClient] Supabase session error:', sessionError);
       throw new ApiError(
@@ -76,7 +78,7 @@ export async function apiRequest<T = any>(
     }
 
     if (!session || !session.access_token) {
-      console.error('[apiClient] No active session found');
+      console.error('[apiClient] No active session found for endpoint:', endpoint);
       throw new ApiError(
         'Bạn chưa đăng nhập hoặc phiên đã hết hạn. Vui lòng đăng nhập lại.',
         'NO_SESSION',
@@ -86,7 +88,7 @@ export async function apiRequest<T = any>(
 
     // Set Authorization header with fresh token
     headers['Authorization'] = `Bearer ${session.access_token}`;
-    console.log('[apiClient] Authorization header set:', headers['Authorization'].substring(0, 30) + '...');
+    console.log('[apiClient] Authorization header set for', endpoint, ':', headers['Authorization'].substring(0, 30) + '...');
   } else {
     console.log('[apiClient] Public endpoint, skipping authentication:', endpoint);
   }

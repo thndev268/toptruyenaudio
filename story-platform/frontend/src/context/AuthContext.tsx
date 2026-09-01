@@ -183,6 +183,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (session && session.user && isMounted) {
+          console.log('[AuthContext] Found Supabase session, fetching profile');
           const profile = await fetchProfile(session.user.id, session.user.email || '');
           if (profile) {
             setAuthData({ role: profile.role, user: profile });
@@ -192,7 +193,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
         } else if (!cachedProfile) {
           // Only set to GUEST if no cache either
+          console.log('[AuthContext] No session and no cache, setting to GUEST');
           setAuthData({ role: 'GUEST', user: null });
+        } else {
+          console.log('[AuthContext] No session but using cached profile');
         }
       } catch (err) {
         console.error('[AuthContext] Failed to initialize auth:', err);
@@ -201,13 +205,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setAuthData({ role: 'GUEST', user: null });
         }
       } finally {
-        if (isMounted) setIsLoading(false);
+        if (isMounted) {
+          console.log('[AuthContext] Auth initialization complete, isLoading = false');
+          setIsLoading(false);
+        }
       }
     };
 
     initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[AuthContext] Auth state changed:', event, session?.user?.id);
       if (!isMounted) return;
       
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
@@ -224,6 +232,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
         }
       } else if (event === 'SIGNED_OUT') {
+        console.log('[AuthContext] User signed out, clearing auth data');
         setAuthData({ role: 'GUEST', user: null });
         setShowLoadingScreen(false);
       }
@@ -257,7 +266,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Clear guest listening timer on login
     localStorage.removeItem('guest_listen_start');
 
-    // Profile will be loaded by onAuthStateChange
+    // Immediately fetch profile to update auth state without waiting for onAuthStateChange
+    if (data.session && data.session.user) {
+      try {
+        const profile = await fetchProfile(data.session.user.id, data.session.user.email || '');
+        if (profile) {
+          setAuthData({ role: profile.role, user: profile });
+          checkBannedStatus(profile);
+        }
+      } catch (err) {
+        console.error('[AuthContext] Failed to fetch profile immediately after login:', err);
+        // Fallback to onAuthStateChange will handle it
+      }
+    }
   };
 
   const register = async (name: string, email: string, password?: string, username?: string) => {
