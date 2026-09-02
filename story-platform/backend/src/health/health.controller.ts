@@ -70,7 +70,7 @@ export class HealthController {
       
       // Get connection count approximation
       const connections = await this.prisma.$queryRaw`SELECT count(*) FROM pg_stat_activity`;
-      dbConnections = Number(connections[0]?.count || 0);
+      dbConnections = Number((connections as any)[0]?.count || 0);
       
       if (dbLatency > 500) dbStatus = 'DEGRADED';
       if (dbLatency > 2000) dbStatus = 'DOWN';
