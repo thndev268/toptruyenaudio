@@ -20,6 +20,7 @@ import { StoriesModule } from './modules/stories/stories.module';
 import { ListeningModule } from './modules/listening/listening.module';
 import { CommentsModule } from './modules/comments/comments.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { BannersModule } from './modules/banners/banners.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { StorageModule } from './modules/storage/storage.module';
 
@@ -66,6 +67,7 @@ import { StorageModule } from './modules/storage/storage.module';
     ListeningModule,
     CommentsModule,
     NotificationsModule,
+    BannersModule,
     PrismaModule,
     StorageModule,
   ],

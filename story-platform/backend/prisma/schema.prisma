@@ -652,3 +652,34 @@ model UserNotification {
   @@index([notificationId])
   @@map("user_notifications")
 }
+
+model BannerNotification {
+  id              String   @id @default(cuid())
+  title           String
+  content         String
+  type            String   @default("INFO") // INFO, WARNING, ERROR, SUCCESS, PROMOTION
+  backgroundColor String   @default("#0f172a")
+  textColor       String   @default("#ffffff")
+  isActive        Boolean  @default(true)
+  startDate       DateTime?
+  endDate         DateTime?
+  priority        Int      @default(0)
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("banner_notifications")
+}
+
+model UserBannerDismissal {
+  id              String   @id @default(cuid())
+  bannerId        String
+  userId          String
+  dismissedAt     DateTime @default(now())
+  expiresAt       DateTime // When the banner should show again (3 hours after dismissal)
+
+  @@unique([bannerId, userId])
+  @@index([userId])
+  @@index([bannerId])
+  @@map("user_banner_dismissals")
+}
