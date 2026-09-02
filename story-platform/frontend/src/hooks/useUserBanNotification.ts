@@ -23,7 +23,7 @@ export function useUserBanNotification() {
       const message = `Tài khoản ${userEmail} (${userName || 'Thành viên'}) đã bị Ban Quản Trị ${statusText}. Lý do: "${reason}". Vui lòng liên hệ bộ phận hỗ trợ nếu cần thêm thông tin.`;
 
       // 1. Tạo và phát thông báo hệ thống tới hệ thống dữ liệu - gửi đến user cụ thể
-      adminRepository.sendBroadcastNotification(title, message, 'SPECIFIC_USER', userId);
+      adminRepository.sendBroadcastNotification(title, message, 'WARNING', 'SPECIFIC_USER', userId);
 
       // 2. Hiển thị thông báo Toast khẩn cấp real-time qua NotificationProvider
       showToast({

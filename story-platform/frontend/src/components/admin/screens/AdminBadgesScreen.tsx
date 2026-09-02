@@ -773,6 +773,24 @@ export const AdminBadgesScreen: React.FC = () => {
                     <option value="EPIC">EPIC (Kinh điển - Vàng)</option>
                     <option value="LEGENDARY">LEGENDARY (Huyền thoại - Đỏ)</option>
                   </select>
+                  
+                  {/* Preview màu sắc cấp độ */}
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border uppercase ${
+                      level === 'LEGENDARY' ? 'bg-rose-100 text-rose-900 border-rose-300' :
+                      level === 'EPIC' ? 'bg-amber-100 text-amber-900 border-amber-300' :
+                      level === 'RARE' ? 'bg-emerald-100 text-emerald-900 border-emerald-300' :
+                      'bg-slate-100 text-slate-700 border-slate-300'
+                    }`}>
+                      {level === 'COMMON' ? 'THÔNG THƯỜNG' :
+                       level === 'RARE' ? 'HIẾM' :
+                       level === 'EPIC' ? 'KINH ĐIỂN' :
+                       level === 'LEGENDARY' ? 'HUYỀN THOẠI' : level}
+                    </span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Màu sắc hiển thị bên ngoài
+                    </span>
+                  </div>
                 </div>
               </div>
 

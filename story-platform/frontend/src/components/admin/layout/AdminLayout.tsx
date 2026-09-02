@@ -94,8 +94,8 @@ export interface AdminLayoutContextType {
   handleSendBroadcast: (
     title: string,
     content: string,
-    targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER',
-    type?: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT'
+    type: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT',
+    targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER'
   ) => void;
   handleDeleteBroadcast: (notification: AdminBroadcastNotification) => void;
   handleSaveMaintenanceConfig: (
@@ -592,10 +592,10 @@ export const AdminLayout: React.FC = () => {
   const handleSendBroadcast = (
     title: string,
     content: string,
-    targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER',
-    type?: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT'
+    type: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT',
+    targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER'
   ) => {
-    const res = adminRepository.sendBroadcastNotification(title, content, targetAudience, type);
+    const res = adminRepository.sendBroadcastNotification(title, content, type, targetAudience);
     refreshAllData();
     showToast(res.message);
   };

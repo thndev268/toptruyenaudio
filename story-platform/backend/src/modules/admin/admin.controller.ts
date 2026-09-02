@@ -199,6 +199,13 @@ export class AdminController {
     return this.adminService.getDashboardMetrics(query);
   }
 
+  @Get('user-counts')
+  @SkipThrottle()
+  @ApiOperation({ summary: 'Lấy số lượng người dùng theo loại' })
+  async getUserCounts() {
+    return this.adminService.getUserCounts();
+  }
+
   @Get('subscriptions')
   @SkipThrottle()
   @ApiOperation({ summary: 'Lấy danh sách subscription records cho Premium screen' })

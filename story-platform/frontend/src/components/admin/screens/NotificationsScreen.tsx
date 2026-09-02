@@ -11,20 +11,41 @@ import {
   AlertCircle,
   Save,
   X,
+  Gift,
+  BookOpen,
+  AlertTriangle,
+  Info,
+  Headphones,
+  Shield,
+  MessageSquare,
 } from 'lucide-react';
 import { AdminBroadcastNotification } from '../../../types/admin';
+import { adminRepository } from '../../../services/repositories/AdminRepository';
 
 interface NotificationsScreenProps {
   notifications: AdminBroadcastNotification[];
   onSendBroadcast: (
     title: string,
     content: string,
+    type: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT',
     targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER'
   ) => void;
   onDeleteBroadcast?: (notification: AdminBroadcastNotification) => void;
 }
 
 const DRAFT_STORAGE_KEY = 'broadcast_draft';
+
+const notificationTypeConfig = {
+  NEW_USER: { icon: Users, color: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30', label: 'Người dùng mới' },
+  NEW_STORY: { icon: BookOpen, color: 'bg-blue-500/10 text-blue-300 border-blue-500/30', label: 'Truyện mới' },
+  NEW_CHAPTER: { icon: Headphones, color: 'bg-purple-500/10 text-purple-300 border-purple-500/30', label: 'Chương mới' },
+  PROMOTION: { icon: Gift, color: 'bg-amber-500/10 text-amber-300 border-amber-500/30', label: 'Khuyến mãi' },
+  SYSTEM: { icon: Shield, color: 'bg-slate-500/10 text-slate-300 border-slate-500/30', label: 'Hệ thống' },
+  OTHER: { icon: Info, color: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30', label: 'Khác' },
+  WARNING: { icon: AlertTriangle, color: 'bg-orange-500/10 text-orange-300 border-orange-500/30', label: 'Cảnh báo' },
+  ERROR: { icon: AlertCircle, color: 'bg-rose-500/10 text-rose-300 border-rose-500/30', label: 'Lỗi' },
+  SUPPORT: { icon: MessageSquare, color: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30', label: 'Hỗ trợ' },
+};
 
 export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   notifications,
@@ -34,10 +55,12 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [targetAudience, setTargetAudience] = useState<'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER'>('ALL');
+  const [notificationType, setNotificationType] = useState<'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT'>('SYSTEM');
   const [isComposing, setIsComposing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<string>('');
   const [validationErrors, setValidationErrors] = useState<{ title?: string; content?: string }>({});
+  const [userCounts, setUserCounts] = useState<{ total: number; premium: number; creator: number; partner: number }>({ total: 0, premium: 0, creator: 0, partner: 0 });
   
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const contentRef = useRef<HTMLTextAreaElement>(null);
@@ -52,12 +75,30 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
           setTitle(draft.title || '');
           setContent(draft.content || '');
           setTargetAudience(draft.targetAudience || 'ALL');
+          setNotificationType(draft.notificationType || 'SYSTEM');
           setLastSaved(new Date(draft.savedAt).toLocaleString('vi-VN'));
         }
       } catch (e) {
         console.error('Failed to load draft:', e);
       }
     }
+
+    // Fetch real user counts
+    const fetchUserCounts = async () => {
+      try {
+        const counts = await adminRepository.getUserCounts();
+        setUserCounts(counts);
+      } catch (err) {
+        console.error('Failed to fetch user counts:', err);
+      }
+    };
+
+    fetchUserCounts();
+    
+    // Refresh user counts every 5 minutes
+    const interval = setInterval(fetchUserCounts, 5 * 60 * 1000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   // Auto-save draft with debounce
@@ -74,6 +115,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
           title,
           content,
           targetAudience,
+          notificationType,
           savedAt: new Date().toISOString(),
         };
         localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
@@ -81,7 +123,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         setIsSaving(false);
       }, 1000);
     }
-  }, [title, content, targetAudience]);
+  }, [title, content, targetAudience, notificationType]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -111,6 +153,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   const clearDraft = () => {
     localStorage.removeItem(DRAFT_STORAGE_KEY);
     setLastSaved('');
+    setNotificationType('SYSTEM');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -131,11 +174,12 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       return;
     }
     
-    onSendBroadcast(title.trim(), content.trim(), targetAudience);
+    onSendBroadcast(title.trim(), content.trim(), notificationType, targetAudience);
     clearDraft();
     setTitle('');
     setContent('');
     setTargetAudience('ALL');
+    setNotificationType('SYSTEM');
     setValidationErrors({});
     setIsComposing(false);
   };
@@ -147,6 +191,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         setTitle('');
         setContent('');
         setTargetAudience('ALL');
+        setNotificationType('SYSTEM');
         setValidationErrors({});
         setIsComposing(false);
       }
@@ -261,19 +306,40 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1">
-                Đối Tượng Nhận Tin
+                Loại Thông Báo
               </label>
               <select
-                value={targetAudience}
-                onChange={(e) => setTargetAudience(e.target.value as any)}
+                value={notificationType}
+                onChange={(e) => setNotificationType(e.target.value as any)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 min-h-[42px] cursor-pointer"
               >
-                <option value="ALL">Tất cả người nghe (18.420 người)</option>
-                <option value="PREMIUM">Chỉ thành viên Premium (3.200 người)</option>
-                <option value="CREATOR">Chỉ tác giả & MC (450 người)</option>
-                <option value="PARTNER">Chỉ đối tác (120 người)</option>
+                <option value="SYSTEM">Hệ thống</option>
+                <option value="NEW_USER">Người dùng mới</option>
+                <option value="NEW_STORY">Truyện mới</option>
+                <option value="NEW_CHAPTER">Chương mới</option>
+                <option value="PROMOTION">Khuyến mãi</option>
+                <option value="WARNING">Cảnh báo</option>
+                <option value="ERROR">Lỗi</option>
+                <option value="SUPPORT">Hỗ trợ</option>
+                <option value="OTHER">Khác</option>
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1">
+              Đối Tượng Nhận Tin
+            </label>
+            <select
+              value={targetAudience}
+              onChange={(e) => setTargetAudience(e.target.value as any)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 min-h-[42px] cursor-pointer"
+            >
+              <option value="ALL">Tất cả người nghe ({userCounts.total.toLocaleString('vi-VN')} người)</option>
+              <option value="PREMIUM">Chỉ thành viên Premium ({userCounts.premium.toLocaleString('vi-VN')} người)</option>
+              <option value="CREATOR">Chỉ tác giả & MC ({userCounts.creator.toLocaleString('vi-VN')} người)</option>
+              <option value="PARTNER">Chỉ đối tác ({userCounts.partner.toLocaleString('vi-VN')} người)</option>
+            </select>
           </div>
 
           <div>
@@ -337,46 +403,55 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
           Lịch Sử Các Bản Tin Đã Phát Sóng
         </h3>
 
-        {notifications.map((notif) => (
-          <div
-            key={notif.id}
-            className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-2.5"
-          >
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 text-[10px] font-mono font-bold border border-cyan-500/30">
-                  {notif.targetAudience}
+        {notifications.map((notif) => {
+          const typeConfig = notificationTypeConfig[notif.type || 'OTHER'] || notificationTypeConfig.OTHER;
+          const TypeIcon = typeConfig.icon;
+          
+          return (
+            <div
+              key={notif.id}
+              className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-2.5"
+            >
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className={`px-2 py-0.5 rounded ${typeConfig.color} text-[10px] font-mono font-bold border flex items-center gap-1`}>
+                    <TypeIcon className="w-3 h-3" />
+                    {typeConfig.label}
+                  </span>
+                  <span className="px-2 py-0.5 rounded bg-slate-500/10 text-slate-300 text-[10px] font-mono font-bold border border-slate-500/30">
+                    {notif.targetAudience}
+                  </span>
+                  <h4 className="font-bold text-white text-sm sm:text-base">{notif.title}</h4>
+                </div>
+
+                <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1 font-bold">
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>Đã tiếp cận ~{notif.reachCount?.toLocaleString('vi-VN') || '0'} tài khoản</span>
                 </span>
-                <h4 className="font-bold text-white text-sm sm:text-base">{notif.title}</h4>
               </div>
 
-              <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1 font-bold">
-                <CheckCircle2 className="w-3 h-3" />
-                <span>Đã tiếp cận ~{notif.reachCount?.toLocaleString('vi-VN') || '0'} tài khoản</span>
-              </span>
-            </div>
+              <p className="text-xs sm:text-sm text-slate-300 bg-slate-950 p-3 rounded-xl border border-slate-850">
+                {notif.content}
+              </p>
 
-            <p className="text-xs sm:text-sm text-slate-300 bg-slate-950 p-3 rounded-xl border border-slate-850">
-              {notif.content}
-            </p>
-
-            <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono pt-1">
-              <span>Người phát: {notif.sentBy}</span>
-              <div className="flex items-center gap-3">
-                <span>Thời gian gửi: {notif.sentAt}</span>
-                {onDeleteBroadcast && (
-                  <button
-                    onClick={() => onDeleteBroadcast(notif)}
-                    className="text-rose-400 hover:text-rose-300 transition-colors font-bold uppercase tracking-tighter cursor-pointer flex items-center gap-1"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                    <span>Xóa</span>
-                  </button>
-                )}
+              <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono pt-1">
+                <span>Người phát: {notif.sentBy}</span>
+                <div className="flex items-center gap-3">
+                  <span>Thời gian gửi: {notif.sentAt}</span>
+                  {onDeleteBroadcast && (
+                    <button
+                      onClick={() => onDeleteBroadcast(notif)}
+                      className="text-rose-400 hover:text-rose-300 transition-colors font-bold uppercase tracking-tighter cursor-pointer flex items-center gap-1"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Xóa</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

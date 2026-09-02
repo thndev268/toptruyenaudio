@@ -512,40 +512,57 @@ export class AdminService {
 
     // Calculate revenue
     const revenue = totalRevenue._sum.amount || 0;
-    const revenueString = revenue > 0 
-      ? `${(revenue / 1000000).toFixed(1)}M đ` 
-      : '0 đ';
 
     return {
-      success: true,
-      data: {
-        users: {
-          total: totalUsers,
-          new: newUsers,
-        },
-        stories: {
-          total: totalStories,
-          new: newStories,
-        },
-        listening: {
-          sessions: totalListeningSessions,
-          totalHours: hoursString,
-          totalSeconds: listeningDuration._sum.durationSeconds || 0,
-        },
-        subscriptions: {
-          total: totalSubscriptions,
-          active: activeSubscriptions,
-        },
-        revenue: {
-          total: revenue,
-          formatted: revenueString,
-        },
-        dateRange: {
-          from: dateFrom.toISOString(),
-          to: dateTo.toISOString(),
-          filter: timeFilter,
-        },
+      users: {
+        total: totalUsers,
+        new: newUsers,
       },
+      stories: {
+        total: totalStories,
+        new: newStories,
+      },
+      listening: {
+        totalSessions: totalListeningSessions,
+        totalHours: hoursString,
+      },
+      subscriptions: {
+        total: totalSubscriptions,
+        active: activeSubscriptions,
+      },
+      revenue: {
+        total: revenue,
+        formatted: `${revenue.toLocaleString('vi-VN')}đ`,
+      },
+    };
+  }
+
+  async getUserCounts() {
+    const now = new Date();
+    
+    const [
+      totalUsers,
+      premiumUsers,
+      creatorUsers,
+      partnerUsers,
+    ] = await Promise.all([
+      this.prisma.profile.count(),
+      this.prisma.profile.count({
+        where: { membershipTier: 'PREMIUM' },
+      }),
+      this.prisma.profile.count({
+        where: { role: { in: ['CREATOR', 'OWNER_ADMIN'] } },
+      }),
+      this.prisma.profile.count({
+        where: { role: 'PARTNER' },
+      }),
+    ]);
+
+    return {
+      total: totalUsers,
+      premium: premiumUsers,
+      creator: creatorUsers,
+      partner: partnerUsers,
     };
   }
 

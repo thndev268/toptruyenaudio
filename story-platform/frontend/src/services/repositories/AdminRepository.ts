@@ -664,7 +664,7 @@ class AdminRepositoryService {
         // Check if notification already exists to avoid duplication
         const exists = this.notifications.some((n) => n.title === notifTitle && n.content === notifContent && n.targetUserId === userId);
         if (!exists) {
-          this.sendBroadcastNotification(notifTitle, notifContent, 'SPECIFIC_USER', userId);
+          this.sendBroadcastNotification(notifTitle, notifContent, 'WARNING', 'SPECIFIC_USER', userId);
         }
       }
 
@@ -1686,6 +1686,7 @@ class AdminRepositoryService {
     this.sendBroadcastNotification(
       `[Hỗ Trợ Admin] Phản hồi ticket: ${ticket?.subject || ticketId}`,
       `Ban Quản Trị đã phản hồi yêu cầu hỗ trợ của bạn: "${adminReply}"`,
+      'SUPPORT',
       'SPECIFIC_USER',
       (ticket as any)?.userId || ticket?.userEmail
     );
@@ -1708,22 +1709,70 @@ class AdminRepositoryService {
     return [...this.notifications];
   }
 
-  sendBroadcastNotification(title: string, content: string, targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER', targetUserId?: string): { success: boolean; message: string } {
+  private cachedUserCounts: { total: number; premium: number; creator: number; partner: number } | null = null;
+  private userCountsCacheTime: number = 0;
+  private readonly USER_COUNTS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  async getUserCounts(): Promise<{ total: number; premium: number; creator: number; partner: number }> {
+    const now = Date.now();
+    
+    // Return cached data if still valid
+    if (this.cachedUserCounts && (now - this.userCountsCacheTime) < this.USER_COUNTS_CACHE_TTL) {
+      return this.cachedUserCounts;
+    }
+
+    try {
+      const response = await apiRequest<{ success: boolean; data: { total: number; premium: number; creator: number; partner: number } }>('/admin/user-counts');
+      if (response?.success && response.data) {
+        this.cachedUserCounts = response.data;
+        this.userCountsCacheTime = now;
+        return response.data;
+      }
+      // Fallback to default values if API fails
+      return { total: 18420, premium: 3200, creator: 450, partner: 120 };
+    } catch (error) {
+      console.error('[AdminRepository] Failed to fetch user counts:', error);
+      // Fallback to default values
+      return { total: 18420, premium: 3200, creator: 450, partner: 120 };
+    }
+  }
+
+  getCachedUserCounts(): { total: number; premium: number; creator: number; partner: number } {
+    return this.cachedUserCounts || { total: 18420, premium: 3200, creator: 450, partner: 120 };
+  }
+
+  sendBroadcastNotification(title: string, content: string, type: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT', targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER', targetUserId?: string): { success: boolean; message: string } {
+    // Get real user counts for accurate reach calculation
+    const userCounts = this.getCachedUserCounts();
+    
+    const reachCount = targetAudience === 'ALL' 
+      ? userCounts.total 
+      : targetAudience === 'PREMIUM' 
+        ? userCounts.premium 
+        : targetAudience === 'CREATOR' 
+          ? userCounts.creator 
+          : targetAudience === 'PARTNER' 
+            ? userCounts.partner 
+            : targetAudience === 'SPECIFIC_USER' 
+              ? 1 
+              : 0;
+
     const newNotif: AdminBroadcastNotification = {
       id: 'notif-' + Math.random().toString(36).substring(2, 7),
       title,
       content,
+      type,
       targetAudience,
       targetUserId: targetAudience === 'SPECIFIC_USER' ? targetUserId : undefined,
       sentAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
       sentBy: 'OWNER_ADMIN',
-      reachCount: targetAudience === 'ALL' ? 18420 : targetAudience === 'PREMIUM' ? 3200 : targetAudience === 'SPECIFIC_USER' ? 1 : 450,
+      reachCount,
       status: 'SENT',
     };
     this.notifications.unshift(newNotif);
 
     // Also save to backend API
-    this.saveNotificationToBackend(title, content, targetAudience, targetUserId).catch(err => {
+    this.saveNotificationToBackend(title, content, type, targetAudience, targetUserId).catch(err => {
       console.error('[AdminRepository] Failed to save notification to backend:', err);
     });
 
@@ -1743,6 +1792,7 @@ class AdminRepositoryService {
   private async saveNotificationToBackend(
     title: string,
     content: string,
+    type: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT',
     targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER',
     targetUserId?: string
   ): Promise<void> {
@@ -1750,7 +1800,7 @@ class AdminRepositoryService {
       const input: CreateNotificationInput = {
         title,
         content,
-        type: 'SYSTEM',
+        type,
         targetAudience: targetAudience === 'PARTNER' ? 'CREATOR' : targetAudience as 'ALL' | 'REGULAR' | 'PREMIUM' | 'CREATOR' | 'SPECIFIC_USER',
         targetUserId,
       };
