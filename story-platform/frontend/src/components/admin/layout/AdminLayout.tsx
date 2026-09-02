@@ -96,7 +96,7 @@ export interface AdminLayoutContextType {
     content: string,
     type: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT',
     targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER'
-  ) => void;
+  ) => Promise<void>;
   handleDeleteBroadcast: (notification: AdminBroadcastNotification) => void;
   handleSaveMaintenanceConfig: (
     config: Partial<AdminMaintenanceConfig>,
@@ -589,14 +589,16 @@ export const AdminLayout: React.FC = () => {
     showToast(res.message);
   };
 
-  const handleSendBroadcast = (
+  const handleSendBroadcast = async (
     title: string,
     content: string,
     type: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT',
     targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER'
   ) => {
-    const res = adminRepository.sendBroadcastNotification(title, content, type, targetAudience);
-    refreshAllData();
+    const res = await adminRepository.sendBroadcastNotification(title, content, type, targetAudience);
+    if (res.success) {
+      refreshAllData();
+    }
     showToast(res.message);
   };
 

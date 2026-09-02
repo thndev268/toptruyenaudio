@@ -1741,7 +1741,7 @@ class AdminRepositoryService {
     return this.cachedUserCounts || { total: 0, premium: 0, creator: 0, partner: 0 };
   }
 
-  sendBroadcastNotification(title: string, content: string, type: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT', targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER', targetUserId?: string): { success: boolean; message: string } {
+  async sendBroadcastNotification(title: string, content: string, type: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT', targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER', targetUserId?: string): Promise<{ success: boolean; message: string }> {
     // Get real user counts for accurate reach calculation
     const userCounts = this.getCachedUserCounts();
     
@@ -1771,10 +1771,16 @@ class AdminRepositoryService {
     };
     this.notifications.unshift(newNotif);
 
-    // Also save to backend API
-    this.saveNotificationToBackend(title, content, type, targetAudience, targetUserId).catch(err => {
+    // Save to backend API first before returning success
+    try {
+      await this.saveNotificationToBackend(title, content, type, targetAudience, targetUserId);
+      console.log('[AdminRepository] Notification saved to backend successfully');
+    } catch (err) {
       console.error('[AdminRepository] Failed to save notification to backend:', err);
-    });
+      // Remove from local storage if backend save failed
+      this.notifications = this.notifications.filter(n => n.id !== newNotif.id);
+      return { success: false, message: 'Lưu thông báo vào database thất bại. Vui lòng thử lại.' };
+    }
 
     this.recordAuditLog(
       'GỬI_THÔNG_BÁO_TOÀN_HỆ_THỐNG',

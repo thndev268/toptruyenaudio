@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { motion, AnimatePresence } from 'motion/react';
 import { Bell, X, Check, Eye, Sparkles, Radio, Info, User, BookOpen, FileText, Gift, Settings, AlertTriangle, AlertCircle, HelpCircle } from 'lucide-react';
 import { adminRepository } from '../services/repositories/AdminRepository';
+import { notificationsRepository } from '../services/repositories/NotificationsRepository';
 import { useAuth } from './AuthContext';
 import { AdminBroadcastNotification } from '../types/admin';
 import { NotificationDetailModal } from '../components/common/NotificationDetailModal';
@@ -99,47 +100,106 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   useEffect(() => {
-    const syncNotifications = () => {
-      const broadcasts = adminRepository.getNotifications();
+    const syncNotifications = async () => {
+      try {
+        // Fetch notifications from backend API
+        const backendNotifications = await notificationsRepository.fetchNotifications(user?.id);
+        
+        // Also get local admin broadcasts for real-time updates
+        const localBroadcasts = adminRepository.getNotifications();
 
-      // Filter by role/audience
-      const filteredBroadcasts = broadcasts.filter((notif) => {
-        if (notif.targetAudience === 'ALL') return true;
-        if (notif.targetAudience === 'PREMIUM' && user?.isPremium) return true;
-        if (notif.targetAudience === 'CREATOR' && (role === 'CREATOR' || role === 'ADMIN')) return true;
-        if (notif.targetAudience === 'PARTNER' && (role === 'PARTNER' || role === 'ADMIN')) return true;
-        return false;
-      });
-
-      // Load read status from localStorage
-      const readIds = JSON.parse(localStorage.getItem(`read_notifications_${user?.id || 'guest'}`) || '[]');
-      const deletedIds = JSON.parse(localStorage.getItem(`deleted_notifications_${user?.id || 'guest'}`) || '[]');
-
-      const combined: Notification[] = filteredBroadcasts
-        .filter((b) => !deletedIds.includes(b.id))
-        .map((b) => ({
-          ...b,
-          isRead: readIds.includes(b.id),
-        }));
-
-      // Detect new incoming notifications for real-time toast
-      if (!isFirstLoadRef.current) {
-        const newItems = combined.filter((n) => !knownNotifIdsRef.current.has(n.id));
-        newItems.forEach((newNotif) => {
-          showToast({
-            title: newNotif.title,
-            message: newNotif.content,
-            type: 'broadcast',
-            notificationId: newNotif.id,
-            duration: 7000,
-          });
+        // Filter by role/audience
+        const filteredBroadcasts = localBroadcasts.filter((notif) => {
+          if (notif.targetAudience === 'ALL') return true;
+          if (notif.targetAudience === 'PREMIUM' && user?.isPremium) return true;
+          if (notif.targetAudience === 'CREATOR' && (role === 'CREATOR' || role === 'ADMIN')) return true;
+          if (notif.targetAudience === 'PARTNER' && (role === 'PARTNER' || role === 'ADMIN')) return true;
+          if (notif.targetAudience === 'SPECIFIC_USER' && notif.targetUserId === user?.id) return true;
+          return false;
         });
-      } else {
-        isFirstLoadRef.current = false;
-      }
 
-      knownNotifIdsRef.current = new Set(combined.map((n) => n.id));
-      setNotifications(combined);
+        // Load read status from localStorage
+        const readIds = JSON.parse(localStorage.getItem(`read_notifications_${user?.id || 'guest'}`) || '[]');
+        const deletedIds = JSON.parse(localStorage.getItem(`deleted_notifications_${user?.id || 'guest'}`) || '[]');
+
+        // Combine backend notifications with local broadcasts
+        const backendNotifs: Notification[] = backendNotifications
+          .filter((b) => !deletedIds.includes(b.id))
+          .map((b) => ({
+            ...b,
+            isRead: b.isRead || readIds.includes(b.id),
+            sentAt: b.createdAt,
+            sentBy: 'OWNER_ADMIN',
+            reachCount: 0,
+            status: 'SENT' as const,
+            type: (b as any).type || 'SYSTEM',
+          }));
+
+        const localNotifs: Notification[] = filteredBroadcasts
+          .filter((b) => !deletedIds.includes(b.id))
+          .map((b) => ({
+            ...b,
+            isRead: readIds.includes(b.id),
+          }));
+
+        // Merge both sources, preferring backend data for duplicates
+        const combinedMap = new Map<string, Notification>();
+        
+        backendNotifs.forEach(n => combinedMap.set(n.id, n));
+        localNotifs.forEach(n => {
+          if (!combinedMap.has(n.id)) {
+            combinedMap.set(n.id, n);
+          }
+        });
+
+        const combined = Array.from(combinedMap.values())
+          .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
+
+        // Detect new incoming notifications for real-time toast
+        if (!isFirstLoadRef.current) {
+          const newItems = combined.filter((n) => !knownNotifIdsRef.current.has(n.id));
+          newItems.forEach((newNotif) => {
+            showToast({
+              title: newNotif.title,
+              message: newNotif.content,
+              type: 'broadcast',
+              notificationId: newNotif.id,
+              duration: 7000,
+            });
+          });
+        } else {
+          isFirstLoadRef.current = false;
+        }
+
+        knownNotifIdsRef.current = new Set(combined.map((n) => n.id));
+        setNotifications(combined);
+      } catch (error) {
+        console.error('[NotificationContext] Failed to sync notifications:', error);
+        
+        // Fallback to local-only sync if API fails
+        const broadcasts = adminRepository.getNotifications();
+        const filteredBroadcasts = broadcasts.filter((notif) => {
+          if (notif.targetAudience === 'ALL') return true;
+          if (notif.targetAudience === 'PREMIUM' && user?.isPremium) return true;
+          if (notif.targetAudience === 'CREATOR' && (role === 'CREATOR' || role === 'ADMIN')) return true;
+          if (notif.targetAudience === 'PARTNER' && (role === 'PARTNER' || role === 'ADMIN')) return true;
+          if (notif.targetAudience === 'SPECIFIC_USER' && notif.targetUserId === user?.id) return true;
+          return false;
+        });
+
+        const readIds = JSON.parse(localStorage.getItem(`read_notifications_${user?.id || 'guest'}`) || '[]');
+        const deletedIds = JSON.parse(localStorage.getItem(`deleted_notifications_${user?.id || 'guest'}`) || '[]');
+
+        const combined: Notification[] = filteredBroadcasts
+          .filter((b) => !deletedIds.includes(b.id))
+          .map((b) => ({
+            ...b,
+            isRead: readIds.includes(b.id),
+          }));
+
+        knownNotifIdsRef.current = new Set(combined.map((n) => n.id));
+        setNotifications(combined);
+      }
     };
 
     syncNotifications();
@@ -151,11 +211,15 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     window.addEventListener('toptruyenaudio_admin_sync', handleSync);
     window.addEventListener('storage', handleSync);
 
+    // Also refresh from backend periodically
+    const interval = setInterval(syncNotifications, 30000); // Every 30 seconds
+
     return () => {
       window.removeEventListener('toptruyenaudio_admin_sync', handleSync);
       window.removeEventListener('storage', handleSync);
+      clearInterval(interval);
     };
-  }, [user, role]);
+  }, [user, role, showToast]);
 
   const openNotificationModal = (notification?: Notification) => {
     if (notification) {
@@ -173,7 +237,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setModalNotification(null);
   };
 
-  const markAsRead = (id: string) => {
+  const markAsRead = async (id: string) => {
     const readIds = JSON.parse(localStorage.getItem(`read_notifications_${user?.id || 'guest'}`) || '[]');
     if (!readIds.includes(id)) {
       const newReadIds = [...readIds, id];
@@ -182,6 +246,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
       );
+
+      // Also sync to backend
+      try {
+        await notificationsRepository.markAsRead(id);
+      } catch (error) {
+        console.error('[NotificationContext] Failed to mark as read on backend:', error);
+      }
     }
   };
 
@@ -207,18 +278,32 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
     const allIds = notifications.map((n) => n.id);
     localStorage.setItem(`read_notifications_${user?.id || 'guest'}`, JSON.stringify(allIds));
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+
+    // Also sync to backend
+    try {
+      await notificationsRepository.markAllAsRead();
+    } catch (error) {
+      console.error('[NotificationContext] Failed to mark all as read on backend:', error);
+    }
   };
 
-  const deleteNotification = (id: string) => {
+  const deleteNotification = async (id: string) => {
     const deletedIds = JSON.parse(localStorage.getItem(`deleted_notifications_${user?.id || 'guest'}`) || '[]');
     if (!deletedIds.includes(id)) {
       const newDeletedIds = [...deletedIds, id];
       localStorage.setItem(`deleted_notifications_${user?.id || 'guest'}`, JSON.stringify(newDeletedIds));
       setNotifications((prev) => prev.filter((n) => n.id !== id));
+
+      // Also sync to backend
+      try {
+        await notificationsRepository.deleteNotification(id);
+      } catch (error) {
+        console.error('[NotificationContext] Failed to delete notification on backend:', error);
+      }
     }
   };
 

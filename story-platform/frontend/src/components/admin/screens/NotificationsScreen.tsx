@@ -29,7 +29,7 @@ interface NotificationsScreenProps {
     content: string,
     type: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT',
     targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER'
-  ) => void;
+  ) => Promise<void>;
   onDeleteBroadcast?: (notification: AdminBroadcastNotification) => void;
 }
 
@@ -62,7 +62,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   const [validationErrors, setValidationErrors] = useState<{ title?: string; content?: string }>({});
   const [userCounts, setUserCounts] = useState<{ total: number; premium: number; creator: number; partner: number }>({ total: 0, premium: 0, creator: 0, partner: 0 });
   
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
   // Load draft from localStorage on mount
@@ -156,7 +156,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     setNotificationType('SYSTEM');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Final validation
@@ -174,7 +174,9 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       return;
     }
     
-    onSendBroadcast(title.trim(), content.trim(), notificationType, targetAudience);
+    await onSendBroadcast(title.trim(), content.trim(), notificationType, targetAudience);
+    
+    // Clear form after successful send
     clearDraft();
     setTitle('');
     setContent('');
