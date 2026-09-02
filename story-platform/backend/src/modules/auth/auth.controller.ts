@@ -117,6 +117,14 @@ export class AuthController {
     return this.authService.changePassword(userId, dto);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Patch('users/me/password')
+  @ApiOperation({ summary: 'Đổi mật khẩu người dùng hiện tại' })
+  async changeUserPassword(@CurrentUser('id') userId: string, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(userId, dto);
+  }
+
   @Post('auth/reset-password')
   @ApiOperation({ summary: 'Đặt lại mật khẩu (không cần mật khẩu cũ, dùng cho reset link)' })
   async resetPassword(@Body() dto: ResetPasswordDto) {
