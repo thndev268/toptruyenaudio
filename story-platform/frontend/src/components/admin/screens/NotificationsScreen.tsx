@@ -352,7 +352,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
               <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1 font-bold">
                 <CheckCircle2 className="w-3 h-3" />
-                <span>Đã tiếp cận ~{notif.reachCount.toLocaleString('vi-VN')} tài khoản</span>
+                <span>Đã tiếp cận ~{notif.reachCount?.toLocaleString('vi-VN') || '0'} tài khoản</span>
               </span>
             </div>
 
