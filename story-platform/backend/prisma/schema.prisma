@@ -551,6 +551,7 @@ model HonoraryTitle {
   code        String   @unique
   name        String
   description String?
+  level       String?  @default("COMMON")
   iconUrl     String?
   effects     Json?
   isActive    Boolean  @default(true)

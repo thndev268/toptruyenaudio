@@ -68,11 +68,18 @@ export class RestBadgeRepository implements BadgeRepository {
       if (response?.data && Array.isArray(response.data)) {
         let badges: UserBadge[] = response.data.map((b: any) => ({
           id: b.id,
+          code: b.code || '',
           name: b.name,
           description: b.description,
+          icon: b.icon || b.iconUrl || 'Award', // Use icon from backend or fallback to iconUrl
+          level: b.level || 'COMMON',
           isActive: b.isActive,
           effects: b.effects || [],
           createdAt: b.createdAt,
+          updatedAt: b.updatedAt,
+          // Add missing fields for compatibility with frontend types
+          requirementText: '',
+          awardMode: 'MANUAL',
         }));
         
         if (filters) {
@@ -81,7 +88,8 @@ export class RestBadgeRepository implements BadgeRepository {
             badges = badges.filter(
               (b) =>
                 b.name.toLowerCase().includes(query) ||
-                b.description.toLowerCase().includes(query)
+                b.description.toLowerCase().includes(query) ||
+                b.code.toLowerCase().includes(query)
             );
           }
           if (filters.status === 'ACTIVE') {

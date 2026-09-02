@@ -632,7 +632,6 @@ export class AdminService {
   // Badges/Honorary Titles Management
   async getBadges() {
     const badges = await this.prisma.honoraryTitle.findMany({
-      where: { isActive: true },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -643,8 +642,10 @@ export class AdminService {
         code: b.code,
         name: b.name,
         description: b.description,
+        level: b.level || 'COMMON',
+        icon: b.iconUrl || 'Award', // Map iconUrl to icon for frontend compatibility
         iconUrl: b.iconUrl,
-        effects: b.effects,
+        effects: b.effects || [],
         isActive: b.isActive,
         createdAt: b.createdAt,
         updatedAt: b.updatedAt,
@@ -653,17 +654,30 @@ export class AdminService {
     };
   }
 
-  async createBadge(body: { name: string; description: string; effects: any[]; isActive: boolean }) {
-    const code = body.name.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+  async createBadge(body: any) {
+    const code = body.code || body.name.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+    
+    // Only include fields that exist in HonoraryTitle model
+    const createData: any = {
+      code,
+      name: body.name,
+      description: body.description,
+      level: body.level || 'COMMON',
+      isActive: body.isActive ?? true,
+    };
+    
+    if (body.iconUrl !== undefined) createData.iconUrl = body.iconUrl;
+    if (body.effects !== undefined) createData.effects = body.effects;
+
     const badge = await this.prisma.honoraryTitle.create({
-      data: {
-        code,
-        name: body.name,
-        description: body.description,
-        effects: body.effects,
-        isActive: body.isActive ?? true,
-      },
+      data: createData,
     });
+
+    return {
+      success: true,
+      data: badge,
+      message: 'Đã tạo badge thành công',
+    };
   }
 
   async getActiveUsers(query: { limit?: number; timeRange?: string }) {
@@ -766,15 +780,22 @@ export class AdminService {
     return activeUsers;
   }
 
-  async updateBadge(id: string, body: { name: string; description: string; effects: any[]; isActive: boolean }) {
+  async updateBadge(id: string, body: any) {
+    // Build update data object with only fields that exist in the database schema
+    const updateData: any = {};
+    
+    // Only update fields that exist in HonoraryTitle model
+    if (body.code !== undefined) updateData.code = body.code;
+    if (body.name !== undefined) updateData.name = body.name;
+    if (body.description !== undefined) updateData.description = body.description;
+    if (body.level !== undefined) updateData.level = body.level;
+    if (body.iconUrl !== undefined) updateData.iconUrl = body.iconUrl;
+    if (body.effects !== undefined) updateData.effects = body.effects;
+    if (body.isActive !== undefined) updateData.isActive = body.isActive;
+
     const badge = await this.prisma.honoraryTitle.update({
       where: { id },
-      data: {
-        name: body.name,
-        description: body.description,
-        effects: body.effects,
-        isActive: body.isActive ?? true,
-      },
+      data: updateData,
     });
 
     return {

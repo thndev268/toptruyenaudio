@@ -222,13 +222,13 @@ export class AdminController {
 
   @Post('badges')
   @ApiOperation({ summary: 'Tạo badge/honorary title mới' })
-  async createBadge(@Body() body: { name: string; description: string; effects: any[]; isActive: boolean }) {
+  async createBadge(@Body() body: any) {
     return this.adminService.createBadge(body);
   }
 
   @Put('badges/:id')
   @ApiOperation({ summary: 'Cập nhật badge/honorary title' })
-  async updateBadge(@Param('id') id: string, @Body() body: { name: string; description: string; effects: any[]; isActive: boolean }) {
+  async updateBadge(@Param('id') id: string, @Body() body: any) {
     return this.adminService.updateBadge(id, body);
   }
 
