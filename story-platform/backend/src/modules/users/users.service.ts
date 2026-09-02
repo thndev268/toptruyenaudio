@@ -70,8 +70,8 @@ export class UsersService {
       });
     }
 
-    // Check optimistic concurrency version conflict
-    if (dto.expectedVersion !== undefined && user.version !== dto.expectedVersion) {
+    // Check optimistic concurrency version conflict (only if expectedVersion is provided)
+    if (dto.expectedVersion !== undefined && dto.expectedVersion !== null && user.version !== dto.expectedVersion) {
       throw new ConflictException({
         code: 'PROFILE_VERSION_CONFLICT',
         message: 'Dữ liệu hồ sơ đã bị thay đổi bởi phiên làm việc khác. Vui lòng tải lại trang.',

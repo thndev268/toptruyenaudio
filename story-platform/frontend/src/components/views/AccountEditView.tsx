@@ -166,12 +166,13 @@ export const AccountEditView: React.FC = () => {
         finalAvatarUrl = uploadRes.avatarUrl;
       }
 
-      // Update Profile via Repository with expectedVersion check
+      // Update Profile via Repository with expectedVersion check (optional)
       const updatedData = await userProfileRepository.updateProfile({
         name: trimmedName,
         username: trimmedUsername || undefined,
         avatarUrl: finalAvatarUrl,
-        expectedVersion: serverProfile?.version,
+        // Only send expectedVersion if we have a valid version number
+        ...(serverProfile?.version !== undefined && { expectedVersion: serverProfile.version }),
       });
 
       setServerProfile(updatedData);
