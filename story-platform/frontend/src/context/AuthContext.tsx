@@ -4,8 +4,7 @@ import { supabase } from '../lib/supabase';
 import { adminRepository } from '../services/repositories/AdminRepository';
 import { apiRequest } from '../services/apiClient';
 import { LoadingScreen } from '../components/loading/LoadingScreen';
-import { LoadingScreen } from '../components/loading/LoadingScreen';
-import { LoadingScreen } from '../components/loading/LoadingScreen';
+
 
 export { UserRole };
 
@@ -50,19 +49,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_CACHE_KEY = 'toptruyen_auth_cache';
 const PROFILE_CACHE_KEY = 'toptruyen_profile_cache';
 
-// Cache keys for localStorage
-const AUTH_CACHE_KEY = 'toptruyen_auth_cache';
-const PROFILE_CACHE_KEY = 'toptruyen_profile_cache';
-
-// Cache keys for localStorage
-const AUTH_CACHE_KEY = 'toptruyen_auth_cache';
-const PROFILE_CACHE_KEY = 'toptruyen_profile_cache';
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [authData, setAuthData] = useState<{ role: UserRole | 'GUEST'; user: UserProfile | null }>({ role: 'GUEST', user: null });
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [showLoadingScreen, setShowLoadingScreen] = useState<boolean>(false);
-  const [showLoadingScreen, setShowLoadingScreen] = useState<boolean>(false);
   const [showLoadingScreen, setShowLoadingScreen] = useState<boolean>(false);
   const [devModeRoleOverride, setDevModeRoleOverride] = useState<boolean>(false);
   const [isBanned, setIsBanned] = useState<boolean>(false);
@@ -70,50 +59,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   // Track last fetched session to prevent duplicate calls
   const lastFetchedSessionRef = useRef<string | null>(null);
-
-  // Save profile to cache
-  const saveProfileToCache = (profile: UserProfile | null) => {
-    if (profile) {
-      localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profile));
-    } else {
-      localStorage.removeItem(PROFILE_CACHE_KEY);
-    }
-  };
-
-  // Load profile from cache
-  const loadProfileFromCache = (): UserProfile | null => {
-    try {
-      const cached = localStorage.getItem(PROFILE_CACHE_KEY);
-      if (cached) {
-        return JSON.parse(cached);
-      }
-    } catch (e) {
-      console.error('[AuthContext] Failed to load profile from cache:', e);
-    }
-    return null;
-  };
-
-  // Save profile to cache
-  const saveProfileToCache = (profile: UserProfile | null) => {
-    if (profile) {
-      localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(profile));
-    } else {
-      localStorage.removeItem(PROFILE_CACHE_KEY);
-    }
-  };
-
-  // Load profile from cache
-  const loadProfileFromCache = (): UserProfile | null => {
-    try {
-      const cached = localStorage.getItem(PROFILE_CACHE_KEY);
-      if (cached) {
-        return JSON.parse(cached);
-      }
-    } catch (e) {
-      console.error('[AuthContext] Failed to load profile from cache:', e);
-    }
-    return null;
-  };
 
   // Save profile to cache
   const saveProfileToCache = (profile: UserProfile | null) => {
@@ -192,14 +137,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Save to cache
         saveProfileToCache(profile);
         
-        
-        // Save to cache
-        saveProfileToCache(profile);
-        
-        
-        // Save to cache
-        saveProfileToCache(profile);
-        
         return profile;
       }
     } catch (err) {
@@ -244,29 +181,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         // Then fetch fresh session from Supabase
-        // First, try to load from cache for immediate UX
-        const cachedProfile = loadProfileFromCache();
-        if (cachedProfile) {
-          console.log('[AuthContext] Loading profile from cache');
-          setAuthData({ role: cachedProfile.role, user: cachedProfile });
-          checkBannedStatus(cachedProfile);
-        }
-
-        // Then fetch fresh session from Supabase
-        // First, try to load from cache for immediate UX
-        const cachedProfile = loadProfileFromCache();
-        if (cachedProfile) {
-          console.log('[AuthContext] Loading profile from cache');
-          setAuthData({ role: cachedProfile.role, user: cachedProfile });
-          checkBannedStatus(cachedProfile);
-        }
-
-        // Then fetch fresh session from Supabase
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (session && session.user && isMounted) {
-          console.log('[AuthContext] Found Supabase session, fetching profile');
-          console.log('[AuthContext] Found Supabase session, fetching profile');
           console.log('[AuthContext] Found Supabase session, fetching profile');
           const profile = await fetchProfile(session.user.id, session.user.email || '');
           if (profile) {
@@ -279,10 +196,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Only set to GUEST if no cache either
           console.log('[AuthContext] No session and no cache, setting to GUEST');
           setAuthData({ role: 'GUEST', user: null });
-        } else {
-          console.log('[AuthContext] No session but using cached profile');
-        } else {
-          console.log('[AuthContext] No session but using cached profile');
         } else {
           console.log('[AuthContext] No session but using cached profile');
         }
@@ -304,8 +217,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[AuthContext] Auth state changed:', event, session?.user?.id);
-      console.log('[AuthContext] Auth state changed:', event, session?.user?.id);
-      console.log('[AuthContext] Auth state changed:', event, session?.user?.id);
       if (!isMounted) return;
       
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
@@ -319,25 +230,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (showLoadingScreen) {
               setTimeout(() => setShowLoadingScreen(false), 500);
             }
-            
-            // Hide loading screen after profile is loaded
-            if (showLoadingScreen) {
-              setTimeout(() => setShowLoadingScreen(false), 500);
-            }
-            
-            // Hide loading screen after profile is loaded
-            if (showLoadingScreen) {
-              setTimeout(() => setShowLoadingScreen(false), 500);
-            }
           }
         }
       } else if (event === 'SIGNED_OUT') {
         console.log('[AuthContext] User signed out, clearing auth data');
-        console.log('[AuthContext] User signed out, clearing auth data');
-        console.log('[AuthContext] User signed out, clearing auth data');
         setAuthData({ role: 'GUEST', user: null });
-        setShowLoadingScreen(false);
-        setShowLoadingScreen(false);
         setShowLoadingScreen(false);
       }
     });
@@ -367,7 +264,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Show loading screen on successful login
     setShowLoadingScreen(true);
 
-<<<<<<< HEAD
     // Clear guest listening timer on login
     localStorage.removeItem('guest_listen_start');
 
@@ -384,30 +280,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Fallback to onAuthStateChange will handle it
       }
     }
-=======
-    // Show loading screen on successful login
-    setShowLoadingScreen(true);
-
-    // Show loading screen on successful login
-    setShowLoadingScreen(true);
-
-    // Clear guest listening timer on login
-    localStorage.removeItem('guest_listen_start');
-
-    // Immediately fetch profile to update auth state without waiting for onAuthStateChange
-    if (data.session && data.session.user) {
-      try {
-        const profile = await fetchProfile(data.session.user.id, data.session.user.email || '');
-        if (profile) {
-          setAuthData({ role: profile.role, user: profile });
-          checkBannedStatus(profile);
-        }
-      } catch (err) {
-        console.error('[AuthContext] Failed to fetch profile immediately after login:', err);
-        // Fallback to onAuthStateChange will handle it
-      }
-    }
->>>>>>> origin/main
   };
 
   const register = async (name: string, email: string, password?: string, username?: string) => {
@@ -457,10 +329,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     lastFetchedSessionRef.current = null;
-    // Clear profile cache on logout
-    saveProfileToCache(null);
-    // Clear profile cache on logout
-    saveProfileToCache(null);
     // Clear profile cache on logout
     saveProfileToCache(null);
     await supabase.auth.signOut();
@@ -521,8 +389,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setDevModeRoleOverride,
       }}
     >
-      {showLoadingScreen && <LoadingScreen />}
-      {showLoadingScreen && <LoadingScreen />}
       {showLoadingScreen && <LoadingScreen />}
       {children}
     </AuthContext.Provider>
