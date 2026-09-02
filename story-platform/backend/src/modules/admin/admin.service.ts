@@ -642,7 +642,7 @@ export class AdminService {
         code: b.code,
         name: b.name,
         description: b.description,
-        level: b.level || 'COMMON',
+        level: 'COMMON', // Default level since database column doesn't exist yet
         icon: b.iconUrl || 'Award', // Map iconUrl to icon for frontend compatibility
         iconUrl: b.iconUrl,
         effects: b.effects || [],
