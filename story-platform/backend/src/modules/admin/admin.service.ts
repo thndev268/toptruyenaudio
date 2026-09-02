@@ -662,7 +662,6 @@ export class AdminService {
       code,
       name: body.name,
       description: body.description,
-      level: body.level || 'COMMON',
       isActive: body.isActive ?? true,
     };
     
@@ -788,7 +787,6 @@ export class AdminService {
     if (body.code !== undefined) updateData.code = body.code;
     if (body.name !== undefined) updateData.name = body.name;
     if (body.description !== undefined) updateData.description = body.description;
-    if (body.level !== undefined) updateData.level = body.level;
     if (body.iconUrl !== undefined) updateData.iconUrl = body.iconUrl;
     if (body.effects !== undefined) updateData.effects = body.effects;
     if (body.isActive !== undefined) updateData.isActive = body.isActive;
