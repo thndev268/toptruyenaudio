@@ -1564,9 +1564,25 @@ class AdminRepositoryService {
             priority: (c.priority as any) || 'MEDIUM',
             status: c.status === 'RESOLVED' || c.status === 'CLOSED' ? 'RESOLVED' : 'PENDING',
             message: c.messages?.[0]?.content || 'Nội dung hỗ trợ',
-            createdAt: new Date(c.createdAt || Date.now()).toISOString().replace('T', ' ').substring(0, 16),
+            createdAt: (() => {
+              try {
+                const date = new Date(c.createdAt || Date.now());
+                if (isNaN(date.getTime())) return new Date().toISOString().replace('T', ' ').substring(0, 16);
+                return date.toISOString().replace('T', ' ').substring(0, 16);
+              } catch (e) {
+                return new Date().toISOString().replace('T', ' ').substring(0, 16);
+              }
+            })(),
             adminReply: adminMsg?.content,
-            resolvedAt: c.status === 'RESOLVED' ? new Date(c.updatedAt || Date.now()).toISOString().replace('T', ' ').substring(0, 16) : undefined,
+            resolvedAt: c.status === 'RESOLVED' ? (() => {
+              try {
+                const date = new Date(c.updatedAt || Date.now());
+                if (isNaN(date.getTime())) return new Date().toISOString().replace('T', ' ').substring(0, 16);
+                return date.toISOString().replace('T', ' ').substring(0, 16);
+              } catch (e) {
+                return new Date().toISOString().replace('T', ' ').substring(0, 16);
+              }
+            })() : undefined,
           };
         });
 

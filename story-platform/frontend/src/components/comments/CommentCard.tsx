@@ -45,6 +45,7 @@ export const CommentCard: React.FC<CommentCardProps> = ({
   const formatDate = (isoString: string) => {
     try {
       const date = new Date(isoString);
+      if (isNaN(date.getTime())) return isoString;
       const diffMs = Date.now() - date.getTime();
       const diffMins = Math.floor(diffMs / (1000 * 60));
       const diffHours = Math.floor(diffMs / (1000 * 3600));

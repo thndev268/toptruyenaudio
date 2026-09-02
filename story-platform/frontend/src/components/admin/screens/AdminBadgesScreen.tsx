@@ -174,8 +174,26 @@ export const AdminBadgesScreen: React.FC = () => {
         if (sortBy === 'NAME_DESC') return b.name.localeCompare(a.name, 'vi');
         if (sortBy === 'LEVEL_ASC') return LEVEL_WEIGHT[a.level] - LEVEL_WEIGHT[b.level];
         if (sortBy === 'LEVEL_DESC') return LEVEL_WEIGHT[b.level] - LEVEL_WEIGHT[a.level];
-        if (sortBy === 'NEWEST') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-        if (sortBy === 'OLDEST') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        if (sortBy === 'NEWEST') {
+          try {
+            const dateA = new Date(a.createdAt);
+            const dateB = new Date(b.createdAt);
+            if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) return 0;
+            return dateB.getTime() - dateA.getTime();
+          } catch (e) {
+            return 0;
+          }
+        }
+        if (sortBy === 'OLDEST') {
+          try {
+            const dateA = new Date(a.createdAt);
+            const dateB = new Date(b.createdAt);
+            if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) return 0;
+            return dateA.getTime() - dateB.getTime();
+          } catch (e) {
+            return 0;
+          }
+        }
         return 0;
       });
   }, [badges, search, selectedLevel, selectedStatus, sortBy]);
