@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bell, X, Check, Eye, Sparkles, Radio, Info } from 'lucide-react';
+import { Bell, X, Check, Eye, Sparkles, Radio, Info, User, BookOpen, FileText, Gift, Settings, AlertTriangle, AlertCircle, HelpCircle } from 'lucide-react';
 import { adminRepository } from '../services/repositories/AdminRepository';
 import { useAuth } from './AuthContext';
 import { AdminBroadcastNotification } from '../types/admin';
@@ -243,6 +243,53 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       />
     </NotificationContext.Provider>
   );
+};
+
+// Helper functions for notification type icons and labels
+export const getNotificationIcon = (type?: string) => {
+  switch (type) {
+    case 'NEW_USER':
+      return User;
+    case 'NEW_STORY':
+      return BookOpen;
+    case 'NEW_CHAPTER':
+      return FileText;
+    case 'PROMOTION':
+      return Gift;
+    case 'SYSTEM':
+      return Settings;
+    case 'WARNING':
+      return AlertTriangle;
+    case 'ERROR':
+      return AlertCircle;
+    case 'SUPPORT':
+      return HelpCircle;
+    default:
+      return Radio;
+  }
+};
+
+export const getNotificationTypeLabel = (type?: string) => {
+  switch (type) {
+    case 'NEW_USER':
+      return 'Thành Viên Mới';
+    case 'NEW_STORY':
+      return 'Truyện Mới';
+    case 'NEW_CHAPTER':
+      return 'Tập Mới';
+    case 'PROMOTION':
+      return 'Khuyến Mãi';
+    case 'SYSTEM':
+      return 'Hệ Thống';
+    case 'WARNING':
+      return 'Cảnh Báo';
+    case 'ERROR':
+      return 'Lỗi';
+    case 'SUPPORT':
+      return 'Hỗ Trợ';
+    default:
+      return 'Thông Báo';
+  }
 };
 
 // Sub-component for individual toast item timer & animation

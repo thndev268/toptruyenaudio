@@ -200,6 +200,7 @@ export interface AdminBroadcastNotification {
   id: string;
   title: string;
   content: string;
+  type?: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT';
   targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER';
   targetUserId?: string; // For SPECIFIC_USER target
   sentAt: string;

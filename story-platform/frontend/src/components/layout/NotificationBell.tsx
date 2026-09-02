@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell, Check, Trash2, Clock, CheckCircle2, AlertCircle, Info, Mic, Share2, ShieldCheck } from 'lucide-react';
-import { useNotifications, Notification } from '../../context/NotificationContext';
+import { useNotifications, Notification, getNotificationIcon, getNotificationTypeLabel } from '../../context/NotificationContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
@@ -26,14 +26,14 @@ export const NotificationBell: React.FC = () => {
     setIsOpen(false);
   };
 
-  const getIcon = (audience: string) => {
-    switch (audience) {
-      case 'PREMIUM': return <CheckCircle2 className="w-4 h-4 text-amber-400" />;
-      case 'CREATOR': return <Mic className="w-4 h-4 text-emerald-400" />;
-      case 'PARTNER': return <Share2 className="w-4 h-4 text-indigo-400" />;
-      case 'ADMIN': return <ShieldCheck className="w-4 h-4 text-rose-400" />;
-      default: return <Info className="w-4 h-4 text-cyan-400" />;
-    }
+  const getIcon = (type?: string) => {
+    const IconComponent = getNotificationIcon(type);
+    const iconColor = type === 'WARNING' ? 'text-amber-400' :
+                       type === 'ERROR' ? 'text-rose-400' :
+                       type === 'SUPPORT' ? 'text-blue-400' :
+                       type === 'PROMOTION' ? 'text-emerald-400' :
+                       'text-cyan-400';
+    return <IconComponent className={`w-4 h-4 ${iconColor}`} />;
   };
 
   return (
@@ -86,17 +86,19 @@ export const NotificationBell: React.FC = () => {
                       
                       <div className="flex gap-3">
                         <div className={`mt-1 w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                          notif.targetAudience === 'PREMIUM' ? 'bg-amber-500/10' :
-                          notif.targetAudience === 'CREATOR' ? 'bg-emerald-500/10' :
+                          notif.type === 'WARNING' ? 'bg-amber-500/10' :
+                          notif.type === 'ERROR' ? 'bg-rose-500/10' :
+                          notif.type === 'SUPPORT' ? 'bg-blue-500/10' :
+                          notif.type === 'PROMOTION' ? 'bg-emerald-500/10' :
                           'bg-cyan-500/10'
                         }`}>
-                          {getIcon(notif.targetAudience)}
+                          {getIcon(notif.type)}
                         </div>
                         
                         <div className="flex-1 min-w-0 space-y-1">
                           <div className="flex items-center gap-2">
                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">
-                              {notif.targetAudience === 'ALL' ? 'Hệ thống' : notif.targetAudience}
+                              {getNotificationTypeLabel(notif.type)}
                             </span>
                             <span className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-1">
                               <Clock className="w-2.5 h-2.5" />
