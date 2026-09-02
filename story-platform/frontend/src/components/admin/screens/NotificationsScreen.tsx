@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Bell,
   Send,
@@ -8,6 +8,9 @@ import {
   Clock,
   Plus,
   Trash2,
+  AlertCircle,
+  Save,
+  X,
 } from 'lucide-react';
 import { AdminBroadcastNotification } from '../../../types/admin';
 
@@ -21,6 +24,8 @@ interface NotificationsScreenProps {
   onDeleteBroadcast?: (notification: AdminBroadcastNotification) => void;
 }
 
+const DRAFT_STORAGE_KEY = 'broadcast_draft';
+
 export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   notifications,
   onSendBroadcast,
@@ -30,15 +35,143 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   const [content, setContent] = useState('');
   const [targetAudience, setTargetAudience] = useState<'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER'>('ALL');
   const [isComposing, setIsComposing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<string>('');
+  const [validationErrors, setValidationErrors] = useState<{ title?: string; content?: string }>({});
+  
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const contentRef = useRef<HTMLTextAreaElement>(null);
+
+  // Load draft from localStorage on mount
+  useEffect(() => {
+    const savedDraft = localStorage.getItem(DRAFT_STORAGE_KEY);
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft);
+        if (draft.title || draft.content) {
+          setTitle(draft.title || '');
+          setContent(draft.content || '');
+          setTargetAudience(draft.targetAudience || 'ALL');
+          setLastSaved(new Date(draft.savedAt).toLocaleString('vi-VN'));
+        }
+      } catch (e) {
+        console.error('Failed to load draft:', e);
+      }
+    }
+  }, []);
+
+  // Auto-save draft with debounce
+  useEffect(() => {
+    if (title || content) {
+      setIsSaving(true);
+      
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      
+      saveTimeoutRef.current = setTimeout(() => {
+        const draft = {
+          title,
+          content,
+          targetAudience,
+          savedAt: new Date().toISOString(),
+        };
+        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+        setLastSaved(new Date().toLocaleString('vi-VN'));
+        setIsSaving(false);
+      }, 1000);
+    }
+  }, [title, content, targetAudience]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Real-time validation
+  useEffect(() => {
+    const errors: { title?: string; content?: string } = {};
+    
+    if (title.length > 100) {
+      errors.title = 'Tiêu đề không được quá 100 ký tự';
+    }
+    
+    if (content.length > 500) {
+      errors.content = 'Nội dung không được quá 500 ký tự';
+    }
+    
+    setValidationErrors(errors);
+  }, [title, content]);
+
+  // Clear draft after successful send
+  const clearDraft = () => {
+    localStorage.removeItem(DRAFT_STORAGE_KEY);
+    setLastSaved('');
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !content.trim()) return;
+    
+    // Final validation
+    if (!title.trim()) {
+      setValidationErrors({ title: 'Vui lòng nhập tiêu đề' });
+      return;
+    }
+    
+    if (!content.trim()) {
+      setValidationErrors({ content: 'Vui lòng nhập nội dung' });
+      return;
+    }
+    
+    if (Object.keys(validationErrors).length > 0) {
+      return;
+    }
+    
     onSendBroadcast(title.trim(), content.trim(), targetAudience);
+    clearDraft();
     setTitle('');
     setContent('');
+    setTargetAudience('ALL');
+    setValidationErrors({});
     setIsComposing(false);
   };
+
+  const handleCancel = () => {
+    if (title || content) {
+      if (confirm('Bạn có chắc muốn hủy? Nội dung nháp sẽ bị mất.')) {
+        clearDraft();
+        setTitle('');
+        setContent('');
+        setTargetAudience('ALL');
+        setValidationErrors({});
+        setIsComposing(false);
+      }
+    } else {
+      setIsComposing(false);
+    }
+  };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isComposing && (e.metaKey || e.ctrlKey)) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleSubmit(e as any);
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          handleCancel();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isComposing]);
 
   return (
     <div className="space-y-5 animate-fadeIn">
@@ -75,15 +208,35 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
           onSubmit={handleSubmit}
           className="bg-slate-900 border border-cyan-500/40 rounded-2xl p-5 shadow-2xl space-y-4 animate-scaleUp"
         >
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <Radio className="w-4 h-4 text-cyan-400" />
-            <span>Soạn Tin Nhắn Broadcast Toàn Sàn</span>
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Radio className="w-4 h-4 text-cyan-400" />
+              <span>Soạn Tin Nhắn Broadcast Toàn Sàn</span>
+            </h3>
+            
+            {/* Auto-save indicator */}
+            <div className="flex items-center gap-2 text-[10px] text-slate-400">
+              {isSaving ? (
+                <span className="flex items-center gap-1">
+                  <Save className="w-3 h-3 animate-spin" />
+                  Đang lưu...
+                </span>
+              ) : lastSaved ? (
+                <span className="flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  Đã lưu {lastSaved}
+                </span>
+              ) : null}
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-slate-300 mb-1">
                 Tiêu Đề Thông Báo <span className="text-rose-400">*</span>
+                <span className="text-slate-500 font-normal ml-1">
+                  ({title.length}/100)
+                </span>
               </label>
               <input
                 type="text"
@@ -91,8 +244,19 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Ví dụ: Ra mắt tính năng hẹn giờ nghe và chất lượng âm thanh 320kbps..."
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-cyan-500 min-h-[42px]"
+                maxLength={100}
+                className={`w-full bg-slate-950 border rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none min-h-[42px] transition-colors ${
+                  validationErrors.title 
+                    ? 'border-rose-500 focus:border-rose-500' 
+                    : 'border-slate-800 focus:border-cyan-500'
+                }`}
               />
+              {validationErrors.title && (
+                <p className="text-[10px] text-rose-400 mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {validationErrors.title}
+                </p>
+              )}
             </div>
 
             <div>
@@ -107,35 +271,58 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
                 <option value="ALL">Tất cả người nghe (18.420 người)</option>
                 <option value="PREMIUM">Chỉ thành viên Premium (3.200 người)</option>
                 <option value="CREATOR">Chỉ tác giả & MC (450 người)</option>
+                <option value="PARTNER">Chỉ đối tác (120 người)</option>
               </select>
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-300 mb-1">
-              Nội Dung Thông Điệp Chi Tiết
+              Nội Dung Thông Điệp Chi Tiết <span className="text-rose-400">*</span>
+              <span className="text-slate-500 font-normal ml-1">
+                ({content.length}/500)
+              </span>
             </label>
             <textarea
-              rows={3}
+              ref={contentRef}
+              rows={4}
               required
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="Nhập nội dung thông điệp sẽ hiển thị trên chuông thông báo và ứng dụng di động..."
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs sm:text-sm text-white focus:outline-none focus:border-cyan-500 resize-none"
+              maxLength={500}
+              className={`w-full bg-slate-950 border rounded-xl p-3 text-xs sm:text-sm text-white focus:outline-none resize-none transition-colors ${
+                validationErrors.content 
+                  ? 'border-rose-500 focus:border-rose-500' 
+                  : 'border-slate-800 focus:border-cyan-500'
+              }`}
             />
+            {validationErrors.content && (
+              <p className="text-[10px] text-rose-400 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" />
+                {validationErrors.content}
+              </p>
+            )}
+          </div>
+
+          {/* Keyboard shortcuts hint */}
+          <div className="text-[10px] text-slate-500 bg-slate-950 p-2 rounded-lg border border-slate-800">
+            <span className="font-mono">Ctrl+Enter</span> để gửi • <span className="font-mono">Esc</span> để hủy
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
             <button
               type="button"
-              onClick={() => setIsComposing(false)}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs font-bold rounded-xl min-h-[40px] cursor-pointer"
+              onClick={handleCancel}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-750 text-slate-300 text-xs font-bold rounded-xl min-h-[40px] cursor-pointer flex items-center gap-2 transition-colors"
             >
-              Hủy
+              <X className="w-3.5 h-3.5" />
+              <span>Hủy</span>
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-cyan-500/20 flex items-center gap-2 cursor-pointer min-h-[40px] font-bold"
+              disabled={Object.keys(validationErrors).length > 0 || !title.trim() || !content.trim()}
+              className="px-5 py-2 bg-cyan-500 hover:bg-cyan-400 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-cyan-500/20 flex items-center gap-2 cursor-pointer min-h-[40px] font-bold transition-all"
             >
               <Send className="w-4 h-4" />
               <span>Phát Sóng Ngay</span>

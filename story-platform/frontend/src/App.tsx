@@ -91,25 +91,32 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { PwaInstallGuideModal } from './components/common/PwaInstallGuideModal';
 import { usePwaInstall } from './context/PwaInstallContext';
 
-// Component to restore audio navigation
-const AudioRestorationHandler = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
+// Component to restore audio navigation - DISABLED to prevent auto-redirect
+// const AudioRestorationHandler = () => {
+//   const navigate = useNavigate();
+//   const location = useLocation();
+//   const hasRestored = React.useRef(false);
 
-  useEffect(() => {
-    // Only restore if we're on the home page and not already on a story page
-    if (location.pathname === '/' || location.pathname === '/explore') {
-      const currentAudio = storage.getCurrentAudio();
-      if (currentAudio && currentAudio.storySlug) {
-        console.log('[AudioRestorationHandler] Restoring navigation to story:', currentAudio.storySlug);
-        // Navigate to the story detail page
-        navigate(`/story/${currentAudio.storySlug}`, { replace: true });
-      }
-    }
-  }, [location.pathname, navigate]);
+//   useEffect(() => {
+//     if (hasRestored.current) return;
+//     hasRestored.current = true;
 
-  return null;
-};
+//     // Only restore if we're on the home page and not already on a story page
+//     // Also check if we're not on a story or listen page to avoid redirecting when user reloads those pages
+//     const isStoryPage = location.pathname.startsWith('/story/') || location.pathname.startsWith('/listen/');
+    
+//     if (!isStoryPage && (location.pathname === '/' || location.pathname === '/explore')) {
+//       const currentAudio = storage.getCurrentAudio();
+//       if (currentAudio && currentAudio.storySlug) {
+//         console.log('[AudioRestorationHandler] Restoring navigation to story:', currentAudio.storySlug);
+//         // Navigate to the story detail page
+//         navigate(`/story/${currentAudio.storySlug}`, { replace: true });
+//       }
+//     }
+//   }, [location.pathname, navigate]);
+
+//   return null;
+// };
 
 export function App() {
   const pwa = usePwaInstall();
@@ -180,7 +187,6 @@ export function App() {
                 <NotificationProvider>
                   <BadgeToastProvider>
                     <AudioPlayerProvider>
-                      <AudioRestorationHandler />
                       <Routes>
               
               {/* Public Website Routes */}

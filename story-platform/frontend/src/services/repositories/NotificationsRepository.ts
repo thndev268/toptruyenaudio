@@ -11,6 +11,13 @@ export interface Notification {
   updatedAt: string;
 }
 
+export interface CreateNotificationInput {
+  title: string;
+  content: string;
+  targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER';
+  targetUserId?: string;
+}
+
 export class NotificationsRepository {
   private static instance: NotificationsRepository;
   private notifications: Notification[] = [];
@@ -50,6 +57,32 @@ export class NotificationsRepository {
     } catch (error) {
       console.error('[NotificationsRepository] Failed to fetch notifications:', error);
       return [];
+    }
+  }
+
+  async createNotification(input: CreateNotificationInput): Promise<Notification> {
+    try {
+      console.log('[NotificationsRepository] Creating notification:', input);
+      const response = await apiRequest<{ success: boolean; data: Notification }>('/notifications', {
+        method: 'POST',
+        body: JSON.stringify(input),
+      });
+      
+      if (response?.success && response.data) {
+        this.notifications.unshift(response.data);
+        this.notifyListeners();
+        
+        // Trigger sync event to update UI
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('toptruyenaudio_admin_sync'));
+        }
+        
+        return response.data;
+      }
+      throw new Error('Failed to create notification');
+    } catch (error) {
+      console.error('[NotificationsRepository] Failed to create notification:', error);
+      throw error;
     }
   }
 

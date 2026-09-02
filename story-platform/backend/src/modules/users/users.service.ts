@@ -121,6 +121,12 @@ export class UsersService {
       }
     }
 
+    if (dto.avatarUrl !== undefined) {
+      const trimmedAvatarUrl = dto.avatarUrl.trim();
+      updateData.avatarUrl = trimmedAvatarUrl || null;
+      modified = true;
+    }
+
     if (modified) {
       updateData.version = { increment: 1 };
       await this.prisma.profile.update({
