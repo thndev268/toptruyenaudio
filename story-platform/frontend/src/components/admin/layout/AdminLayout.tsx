@@ -94,7 +94,8 @@ export interface AdminLayoutContextType {
   handleSendBroadcast: (
     title: string,
     content: string,
-    targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER'
+    targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER',
+    type?: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT'
   ) => void;
   handleDeleteBroadcast: (notification: AdminBroadcastNotification) => void;
   handleSaveMaintenanceConfig: (
@@ -271,8 +272,8 @@ export const AdminLayout: React.FC = () => {
       variant: 'warning',
       requiresReason: true,
       reasonPlaceholder: 'Nhập lý do tạm khóa (VD: Vi phạm quy tắc bình luận xúc phạm)...',
-      onConfirm: (reason) => {
-        const res = adminRepository.updateUserStatus(user.id, 'SUSPENDED', reason);
+      onConfirm: async (reason) => {
+        const res = await adminRepository.updateUserStatus(user.id, 'SUSPENDED', reason);
         notifyUserBanned({
           userId: user.id,
           userEmail: user.email,
@@ -296,8 +297,8 @@ export const AdminLayout: React.FC = () => {
       variant: 'primary',
       requiresReason: true,
       reasonPlaceholder: 'Nhập lý do mở khóa...',
-      onConfirm: (reason) => {
-        const res = adminRepository.updateUserStatus(user.id, 'ACTIVE', reason);
+      onConfirm: async (reason) => {
+        const res = await adminRepository.updateUserStatus(user.id, 'ACTIVE', reason);
         refreshAllData();
         showToast(res.message);
       },
@@ -314,8 +315,8 @@ export const AdminLayout: React.FC = () => {
       variant: 'primary',
       requiresReason: true,
       reasonPlaceholder: 'Nhập lý do cấp VIP (VD: Hỗ trợ lỗi thanh toán qua VietQR)...',
-      onConfirm: (reason) => {
-        const res = adminRepository.updateUserMembership(user.id, 'PREMIUM', 30, reason);
+      onConfirm: async (reason) => {
+        const res = await adminRepository.updateUserMembership(user.id, 'PREMIUM', 30, reason);
         refreshAllData();
         showToast(res.message);
       },
@@ -332,8 +333,8 @@ export const AdminLayout: React.FC = () => {
       variant: 'danger',
       requiresReason: true,
       reasonPlaceholder: 'Bắt buộc nhập lý do xóa tài khoản theo yêu cầu pháp lý hoặc vi phạm nghiêm trọng...',
-      onConfirm: (reason) => {
-        const res = adminRepository.deleteUser(user.id, reason);
+      onConfirm: async (reason) => {
+        const res = await adminRepository.deleteUser(user.id, reason);
         refreshAllData();
         showToast(res.message);
       },
@@ -507,11 +508,9 @@ export const AdminLayout: React.FC = () => {
     });
   };
 
-  const handleHideComment = (comment: AdminCommentItem) => {
-    const newStatus = comment.status === 'HIDDEN' ? 'ACTIVE' : 'HIDDEN';
-    const res = adminRepository.updateCommentStatus(
-      comment.id,
-      newStatus,
+  const handleHideComment = async (comment: AdminCommentItem) => {
+    const newStatus = comment.status === 'ACTIVE' ? 'HIDDEN' : 'ACTIVE';
+    const res = await adminRepository.updateCommentStatus(comment.id, newStatus, 
       newStatus === 'HIDDEN' ? 'Owner Admin ẩn bình luận' : 'Khôi phục hiển thị'
     );
     refreshAllData();
@@ -528,8 +527,8 @@ export const AdminLayout: React.FC = () => {
       variant: 'danger',
       requiresReason: true,
       reasonPlaceholder: 'Lý do xóa bình luận spam / xúc phạm...',
-      onConfirm: (reason) => {
-        const res = adminRepository.deleteComment(comment.id, reason);
+      onConfirm: async (reason) => {
+        const res = await adminRepository.deleteComment(comment.id, reason);
         refreshAllData();
         showToast(res.message);
       },
@@ -593,9 +592,10 @@ export const AdminLayout: React.FC = () => {
   const handleSendBroadcast = (
     title: string,
     content: string,
-    targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER'
+    targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER',
+    type?: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT'
   ) => {
-    const res = adminRepository.sendBroadcastNotification(title, content, targetAudience);
+    const res = adminRepository.sendBroadcastNotification(title, content, targetAudience, type);
     refreshAllData();
     showToast(res.message);
   };

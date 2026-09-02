@@ -1,14 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bell, X, Check, Eye, Sparkles, Radio, Info, User, BookOpen, FileText, Gift, Settings } from 'lucide-react';
-import { notificationsRepository, Notification as NotificationType } from '../services/repositories/NotificationsRepository';
+import { Bell, X, Check, Eye, Sparkles, Radio, Info, User, BookOpen, FileText, Gift, Settings, AlertTriangle, AlertCircle, HelpCircle } from 'lucide-react';
+import { adminRepository } from '../services/repositories/AdminRepository';
 import { useAuth } from './AuthContext';
+import { AdminBroadcastNotification } from '../types/admin';
 import { NotificationDetailModal } from '../components/common/NotificationDetailModal';
 import { BannedUserModal } from '../components/common/BannedUserModal';
 
-export interface Notification extends NotificationType {
+export interface Notification extends AdminBroadcastNotification {
   isRead: boolean;
-  type?: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER';
 }
 
 export interface ToastNotification {
@@ -99,24 +99,33 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   useEffect(() => {
-    const syncNotifications = async () => {
-      const fetchedNotifications = await notificationsRepository.fetchNotifications(user?.id);
-      
+    const syncNotifications = () => {
+      const broadcasts = adminRepository.getNotifications();
+
+      // Filter by role/audience
+      const filteredBroadcasts = broadcasts.filter((notif) => {
+        if (notif.targetAudience === 'ALL') return true;
+        if (notif.targetAudience === 'PREMIUM' && user?.isPremium) return true;
+        if (notif.targetAudience === 'CREATOR' && (role === 'CREATOR' || role === 'ADMIN')) return true;
+        if (notif.targetAudience === 'PARTNER' && (role === 'PARTNER' || role === 'ADMIN')) return true;
+        return false;
+      });
+
       // Load read status from localStorage
       const readIds = JSON.parse(localStorage.getItem(`read_notifications_${user?.id || 'guest'}`) || '[]');
       const deletedIds = JSON.parse(localStorage.getItem(`deleted_notifications_${user?.id || 'guest'}`) || '[]');
 
-      const combined: Notification[] = fetchedNotifications
-        .filter((b: NotificationType) => !deletedIds.includes(b.id))
-        .map((b: NotificationType) => ({
+      const combined: Notification[] = filteredBroadcasts
+        .filter((b) => !deletedIds.includes(b.id))
+        .map((b) => ({
           ...b,
           isRead: readIds.includes(b.id),
         }));
 
       // Detect new incoming notifications for real-time toast
       if (!isFirstLoadRef.current) {
-        const newItems = combined.filter((n: Notification) => !knownNotifIdsRef.current.has(n.id));
-        newItems.forEach((newNotif: Notification) => {
+        const newItems = combined.filter((n) => !knownNotifIdsRef.current.has(n.id));
+        newItems.forEach((newNotif) => {
           showToast({
             title: newNotif.title,
             message: newNotif.content,
@@ -129,7 +138,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         isFirstLoadRef.current = false;
       }
 
-      knownNotifIdsRef.current = new Set(combined.map((n: Notification) => n.id));
+      knownNotifIdsRef.current = new Set(combined.map((n) => n.id));
       setNotifications(combined);
     };
 
@@ -142,15 +151,9 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     window.addEventListener('toptruyenaudio_admin_sync', handleSync);
     window.addEventListener('storage', handleSync);
 
-    // Set up polling for new notifications every 30 seconds
-    const pollingInterval = setInterval(() => {
-      syncNotifications();
-    }, 30000);
-
     return () => {
       window.removeEventListener('toptruyenaudio_admin_sync', handleSync);
       window.removeEventListener('storage', handleSync);
-      clearInterval(pollingInterval);
     };
   }, [user, role]);
 
@@ -278,6 +281,53 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       />
     </NotificationContext.Provider>
   );
+};
+
+// Helper functions for notification type icons and labels
+export const getNotificationIcon = (type?: string) => {
+  switch (type) {
+    case 'NEW_USER':
+      return User;
+    case 'NEW_STORY':
+      return BookOpen;
+    case 'NEW_CHAPTER':
+      return FileText;
+    case 'PROMOTION':
+      return Gift;
+    case 'SYSTEM':
+      return Settings;
+    case 'WARNING':
+      return AlertTriangle;
+    case 'ERROR':
+      return AlertCircle;
+    case 'SUPPORT':
+      return HelpCircle;
+    default:
+      return Radio;
+  }
+};
+
+export const getNotificationTypeLabel = (type?: string) => {
+  switch (type) {
+    case 'NEW_USER':
+      return 'Thành Viên Mới';
+    case 'NEW_STORY':
+      return 'Truyện Mới';
+    case 'NEW_CHAPTER':
+      return 'Tập Mới';
+    case 'PROMOTION':
+      return 'Khuyến Mãi';
+    case 'SYSTEM':
+      return 'Hệ Thống';
+    case 'WARNING':
+      return 'Cảnh Báo';
+    case 'ERROR':
+      return 'Lỗi';
+    case 'SUPPORT':
+      return 'Hỗ Trợ';
+    default:
+      return 'Thông Báo';
+  }
 };
 
 // Sub-component for individual toast item timer & animation

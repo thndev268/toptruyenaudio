@@ -13,6 +13,7 @@ import { FullAudioPlayerModal } from '../player/FullAudioPlayerModal';
 import { AuthGateModal } from '../common/AuthGateModal';
 import { PremiumUpgradeModal } from '../common/PremiumUpgradeModal';
 import { BannedUserModal } from '../common/BannedUserModal';
+import { BannerNotification } from '../common/BannerNotification';
 import { useAuth } from '../../context/AuthContext';
 import { adminRepository } from '../../services/repositories/AdminRepository';
 import { motionTokens } from '../../config/motionTokens';
@@ -75,6 +76,9 @@ export const PublicLayout: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Banner Notification */}
+      <BannerNotification />
 
       {/* Resume Listening Notification Prompt */}
       {showResumePrompt && (
