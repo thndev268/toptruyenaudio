@@ -1728,17 +1728,17 @@ class AdminRepositoryService {
         this.userCountsCacheTime = now;
         return response.data;
       }
-      // Fallback to default values if API fails
-      return { total: 18420, premium: 3200, creator: 450, partner: 120 };
+      // Return zeros if API fails - no fake numbers
+      return { total: 0, premium: 0, creator: 0, partner: 0 };
     } catch (error) {
       console.error('[AdminRepository] Failed to fetch user counts:', error);
-      // Fallback to default values
-      return { total: 18420, premium: 3200, creator: 450, partner: 120 };
+      // Return zeros if API fails - no fake numbers
+      return { total: 0, premium: 0, creator: 0, partner: 0 };
     }
   }
 
   getCachedUserCounts(): { total: number; premium: number; creator: number; partner: number } {
-    return this.cachedUserCounts || { total: 18420, premium: 3200, creator: 450, partner: 120 };
+    return this.cachedUserCounts || { total: 0, premium: 0, creator: 0, partner: 0 };
   }
 
   sendBroadcastNotification(title: string, content: string, type: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT', targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER', targetUserId?: string): { success: boolean; message: string } {
