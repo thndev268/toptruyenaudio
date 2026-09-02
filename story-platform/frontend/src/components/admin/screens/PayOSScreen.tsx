@@ -54,7 +54,7 @@ export const PayOSScreen: React.FC = () => {
 
   useEffect(() => {
     fetchStatus();
-  }, [fetchStatus]);
+  }, []);
 
   const handleRecheck = async () => {
     await fetchStatus();

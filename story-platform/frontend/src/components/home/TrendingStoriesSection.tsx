@@ -122,22 +122,20 @@ export const TrendingStoriesSection: React.FC<TrendingStoriesSectionProps> = ({ 
   useEffect(() => {
     if (totalStories <= 1) return;
 
-    let intervalId: NodeJS.Timeout | null = null;
-
-    const shouldAutoPlay =
-      isInViewport &&
-      !isUserInteracting &&
-      !isHovered &&
-      !document.hidden;
-
-    if (shouldAutoPlay) {
-      intervalId = setInterval(() => {
+    const intervalId = setInterval(() => {
+      const shouldAutoPlay =
+        isInViewport &&
+        !isUserInteracting &&
+        !isHovered &&
+        !document.hidden;
+      
+      if (shouldAutoPlay) {
         handleNext();
-      }, 5000);
-    }
+      }
+    }, 5000);
 
     const handleVisibilityChange = () => {
-      if (document.hidden && intervalId) {
+      if (document.hidden) {
         clearInterval(intervalId);
       }
     };
@@ -145,10 +143,10 @@ export const TrendingStoriesSection: React.FC<TrendingStoriesSectionProps> = ({ 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      clearInterval(intervalId);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [totalStories, isInViewport, isUserInteracting, isHovered, handleNext]);
+  }, [totalStories, handleNext]);
 
   // Cleanup interaction timer on unmount
   useEffect(() => {

@@ -219,7 +219,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       window.removeEventListener('storage', handleSync);
       clearInterval(interval);
     };
-  }, [user, role, showToast]);
+  }, [user?.id, role]);
 
   const openNotificationModal = (notification?: Notification) => {
     if (notification) {
