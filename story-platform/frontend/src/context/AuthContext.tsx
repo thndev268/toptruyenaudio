@@ -183,12 +183,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Then fetch fresh session from Supabase
         const { data: { session }, error } = await supabase.auth.getSession();
         
+        console.log('[AuthContext] getSession result:', { session: !!session, error: error?.message });
+        
         if (session && session.user && isMounted) {
           console.log('[AuthContext] Found Supabase session, fetching profile');
           const profile = await fetchProfile(session.user.id, session.user.email || '');
           if (profile) {
             setAuthData({ role: profile.role, user: profile });
             checkBannedStatus(profile);
+            saveProfileToCache(profile); // Save to cache after successful fetch
           } else {
             setAuthData({ role: 'GUEST', user: null });
           }
@@ -225,6 +228,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (profile) {
             setAuthData({ role: profile.role, user: profile });
             checkBannedStatus(profile);
+            saveProfileToCache(profile); // Save to cache after successful fetch
             
             // Hide loading screen after profile is loaded
             if (showLoadingScreen) {
@@ -236,6 +240,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log('[AuthContext] User signed out, clearing auth data');
         setAuthData({ role: 'GUEST', user: null });
         setShowLoadingScreen(false);
+        saveProfileToCache(null); // Clear cache on sign out
       }
     });
 
