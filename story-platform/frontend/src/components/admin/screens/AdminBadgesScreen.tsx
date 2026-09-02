@@ -113,9 +113,9 @@ export const AdminBadgesScreen: React.FC = () => {
           code: code.trim(),
           name: name.trim(),
           description: description.trim(),
-          iconUrl: icon, // Map icon to iconUrl for backend
+          icon: icon,
           level,
-          effects: [], // Initialize empty effects array
+          awardMode: 'MANUAL',
           isActive,
         });
         setSuccessMsg(`Cập nhật danh hiệu "${name}" thành công!`);
@@ -124,9 +124,9 @@ export const AdminBadgesScreen: React.FC = () => {
           code: code.trim(),
           name: name.trim(),
           description: description.trim(),
-          iconUrl: icon, // Map icon to iconUrl for backend
+          icon: icon,
           level,
-          effects: [], // Initialize empty effects array
+          awardMode: 'MANUAL',
           isActive,
         });
         setSuccessMsg(`Tạo danh hiệu mới "${name}" thành công!`);
