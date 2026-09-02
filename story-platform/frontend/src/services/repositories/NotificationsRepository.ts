@@ -14,7 +14,8 @@ export interface Notification {
 export interface CreateNotificationInput {
   title: string;
   content: string;
-  targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER';
+  type?: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT';
+  targetAudience?: 'ALL' | 'REGULAR' | 'PREMIUM' | 'CREATOR' | 'SPECIFIC_USER';
   targetUserId?: string;
 }
 
@@ -63,7 +64,7 @@ export class NotificationsRepository {
   async createNotification(input: CreateNotificationInput): Promise<Notification> {
     try {
       console.log('[NotificationsRepository] Creating notification:', input);
-      const response = await apiRequest<{ success: boolean; data: Notification }>('/notifications', {
+      const response = await apiRequest<{ success: boolean; data: Notification }>('/notifications/broadcast', {
         method: 'POST',
         body: JSON.stringify(input),
       });

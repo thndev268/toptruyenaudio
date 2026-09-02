@@ -1750,7 +1750,8 @@ class AdminRepositoryService {
       const input: CreateNotificationInput = {
         title,
         content,
-        targetAudience,
+        type: 'SYSTEM',
+        targetAudience: targetAudience === 'PARTNER' ? 'CREATOR' : targetAudience as 'ALL' | 'REGULAR' | 'PREMIUM' | 'CREATOR' | 'SPECIFIC_USER',
         targetUserId,
       };
       await notificationsRepository.createNotification(input);
