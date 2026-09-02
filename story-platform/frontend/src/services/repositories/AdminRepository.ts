@@ -22,6 +22,7 @@ import {
 } from '../../types/admin';
 import { AudioChapter, HonoraryTitle, TitleEffect, UserTitle } from '../../types';
 import { apiRequest, getDataSourceMode } from '../apiClient';
+import { notificationsRepository, CreateNotificationInput } from './NotificationsRepository';
 
 export interface VideoIframeSettings {
   showIframeByDefault: boolean;
@@ -1721,6 +1722,11 @@ class AdminRepositoryService {
     };
     this.notifications.unshift(newNotif);
 
+    // Also save to backend API
+    this.saveNotificationToBackend(title, content, targetAudience, targetUserId).catch(err => {
+      console.error('[AdminRepository] Failed to save notification to backend:', err);
+    });
+
     this.recordAuditLog(
       'GỬI_THÔNG_BÁO_TOÀN_HỆ_THỐNG',
       'BroadcastNotification',
@@ -1732,6 +1738,27 @@ class AdminRepositoryService {
 
     this.saveToStorage();
     return { success: true, message: 'Đã phát sóng thông báo thành công.' };
+  }
+
+  private async saveNotificationToBackend(
+    title: string,
+    content: string,
+    targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER',
+    targetUserId?: string
+  ): Promise<void> {
+    try {
+      const input: CreateNotificationInput = {
+        title,
+        content,
+        targetAudience,
+        targetUserId,
+      };
+      await notificationsRepository.createNotification(input);
+      console.log('[AdminRepository] Notification saved to backend successfully');
+    } catch (error) {
+      console.error('[AdminRepository] Failed to save notification to backend:', error);
+      // Don't throw error - local storage should still work as fallback
+    }
   }
 
   deleteBroadcastNotification(id: string): { success: boolean; message: string } {
