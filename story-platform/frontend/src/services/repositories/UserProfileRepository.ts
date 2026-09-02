@@ -95,6 +95,15 @@ export class ApiUserProfileRepository implements UserProfileRepository {
       if (input.avatarUrl !== undefined) body.avatarUrl = input.avatarUrl;
       if (input.expectedVersion !== undefined) body.expectedVersion = input.expectedVersion;
 
+      console.log('[UserProfileRepository] updateProfile called with input:', input);
+      console.log('[UserProfileRepository] Request body:', body);
+
+      // Don't send empty body
+      if (Object.keys(body).length === 0) {
+        console.warn('[UserProfileRepository] Empty body, skipping API call');
+        throw new Error('No fields to update');
+      }
+
       const response = await apiRequest<{ data: any } | any>('/users/me', {
         method: 'PATCH',
         body: JSON.stringify(body),
