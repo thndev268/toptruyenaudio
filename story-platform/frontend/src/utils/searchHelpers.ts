@@ -20,8 +20,8 @@ export function matchesSearchKeyword(target: string | string[] | any[], keyword:
       if (typeof item === 'string') {
         return normalizeVietnamese(item).includes(normKeyword);
       }
-      if (item && item.name) {
-        return normalizeVietnamese(item.name).includes(normKeyword);
+      if (item && typeof item === 'object' && 'name' in item) {
+        return normalizeVietnamese((item as any).name).includes(normKeyword);
       }
       return false;
     });
@@ -99,7 +99,7 @@ export function filterStoryList<T extends {
       const matchesGenre = (story: any) => {
         if (!story.genres || !Array.isArray(story.genres)) return false;
         return story.genres.some((genre: any) => 
-          genre.name === filters.genre || genre.id === filters.genre || genre.slug === filters.genre
+          (genre.name && genre.name === filters.genre) || genre.id === filters.genre || genre.slug === filters.genre
         );
       };
       if (!matchesGenre(story)) return false;

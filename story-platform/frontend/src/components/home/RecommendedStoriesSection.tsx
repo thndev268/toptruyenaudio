@@ -52,7 +52,7 @@ export const RecommendedStoriesSection: React.FC<RecommendedStoriesSectionProps>
     const authorCounts: Record<string, number> = {};
 
     interactedStories.forEach((s) => {
-      s.genres?.forEach((genre) => {
+      s.genres?.forEach((genre: any) => {
         genreCounts[genre.name] = (genreCounts[genre.name] || 0) + 2;
       });
       if (s.narratorName) {
@@ -78,7 +78,7 @@ export const RecommendedStoriesSection: React.FC<RecommendedStoriesSectionProps>
         // Genre match boost
         let matchedGenresCount = 0;
         let matchedGenreName = '';
-        s.genres?.forEach((genre) => {
+        s.genres?.forEach((genre: any) => {
           if (genreCounts[genre.name]) {
             score += genreCounts[genre.name] * 4;
             matchedGenresCount++;
@@ -99,7 +99,16 @@ export const RecommendedStoriesSection: React.FC<RecommendedStoriesSectionProps>
         // Deduct slightly if user already completed or listened to this exact story
         
         const progresses = Object.values(listeningProgressMap).filter((p: any) => p.storyId === s.id);
-        progresses.sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        progresses.sort((a: any, b: any) => {
+          try {
+            const dateA = new Date(a.updatedAt);
+            const dateB = new Date(b.updatedAt);
+            if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) return 0;
+            return dateB.getTime() - dateA.getTime();
+          } catch (e) {
+            return 0;
+          }
+        });
         const prog = progresses[0];
 
         if (prog) {
@@ -234,7 +243,16 @@ export const RecommendedStoriesSection: React.FC<RecommendedStoriesSectionProps>
             key={story.id}
             onPlayClick={() => { 
 const progresses = Object.values(listeningProgressMap).filter((p: any) => p.storyId === story.id);
-progresses.sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+progresses.sort((a: any, b: any) => {
+  try {
+    const dateA = new Date(a.updatedAt);
+    const dateB = new Date(b.updatedAt);
+    if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) return 0;
+    return dateB.getTime() - dateA.getTime();
+  } catch (e) {
+    return 0;
+  }
+});
 const chapters = Array.isArray(story.chapters) ? story.chapters : [];
 const chapter = chapters.find(c => c.id === progresses[0]?.chapterId) || (chapters.length > 0 ? chapters[0] : null);
 if (!chapter) return;

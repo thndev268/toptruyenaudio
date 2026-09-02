@@ -361,58 +361,7 @@ class AdminRepositoryService {
 
   private incidents: AdminSystemIncident[] = [];
 
-  private serviceHealth: AdminServiceHealthItem[] = [
-    {
-      id: 'srv-01',
-      name: 'CDN Audio Streaming Edge (HLS/AAC)',
-      category: 'CDN',
-      status: 'HEALTHY',
-      latencyMs: 28,
-      uptimePercent: 99.98,
-      endpoint: 'https://cdn.toptruyenaudio.com/stream/v1',
-      lastChecked: 'Vừa kiểm tra (10 giây trước)',
-    },
-    {
-      id: 'srv-02',
-      name: 'Cơ Sở Dữ Liệu Chính (Database Cluster)',
-      category: 'DATABASE',
-      status: 'HEALTHY',
-      latencyMs: 12,
-      uptimePercent: 99.99,
-      endpoint: 'db-primary.internal.toptruyenaudio.com:5432',
-      lastChecked: 'Vừa kiểm tra (15 giây trước)',
-    },
-    {
-      id: 'srv-03',
-      name: 'Bộ Nhớ Đệm Tốc Độ Cao (Redis Cache)',
-      category: 'STORAGE',
-      status: 'HEALTHY',
-      latencyMs: 4,
-      uptimePercent: 100,
-      endpoint: 'redis-cluster.internal:6379',
-      lastChecked: 'Vừa kiểm tra (5 giây trước)',
-    },
-    {
-      id: 'srv-04',
-      name: 'Hệ Thống Xác Thực & Token (Auth Service)',
-      category: 'AUTH',
-      status: 'HEALTHY',
-      latencyMs: 18,
-      uptimePercent: 99.95,
-      endpoint: 'https://auth.toptruyenaudio.com/jwt',
-      lastChecked: 'Vừa kiểm tra (20 giây trước)',
-    },
-    {
-      id: 'srv-05',
-      name: 'Hàng Đợi Xử Lý Âm Thanh Nền (Transcoding Queue)',
-      category: 'QUEUE',
-      status: 'HEALTHY',
-      latencyMs: 35,
-      uptimePercent: 99.92,
-      endpoint: 'queue.internal/workers/audio',
-      lastChecked: 'Vừa kiểm tra (30 giây trước)',
-    },
-  ];
+  private serviceHealth: AdminServiceHealthItem[] = [];
 
   private securityAlerts: AdminSecurityAlert[] = [];
 
@@ -475,6 +424,8 @@ class AdminRepositoryService {
     // Don't load stories from localStorage - always fetch fresh from backend
     // Only load UI preferences (video settings)
     this.loadPersistedState();
+    // Fetch real service health data from backend
+    this.fetchServiceHealthFromBackend();
   }
 
   private saveToStorage() {
@@ -1613,9 +1564,25 @@ class AdminRepositoryService {
             priority: (c.priority as any) || 'MEDIUM',
             status: c.status === 'RESOLVED' || c.status === 'CLOSED' ? 'RESOLVED' : 'PENDING',
             message: c.messages?.[0]?.content || 'Nội dung hỗ trợ',
-            createdAt: new Date(c.createdAt || Date.now()).toISOString().replace('T', ' ').substring(0, 16),
+            createdAt: (() => {
+              try {
+                const date = new Date(c.createdAt || Date.now());
+                if (isNaN(date.getTime())) return new Date().toISOString().replace('T', ' ').substring(0, 16);
+                return date.toISOString().replace('T', ' ').substring(0, 16);
+              } catch (e) {
+                return new Date().toISOString().replace('T', ' ').substring(0, 16);
+              }
+            })(),
             adminReply: adminMsg?.content,
-            resolvedAt: c.status === 'RESOLVED' ? new Date(c.updatedAt || Date.now()).toISOString().replace('T', ' ').substring(0, 16) : undefined,
+            resolvedAt: c.status === 'RESOLVED' ? (() => {
+              try {
+                const date = new Date(c.updatedAt || Date.now());
+                if (isNaN(date.getTime())) return new Date().toISOString().replace('T', ' ').substring(0, 16);
+                return date.toISOString().replace('T', ' ').substring(0, 16);
+              } catch (e) {
+                return new Date().toISOString().replace('T', ' ').substring(0, 16);
+              }
+            })() : undefined,
           };
         });
 
@@ -1741,7 +1708,7 @@ class AdminRepositoryService {
     return this.cachedUserCounts || { total: 0, premium: 0, creator: 0, partner: 0 };
   }
 
-  sendBroadcastNotification(title: string, content: string, type: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT', targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER', targetUserId?: string): { success: boolean; message: string } {
+  async sendBroadcastNotification(title: string, content: string, type: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT', targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER', targetUserId?: string): Promise<{ success: boolean; message: string }> {
     // Get real user counts for accurate reach calculation
     const userCounts = this.getCachedUserCounts();
     
@@ -1771,10 +1738,16 @@ class AdminRepositoryService {
     };
     this.notifications.unshift(newNotif);
 
-    // Also save to backend API
-    this.saveNotificationToBackend(title, content, type, targetAudience, targetUserId).catch(err => {
+    // Save to backend API first before returning success
+    try {
+      await this.saveNotificationToBackend(title, content, type, targetAudience, targetUserId);
+      console.log('[AdminRepository] Notification saved to backend successfully');
+    } catch (err) {
       console.error('[AdminRepository] Failed to save notification to backend:', err);
-    });
+      // Remove from local storage if backend save failed
+      this.notifications = this.notifications.filter(n => n.id !== newNotif.id);
+      return { success: false, message: 'Lưu thông báo vào database thất bại. Vui lòng thử lại.' };
+    }
 
     this.recordAuditLog(
       'GỬI_THÔNG_BÁO_TOÀN_HỆ_THỐNG',
@@ -1927,6 +1900,32 @@ class AdminRepositoryService {
   }
 
   // --- Service Health ---
+  private async fetchServiceHealthFromBackend(): Promise<void> {
+    try {
+      const response = await fetch('/api/v1/health/services', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.services && Array.isArray(data.services)) {
+          this.serviceHealth = data.services.map((svc: any) => ({
+            ...svc,
+            id: svc.id || `srv-${Date.now().toString().slice(-4)}`,
+          }));
+          this.saveToStorage();
+        }
+      }
+    } catch (error) {
+      console.error('[AdminRepository] Failed to fetch service health from backend:', error);
+      // Leave serviceHealth empty - will show "Chưa xác định" in UI
+    }
+  }
+
   getServiceHealth(): AdminServiceHealthItem[] {
     return [...this.serviceHealth];
   }
@@ -1935,62 +1934,110 @@ class AdminRepositoryService {
     const item = this.serviceHealth.find((s) => s.id === id);
     if (!item) return null;
 
-    const startTime = performance.now();
-    let status: 'HEALTHY' | 'DEGRADED' | 'DOWN' | 'MAINTENANCE' = item.status;
-    let latencyMs = 0;
-
     try {
-      if (item.category === 'CDN' || item.category === 'AUTH') {
-        const response = await fetch('/api/health', { method: 'GET', cache: 'no-store' });
-        const duration = Math.round(performance.now() - startTime);
-        latencyMs = Math.max(duration, 8);
-        if (response.ok && item.status !== 'MAINTENANCE' && item.status !== 'DEGRADED' && item.status !== 'DOWN') {
-          status = 'HEALTHY';
+      // Try to fetch real data from backend API
+      const response = await fetch('/api/v1/health/services', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.services && Array.isArray(data.services)) {
+          const updatedService = data.services.find((s: any) => s.id === id);
+          if (updatedService) {
+            // Update the specific service with real data
+            Object.assign(item, {
+              ...updatedService,
+              id: item.id, // Keep original ID
+            });
+            item.lastChecked = `Đồng bộ từ Backend lúc ${new Date().toLocaleTimeString()}`;
+            
+            this.saveToStorage();
+            return item;
+          }
         }
-      } else if (item.category === 'DATABASE' || item.category === 'STORAGE') {
-        const testKey = 'toptruyenaudio_ping_test';
-        localStorage.setItem(testKey, 'ok');
-        localStorage.removeItem(testKey);
-        const duration = Math.round(performance.now() - startTime);
-        latencyMs = Math.max(duration, 4);
-        if (item.status !== 'MAINTENANCE' && item.status !== 'DEGRADED' && item.status !== 'DOWN') {
-          status = 'HEALTHY';
-        }
-      } else {
-        const duration = Math.round(performance.now() - startTime);
-        latencyMs = Math.max(duration, 12);
       }
-    } catch {
-      latencyMs = 0;
-      if (item.status !== 'MAINTENANCE') {
-        status = 'DOWN';
-      }
+    } catch (error) {
+      console.error('[AdminRepository] Failed to fetch single service health:', error);
     }
 
-    item.latencyMs = latencyMs;
-    item.status = status;
-    item.lastChecked = `Vừa kiểm tra lúc ${new Date().toLocaleTimeString()}`;
+    // If backend API fails, mark as "Chưa xác định" instead of fake data
+    item.status = 'DOWN';
+    item.statusNote = 'Chưa xác định - Backend không khả dụng';
+    item.lastChecked = `Không thể kiểm tra: ${new Date().toLocaleTimeString()}`;
+    item.latencyMs = 0;
+    item.httpStatus = 503;
 
     this.saveToStorage();
     return item;
   }
 
   async recheckAllServices(): Promise<{ success: boolean; message: string }> {
-    for (const svc of this.serviceHealth) {
-      await this.pingServiceHealthItem(svc.id);
+    try {
+      // Fetch real service health data from backend
+      const response = await fetch('/api/v1/health/services', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.services && Array.isArray(data.services)) {
+          // Update service health with real data from backend
+          this.serviceHealth = data.services.map((svc: any) => ({
+            ...svc,
+            id: svc.id || `srv-${Date.now().toString().slice(-4)}`,
+          }));
+          
+          this.recordAuditLog(
+            'KIỂM_TRA_TOÀN_BỘ_DỊCH_VỤ',
+            'ServiceHealth',
+            'all-services',
+            'Cụm dịch vụ Streaming & Database',
+            'Thực hiện Ping Healthcheck đo đạc thực tế từ Backend',
+            'Cập nhật số liệu độ trễ phản hồi đo đạc thực tế'
+          );
+
+          this.saveToStorage();
+          return { success: true, message: 'Đã đồng bộ dữ liệu giám sát thực tế từ Backend.' };
+        }
+      }
+      
+      // If API returns no data or fails, mark all services as "Chưa xác định"
+      this.serviceHealth = this.serviceHealth.map(svc => ({
+        ...svc,
+        status: 'DOWN' as const,
+        statusNote: 'Chưa xác định - Backend không khả dụng',
+        lastChecked: `Không thể kiểm tra: ${new Date().toLocaleTimeString()}`,
+        latencyMs: 0,
+        httpStatus: 503,
+      }));
+
+      this.saveToStorage();
+      return { success: false, message: 'Không thể lấy dữ liệu từ Backend API.' };
+    } catch (error) {
+      console.error('[AdminRepository] Failed to fetch service health from backend:', error);
+      
+      // Mark all services as "Chưa xác định" when backend fails
+      this.serviceHealth = this.serviceHealth.map(svc => ({
+        ...svc,
+        status: 'DOWN' as const,
+        statusNote: 'Chưa xác định - Backend không khả dụng',
+        lastChecked: `Không thể kiểm tra: ${new Date().toLocaleTimeString()}`,
+        latencyMs: 0,
+        httpStatus: 503,
+      }));
+
+      this.saveToStorage();
+      return { success: false, message: 'Backend API không khả dụng. Không thể kiểm tra dịch vụ.' };
     }
-
-    this.recordAuditLog(
-      'KIỂM_TRA_TOÀN_BỘ_DỊCH_VỤ',
-      'ServiceHealth',
-      'all-services',
-      'Cụm dịch vụ Streaming & Database',
-      'Thực hiện Ping Healthcheck đo đạc thực tế',
-      'Cập nhật số liệu độ trễ phản hồi đo đạc thực tế'
-    );
-
-    this.saveToStorage();
-    return { success: true, message: 'Đã đo đạc lại độ trễ và kiểm tra thực tế các cụm dịch vụ.' };
   }
 
   updateServiceConfig(

@@ -46,6 +46,7 @@ interface DashboardScreenProps {
   tickets?: AdminSupportTicket[];
   totalStoriesCount: number;
   totalUsersCount: number;
+  userCounts?: { total: number; premium: number; creator: number; partner: number };
   onQuickMaintenanceToggle: () => void;
   isMaintenanceActive: boolean;
   onQuickBroadcastModal: () => void;
@@ -60,6 +61,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   tickets = [],
   totalStoriesCount,
   totalUsersCount,
+  userCounts,
   onQuickMaintenanceToggle,
   isMaintenanceActive,
   onQuickBroadcastModal,
@@ -106,9 +108,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       }
     } catch (error) {
       console.error('Failed to fetch dashboard metrics:', error);
-      // Fallback to default values on error
+      // Fallback to default values on error - use real user counts from context
       setMetrics({
-        users: { total: totalUsersCount, new: 0 },
+        users: { total: userCounts?.total || totalUsersCount, new: 0 },
         stories: { total: totalStoriesCount, new: 0 },
         listening: { totalHours: '0h', totalSeconds: 0 },
         revenue: { total: 0, formatted: '0 đ' },
@@ -121,10 +123,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   // Format metrics for display
   const displayMetrics = metrics ? {
-    users: metrics.users?.total || 0,
-    userLabel: timePreset === 'THIS_MONTH' 
+    users: metrics.users?.total || userCounts?.total || totalUsersCount,
+    userLabel: userCounts 
+      ? `Tổng: ${userCounts.total.toLocaleString('vi-VN')} | Premium: ${userCounts.premium.toLocaleString('vi-VN')} | Creator: ${userCounts.creator.toLocaleString('vi-VN')}`
+      : (timePreset === 'THIS_MONTH' 
       ? 'Đang hoạt động trên nền tảng' 
-      : `Thành viên ${timePreset === 'TODAY' ? 'hôm nay' : timePreset === 'THIS_WEEK' ? 'tuần này' : 'tích lũy'}`,
+      : `Thành viên ${timePreset === 'TODAY' ? 'hôm nay' : timePreset === 'THIS_WEEK' ? 'tuần này' : 'tích lũy'}`),
     stories: metrics.stories?.total || 0,
     storyLabel: timePreset === 'THIS_MONTH' 
       ? 'Bao gồm cả Free và Premium' 
@@ -147,8 +151,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       ? 'Tháng này' 
       : 'Toàn bộ thời gian',
   } : {
-    users: 0,
-    userLabel: 'Đang tải...',
+    users: userCounts?.total || totalUsersCount,
+    userLabel: userCounts 
+      ? `Tổng: ${userCounts.total.toLocaleString('vi-VN')} | Premium: ${userCounts.premium.toLocaleString('vi-VN')} | Creator: ${userCounts.creator.toLocaleString('vi-VN')}`
+      : 'Đang tải...',
     stories: 0,
     storyLabel: 'Đang tải...',
     hours: '...',

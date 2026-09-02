@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AdminHeader } from './AdminHeader';
 import { AdminBreadcrumb } from './AdminBreadcrumb';
@@ -46,6 +46,7 @@ export interface AdminLayoutContextType {
   auditLogs: AdminAuditLogEntry[];
   subscriptions: any[];
   profile: OwnerAdminProfile;
+  userCounts: { total: number; premium: number; creator: number; partner: number };
   pendingCounts: {
     creators: number;
     reports: number;
@@ -96,7 +97,7 @@ export interface AdminLayoutContextType {
     content: string,
     type: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT',
     targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER'
-  ) => void;
+  ) => Promise<void>;
   handleDeleteBroadcast: (notification: AdminBroadcastNotification) => void;
   handleSaveMaintenanceConfig: (
     config: Partial<AdminMaintenanceConfig>,
@@ -173,6 +174,7 @@ export const AdminLayout: React.FC = () => {
     adminRepository.getFeatureFlags()
   );
   const [auditLogs, setAuditLogs] = useState(() => adminRepository.getAuditLogs());
+  const [userCounts, setUserCounts] = useState<{ total: number; premium: number; creator: number; partner: number }>(() => adminRepository.getCachedUserCounts());
   const profile = adminRepository.getOwnerProfile();
 
   // Global modals and feedbacks
@@ -191,19 +193,34 @@ export const AdminLayout: React.FC = () => {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  // Fetch user counts on mount
+  useEffect(() => {
+    const fetchInitialUserCounts = async () => {
+      try {
+        const counts = await adminRepository.getUserCounts();
+        setUserCounts(counts);
+      } catch (err) {
+        console.error('Failed to fetch initial user counts:', err);
+      }
+    };
+    fetchInitialUserCounts();
+  }, []);
+
   const refreshAllData = async () => {
     try {
-      const [u, f, a, p, c] = await Promise.all([
+      const [u, f, a, p, c, uc] = await Promise.all([
         adminRepository.fetchUsersApi(),
         adminRepository.fetchFeatureFlagsApi(),
         adminRepository.fetchAuditLogsApi(),
         adminRepository.fetchOwnerProfileApi(),
         adminRepository.fetchCommentsApi(),
+        adminRepository.getUserCounts(),
       ]);
       setUsers(u);
       setFeatureFlags(f);
       setAuditLogs(a);
       setComments(c);
+      setUserCounts(uc);
     } catch (e) {
       console.warn('API sync warning:', e);
     }
@@ -589,14 +606,16 @@ export const AdminLayout: React.FC = () => {
     showToast(res.message);
   };
 
-  const handleSendBroadcast = (
+  const handleSendBroadcast = async (
     title: string,
     content: string,
     type: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT',
     targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER'
   ) => {
-    const res = adminRepository.sendBroadcastNotification(title, content, type, targetAudience);
-    refreshAllData();
+    const res = await adminRepository.sendBroadcastNotification(title, content, type, targetAudience);
+    if (res.success) {
+      refreshAllData();
+    }
     showToast(res.message);
   };
 
@@ -742,6 +761,7 @@ export const AdminLayout: React.FC = () => {
     auditLogs,
     subscriptions,
     profile,
+    userCounts,
     pendingCounts,
     refreshAllData,
     showToast,

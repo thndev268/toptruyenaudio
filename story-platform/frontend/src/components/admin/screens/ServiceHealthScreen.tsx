@@ -411,24 +411,35 @@ export const ServiceHealthScreen: React.FC<ServiceHealthScreenProps> = ({
 
       {/* Grid of Service Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {filteredServices.map((svc) => {
-          const isSvcPinging = pingingId === svc.id;
+        {filteredServices.length === 0 ? (
+          <div className="col-span-full bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center">
+            <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mx-auto mb-4">
+              <Server className="w-8 h-8 text-slate-500" />
+            </div>
+            <h3 className="text-lg font-bold text-white mb-2">Chưa xác định</h3>
+            <p className="text-sm text-slate-400">
+              Không có dữ liệu dịch vụ từ Backend. Vui lòng kiểm tra kết nối hoặc khởi động Backend API.
+            </p>
+          </div>
+        ) : (
+          filteredServices.map((svc) => {
+            const isSvcPinging = pingingId === svc.id;
 
-          let badgeBg = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
-          let badgeDot = 'bg-emerald-400 animate-pulse';
-          let badgeText = 'Backend: 200 OK (Khỏe)';
+            let badgeBg = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40';
+            let badgeDot = 'bg-emerald-400 animate-pulse';
+            let badgeText = 'Backend: 200 OK (Khỏe)';
 
-          if (svc.status === 'DEGRADED') {
-            badgeBg = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
-            badgeDot = 'bg-amber-400';
-            badgeText = `Backend: Quá tải (${svc.latencyMs}ms)`;
-          } else if (svc.status === 'DOWN') {
-            badgeBg = 'bg-rose-500/20 text-rose-300 border-rose-500/40';
-            badgeDot = 'bg-rose-500 animate-ping';
-            badgeText = `Backend Lỗi (HTTP ${svc.httpStatus || 503})`;
-          }
+            if (svc.status === 'DEGRADED') {
+              badgeBg = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+              badgeDot = 'bg-amber-400';
+              badgeText = `Backend: Quá tải (${svc.latencyMs}ms)`;
+            } else if (svc.status === 'DOWN') {
+              badgeBg = 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+              badgeDot = 'bg-rose-500 animate-ping';
+              badgeText = `Backend Lỗi (HTTP ${svc.httpStatus || 503})`;
+            }
 
-          return (
+            return (
             <div
               key={svc.id}
               className={`bg-slate-900 border rounded-2xl p-5 shadow-xl space-y-4 transition-all hover:border-slate-700 ${
@@ -605,7 +616,8 @@ export const ServiceHealthScreen: React.FC<ServiceHealthScreenProps> = ({
               </div>
             </div>
           );
-        })}
+        })
+        )}
       </div>
 
       {/* MODAL: ADD OR EDIT CONFIG */}

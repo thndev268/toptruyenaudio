@@ -24,12 +24,13 @@ import { adminRepository } from '../../../services/repositories/AdminRepository'
 
 interface NotificationsScreenProps {
   notifications: AdminBroadcastNotification[];
+  userCounts: { total: number; premium: number; creator: number; partner: number };
   onSendBroadcast: (
     title: string,
     content: string,
     type: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT',
     targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER'
-  ) => void;
+  ) => Promise<void>;
   onDeleteBroadcast?: (notification: AdminBroadcastNotification) => void;
 }
 
@@ -49,6 +50,7 @@ const notificationTypeConfig = {
 
 export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   notifications,
+  userCounts,
   onSendBroadcast,
   onDeleteBroadcast,
 }) => {
@@ -60,9 +62,8 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<string>('');
   const [validationErrors, setValidationErrors] = useState<{ title?: string; content?: string }>({});
-  const [userCounts, setUserCounts] = useState<{ total: number; premium: number; creator: number; partner: number }>({ total: 0, premium: 0, creator: 0, partner: 0 });
   
-  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
   // Load draft from localStorage on mount
@@ -82,23 +83,6 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         console.error('Failed to load draft:', e);
       }
     }
-
-    // Fetch real user counts
-    const fetchUserCounts = async () => {
-      try {
-        const counts = await adminRepository.getUserCounts();
-        setUserCounts(counts);
-      } catch (err) {
-        console.error('Failed to fetch user counts:', err);
-      }
-    };
-
-    fetchUserCounts();
-    
-    // Refresh user counts every 5 minutes
-    const interval = setInterval(fetchUserCounts, 5 * 60 * 1000);
-    
-    return () => clearInterval(interval);
   }, []);
 
   // Auto-save draft with debounce
@@ -156,7 +140,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     setNotificationType('SYSTEM');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Final validation
@@ -174,7 +158,9 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       return;
     }
     
-    onSendBroadcast(title.trim(), content.trim(), notificationType, targetAudience);
+    await onSendBroadcast(title.trim(), content.trim(), notificationType, targetAudience);
+    
+    // Clear form after successful send
     clearDraft();
     setTitle('');
     setContent('');

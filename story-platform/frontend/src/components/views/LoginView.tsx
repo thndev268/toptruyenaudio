@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { LogIn, UserCheck, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -11,6 +11,7 @@ export const LoginView: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   
   const { login } = useAuth();
@@ -18,6 +19,15 @@ export const LoginView: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as any)?.from?.pathname || '/';
+
+  // Load saved email from localStorage on component mount
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('savedEmail');
+    if (savedEmail) {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+  }, []);
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +43,14 @@ export const LoginView: React.FC = () => {
     setSubmitting(true);
     try {
       await login(email, password);
+      
+      // Save email to localStorage if remember me is checked
+      if (rememberMe) {
+        localStorage.setItem('savedEmail', email);
+      } else {
+        localStorage.removeItem('savedEmail');
+      }
+      
       showToast('success', 'Đăng nhập thành công', 'Chào mừng bạn quay lại!');
       navigate(from, { replace: true });
     } catch (err: any) {
@@ -131,7 +149,16 @@ export const LoginView: React.FC = () => {
             </div>
           </div>
           
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="w-4 h-4 rounded border-slate-600 bg-slate-950 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-0"
+              />
+              <span className="text-xs text-slate-400">Lưu tài khoản</span>
+            </label>
             <Link to="/forgot-password" className="text-xs text-slate-400 hover:text-cyan-400 transition-colors">Quên mật khẩu?</Link>
           </div>
 

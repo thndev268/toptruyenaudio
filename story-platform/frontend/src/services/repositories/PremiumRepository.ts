@@ -1,7 +1,7 @@
 import { apiRequest } from '../apiClient';
-import type { BackendSubscriptionPlan } from '../../types';
+import type { SubscriptionPlan } from '../../types';
 
-export type SubscriptionPlan = BackendSubscriptionPlan;
+export type PremiumSubscriptionPlan = SubscriptionPlan;
 
 export interface PaymentRequest {
   packageCode: string;

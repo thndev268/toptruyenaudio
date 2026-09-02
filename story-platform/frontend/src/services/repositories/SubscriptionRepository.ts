@@ -18,7 +18,7 @@ const MOCK_PLANS: SubscriptionPlan[] = [
     benefits: ['AD_FREE', 'HIGH_QUALITY_AUDIO', 'PREMIUM_CATALOG', 'EARLY_ACCESS', 'UNLIMITED_PLAYLISTS', 'PREMIUM_COMMENT_BADGE', 'PRIORITY_SUPPORT'],
   },
   {
-    id: 'PREMIUM_SEMI_ANNUAL',
+    id: 'PREMIUM_SEMIANNUAL',
     name: 'Premium 6 Tháng',
     durationDays: 180,
     priceVnd: 270000,

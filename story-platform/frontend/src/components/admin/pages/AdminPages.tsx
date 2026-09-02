@@ -79,7 +79,8 @@ export const AdminDashboardPage: React.FC = () => {
         serviceHealth={ctx.serviceHealth}
         tickets={ctx.tickets}
         totalStoriesCount={ctx.stories.length}
-        totalUsersCount={ctx.users.length}
+        totalUsersCount={ctx.userCounts.total}
+        userCounts={ctx.userCounts}
         onQuickMaintenanceToggle={() =>
           ctx.handleSaveMaintenanceConfig(
             { isEnabled: !ctx.maintenanceConfig.isEnabled },
@@ -280,6 +281,7 @@ export const AdminNotificationsPage: React.FC = () => {
     <AdminPageContainer>
       <NotificationsScreen
         notifications={ctx.notifications}
+        userCounts={ctx.userCounts}
         onSendBroadcast={ctx.handleSendBroadcast}
         onDeleteBroadcast={ctx.handleDeleteBroadcast}
       />

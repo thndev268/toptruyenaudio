@@ -493,7 +493,15 @@ export const TicketsScreen: React.FC<TicketsScreenProps> = ({
 
                       <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono pt-1 border-t border-slate-900">
                         <span className="text-slate-300 font-medium truncate">{c.userName}</span>
-                        <span>{new Date(c.updatedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span>{(() => {
+                          try {
+                            const date = new Date(c.updatedAt);
+                            if (isNaN(date.getTime())) return '--:--';
+                            return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                          } catch (e) {
+                            return '--:--';
+                          }
+                        })()}</span>
                       </div>
                     </div>
                   );

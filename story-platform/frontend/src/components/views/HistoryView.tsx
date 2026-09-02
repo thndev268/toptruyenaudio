@@ -31,7 +31,7 @@ export const HistoryView: React.FC = () => {
       const story = storiesArray.find(s => s.id === item.storyId);
       if (!story) return false;
       const chapters = Array.isArray(story.chapters) ? story.chapters : [];
-      const chapter = chapters.find(c => c.id === item.chapterId);
+      const chapter = chapters.find((c: any) => c.id === item.chapterId);
 
       // Search match
       const lowerQuery = searchQuery.toLowerCase();
@@ -67,15 +67,20 @@ export const HistoryView: React.FC = () => {
     last7Days.setDate(last7Days.getDate() - 7);
 
     filteredHistory.forEach(item => {
-      const updatedDate = new Date(item.updatedAt);
-      if (updatedDate >= today) {
-        groups['Hôm nay'].push(item);
-      } else if (updatedDate >= yesterday) {
-        groups['Hôm qua'].push(item);
-      } else if (updatedDate >= last7Days) {
-        groups['7 ngày qua'].push(item);
-      } else {
-        groups['Cũ hơn'].push(item);
+      try {
+        const updatedDate = new Date(item.updatedAt);
+        if (isNaN(updatedDate.getTime())) return;
+        if (updatedDate >= today) {
+          groups['Hôm nay'].push(item);
+        } else if (updatedDate >= yesterday) {
+          groups['Hôm qua'].push(item);
+        } else if (updatedDate >= last7Days) {
+          groups['7 ngày qua'].push(item);
+        } else {
+          groups['Cũ hơn'].push(item);
+        }
+      } catch (e) {
+        console.warn('Invalid date in history item:', item.updatedAt);
       }
     });
 
@@ -161,7 +166,7 @@ export const HistoryView: React.FC = () => {
                     const story = storiesArray.find((s) => s.id === item.storyId);
                     if (!story) return null;
                     const chapters = Array.isArray(story.chapters) ? story.chapters : [];
-                    const chapter = chapters.find((c) => c.id === item.chapterId) || (chapters.length > 0 ? chapters[0] : null);
+                    const chapter = chapters.find((c: any) => c.id === item.chapterId) || (chapters.length > 0 ? chapters[0] : null);
                     if (!chapter) return null;
                     const percent = item.durationSeconds > 0 ? (item.positionSeconds / item.durationSeconds) * 100 : 0;
                     

@@ -950,7 +950,16 @@ export const StoryDetailView: React.FC = () => {
 
     const progresses = Object.values(listeningProgressMap).filter((p: any) => p.storyId === story.id);
 
-    progresses.sort((a: any, b: any) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    progresses.sort((a: any, b: any) => {
+      try {
+        const dateA = new Date(a.updatedAt);
+        const dateB = new Date(b.updatedAt);
+        if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) return 0;
+        return dateB.getTime() - dateA.getTime();
+      } catch (e) {
+        return 0;
+      }
+    });
 
     const progress = progresses[0];
 
