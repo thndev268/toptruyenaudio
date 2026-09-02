@@ -97,6 +97,7 @@ export class ApiUserProfileRepository implements UserProfileRepository {
 
       console.log('[UserProfileRepository] updateProfile called with input:', input);
       console.log('[UserProfileRepository] Request body:', body);
+      console.log('[UserProfileRepository] Request body JSON:', JSON.stringify(body));
 
       // Don't send empty body
       if (Object.keys(body).length === 0) {
@@ -108,6 +109,8 @@ export class ApiUserProfileRepository implements UserProfileRepository {
         method: 'PATCH',
         body: JSON.stringify(body),
       });
+
+      console.log('[UserProfileRepository] API response:', response);
 
       const data = response.data || response;
       const updated: UserProfileData = {
