@@ -48,6 +48,7 @@ import { PublicProfileView } from './components/views/PublicProfileView';
 import { LoginView } from './components/views/LoginView';
 import { RegisterView } from './components/views/RegisterView';
 import { ForgotPasswordView } from './components/views/ForgotPasswordView';
+import { ResetPasswordView } from './components/views/ResetPasswordView';
 import { UnauthorizedView } from './components/views/UnauthorizedView';
 import { NotFoundView } from './components/views/NotFoundView';
 import { AuthCallback } from './components/auth/AuthCallback';
@@ -205,6 +206,7 @@ export function App() {
                 <Route path="/login" element={<LoginView />} />
                 <Route path="/register" element={<RegisterView />} />
                 <Route path="/forgot-password" element={<ForgotPasswordView />} />
+                <Route path="/reset-password" element={<ResetPasswordView />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
                 <Route path="/unauthorized" element={<UnauthorizedView />} />
 

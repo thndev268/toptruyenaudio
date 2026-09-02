@@ -13,7 +13,7 @@ import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto, RefreshTokenDto, UpdateProfileDto, ChangePasswordDto } from './dto/auth.dto';
+import { RegisterDto, LoginDto, RefreshTokenDto, UpdateProfileDto, ChangePasswordDto, ResetPasswordDto } from './dto/auth.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -107,5 +107,19 @@ export class AuthController {
   @ApiOperation({ summary: 'Lấy thông tin tài khoản và gói Premium hiện tại' })
   async getAuthMe(@CurrentUser('id') userId: string) {
     return this.authService.getCurrentUser(userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Patch('auth/change-password')
+  @ApiOperation({ summary: 'Đổi mật khẩu (cần mật khẩu cũ)' })
+  async changePassword(@CurrentUser('id') userId: string, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(userId, dto);
+  }
+
+  @Post('auth/reset-password')
+  @ApiOperation({ summary: 'Đặt lại mật khẩu (không cần mật khẩu cũ, dùng cho reset link)' })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
   }
 }
