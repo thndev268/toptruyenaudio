@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MinLength, MaxLength, Matches, IsNumber } from 'class-validator';
+import { IsString, IsOptional, MinLength, MaxLength, Matches, IsNumber, IsNotEmpty } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AccountRole, MembershipTier, SubscriptionStatus, AccountStatus, SubscriptionPlanId } from '../../../common/enums';
 
@@ -18,6 +18,11 @@ export class UpdateMyProfileDto {
   @Matches(/^[a-zA-Z0-9_]+$/, { message: 'Tên người dùng chỉ được chứa chữ cái, chữ số và dấu gạch dưới (_).' })
   username?: string;
 
+  @ApiPropertyOptional({ example: '/api/v1/users/avatars/avatar_123.jpg', description: 'URL ảnh đại diện' })
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string;
+
   @ApiPropertyOptional({ example: 1, description: 'Phiên bản kỳ vọng để kiểm tra optimistic concurrency' })
   @IsOptional()
   @IsNumber({}, { message: 'Phiên bản kỳ vọng phải là chữ số.' })
@@ -27,11 +32,13 @@ export class UpdateMyProfileDto {
 export class ChangeMyPasswordDto {
   @ApiProperty({ example: 'OldPass123!', description: 'Mật khẩu hiện tại' })
   @IsString()
-  @MinLength(1, { message: 'Mật khẩu hiện tại không được để trống.' })
+  @IsNotEmpty({ message: 'Mật khẩu hiện tại không được để trống.' })
+  @MinLength(1, { message: 'Mật khẩu hiện tại phải có ít nhất 1 ký tự.' })
   currentPassword: string;
 
   @ApiProperty({ example: 'NewPass123!', description: 'Mật khẩu mới (tối thiểu 6 ký tự)' })
   @IsString()
+  @IsNotEmpty({ message: 'Mật khẩu mới không được để trống.' })
   @MinLength(6, { message: 'Mật khẩu mới phải có ít nhất 6 ký tự.' })
   newPassword: string;
 

@@ -48,7 +48,7 @@ export class UsersController {
   @Patch('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Cập nhật thông tin hồ sơ cá nhân (displayName, username)' })
+  @ApiOperation({ summary: 'Cập nhật thông tin hồ sơ cá nhân (displayName, username, avatarUrl)' })
   async updateProfile(
     @CurrentUser('id') userId: string,
     @Body() dto: UpdateMyProfileDto,

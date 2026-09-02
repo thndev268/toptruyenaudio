@@ -71,6 +71,8 @@ describe('AuthService', () => {
       mockConfigService,
       mockPasswordHasher,
       mockPrismaService,
+      {} as any, // mockNotificationsService
+      {} as any, // mockFeatureFlagsService
     );
   });
 

@@ -20,6 +20,7 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "typeRoots": ["node_modules/@types"],
+    "types": ["jest"],
     "paths": {
       "@/*": ["src/*"]
     }
