@@ -39,7 +39,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   const [lastSaved, setLastSaved] = useState<string>('');
   const [validationErrors, setValidationErrors] = useState<{ title?: string; content?: string }>({});
   
-  const saveTimeoutRef = useRef<NodeJS.Timeout>();
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
   // Load draft from localStorage on mount
@@ -82,6 +82,15 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       }, 1000);
     }
   }, [title, content, targetAudience]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Real-time validation
   useEffect(() => {
@@ -162,7 +171,7 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isComposing, title, content, targetAudience, validationErrors]);
+  }, [isComposing]);
 
   return (
     <div className="space-y-5 animate-fadeIn">
