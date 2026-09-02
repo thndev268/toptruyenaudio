@@ -95,10 +95,17 @@ import { usePwaInstall } from './context/PwaInstallContext';
 const AudioRestorationHandler = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const hasRestored = React.useRef(false);
 
   useEffect(() => {
+    if (hasRestored.current) return;
+    hasRestored.current = true;
+
     // Only restore if we're on the home page and not already on a story page
-    if (location.pathname === '/' || location.pathname === '/explore') {
+    // Also check if we're not on a story or listen page to avoid redirecting when user reloads those pages
+    const isStoryPage = location.pathname.startsWith('/story/') || location.pathname.startsWith('/listen/');
+    
+    if (!isStoryPage && (location.pathname === '/' || location.pathname === '/explore')) {
       const currentAudio = storage.getCurrentAudio();
       if (currentAudio && currentAudio.storySlug) {
         console.log('[AudioRestorationHandler] Restoring navigation to story:', currentAudio.storySlug);

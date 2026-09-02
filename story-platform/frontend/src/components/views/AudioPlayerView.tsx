@@ -88,6 +88,7 @@ export const AudioPlayerView: React.FC = () => {
       setError(null);
 
       if (!storySlug || !chapterId) {
+        console.log('[AudioPlayerView] Missing storySlug or chapterId:', { storySlug, chapterId });
         setError('Thiếu thông tin storySlug hoặc chapterId trong URL');
         setIsLoading(false);
         return;

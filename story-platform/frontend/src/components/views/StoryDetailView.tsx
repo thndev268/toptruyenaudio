@@ -92,11 +92,18 @@ export const StoryDetailView: React.FC = () => {
 
   const navigate = useNavigate();
 
-  // Redirect if slug is empty
+  // Redirect if slug is empty - but give it time to load from URL
   useEffect(() => {
-    if (!slug) {
-      navigate('/', { replace: true });
-    }
+    // Only redirect if slug is truly missing after a short delay
+    // This prevents redirecting during initial render when URL params might not be ready
+    const timer = setTimeout(() => {
+      if (!slug) {
+        console.log('[StoryDetailView] No slug found, redirecting to home');
+        navigate('/', { replace: true });
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, [slug, navigate]);
 
 
@@ -149,6 +156,8 @@ export const StoryDetailView: React.FC = () => {
     !videoSettings.hideIframeWithCSS || videoSettings.showIframeByDefault
 
   );
+
+  const [isStoryLoading, setIsStoryLoading] = useState(true);
 
 
 
@@ -267,6 +276,9 @@ export const StoryDetailView: React.FC = () => {
         }
       } catch (error) {
         console.error('[StoryDetailView] Failed to fetch story data:', error);
+      } finally {
+        // Set loading to false after fetch attempt
+        setIsStoryLoading(false);
       }
     };
 
@@ -280,6 +292,9 @@ export const StoryDetailView: React.FC = () => {
       return;
 
     }
+
+    // Set loading to false when story is found
+    setIsStoryLoading(false);
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
@@ -564,6 +579,20 @@ export const StoryDetailView: React.FC = () => {
 
   // NOW CONDITIONAL RETURN IS ALLOWED
 
+  // Show loading state while story data is being fetched
+  if (isStoryLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 px-4 text-center space-y-6">
+        <div className="w-20 h-20 bg-slate-900 rounded-full flex items-center justify-center text-cyan-400">
+          <Sparkles className="w-10 h-10 animate-pulse" />
+        </div>
+        <h2 className="text-2xl font-bold text-white">Đang tải truyện...</h2>
+        <p className="text-slate-400 max-w-md">Vui lòng đợi trong giây lát.</p>
+      </div>
+    );
+  }
+
+  // Only show "not found" after loading is complete and story is still null
   if (!story) {
 
     return (
