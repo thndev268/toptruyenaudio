@@ -613,7 +613,15 @@ export const TicketsScreen: React.FC<TicketsScreenProps> = ({
                           </>
                         )}
                         <span className="text-slate-500 font-mono text-[9px] ml-1">
-                          {new Date(msg.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                          {(() => {
+                            try {
+                              const date = new Date(msg.createdAt);
+                              if (isNaN(date.getTime())) return '--:--';
+                              return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                            } catch (e) {
+                              return '--:--';
+                            }
+                          })()}
                         </span>
                       </div>
 

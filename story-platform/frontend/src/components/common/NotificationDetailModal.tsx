@@ -341,10 +341,18 @@ export const NotificationDetailModal: React.FC<NotificationDetailModalProps> = (
                               {getAudienceLabel(notif.targetAudience)}
                             </span>
                             <span className="text-[10px] text-slate-400 dark:text-slate-500 shrink-0 font-mono">
-                              {formatDistanceToNow(new Date(notif.sentAt.replace(/-/g, '/')), {
-                                addSuffix: false,
-                                locale: vi,
-                              })}
+                              {(() => {
+                                try {
+                                  const date = new Date(notif.sentAt.replace(/-/g, '/'));
+                                  if (isNaN(date.getTime())) return 'N/A';
+                                  return formatDistanceToNow(date, {
+                                    addSuffix: false,
+                                    locale: vi,
+                                  });
+                                } catch (e) {
+                                  return 'N/A';
+                                }
+                              })()}
                             </span>
                           </div>
 
@@ -538,10 +546,18 @@ export const NotificationDetailModal: React.FC<NotificationDetailModalProps> = (
                       <div className="flex flex-wrap items-center gap-2 text-slate-500 dark:text-slate-400 text-[11px] font-mono">
                         <span className="flex items-center gap-1 bg-slate-100 dark:bg-slate-950 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-800">
                           <Clock className="w-3 h-3 text-slate-400" />
-                          {formatDistanceToNow(new Date(currentNotif.sentAt.replace(/-/g, '/')), {
-                            addSuffix: true,
-                            locale: vi,
-                          })}
+                          {(() => {
+                            try {
+                              const date = new Date(currentNotif.sentAt.replace(/-/g, '/'));
+                              if (isNaN(date.getTime())) return 'N/A';
+                              return formatDistanceToNow(date, {
+                                addSuffix: true,
+                                locale: vi,
+                              });
+                            } catch (e) {
+                              return 'N/A';
+                            }
+                          })()}
                         </span>
                         <span className="text-slate-400 dark:text-slate-600">•</span>
                         <span>Người gửi: <strong className="text-slate-800 dark:text-slate-200">{currentNotif.sentBy}</strong></span>

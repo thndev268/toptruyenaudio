@@ -77,7 +77,12 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
           setContent(draft.content || '');
           setTargetAudience(draft.targetAudience || 'ALL');
           setNotificationType(draft.notificationType || 'SYSTEM');
-          setLastSaved(new Date(draft.savedAt).toLocaleString('vi-VN'));
+          try {
+            const date = new Date(draft.savedAt);
+            setLastSaved(isNaN(date.getTime()) ? 'N/A' : date.toLocaleString('vi-VN'));
+          } catch (e) {
+            setLastSaved('N/A');
+          }
         }
       } catch (e) {
         console.error('Failed to load draft:', e);

@@ -31,16 +31,24 @@ export const AuditLogsScreen: React.FC<AuditLogsScreenProps> = ({ logs }) => {
 
     let matchesTime = true;
     if (timeFilter !== 'ALL') {
-      const logDate = new Date(log.timestamp.replace(' ', 'T'));
-      const now = new Date();
-      if (timeFilter === 'TODAY') {
-        matchesTime = logDate.toDateString() === now.toDateString();
-      } else if (timeFilter === 'WEEK') {
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        matchesTime = logDate >= weekAgo;
-      } else if (timeFilter === 'MONTH') {
-        const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        matchesTime = logDate >= monthAgo;
+      try {
+        const logDate = new Date(log.timestamp.replace(' ', 'T'));
+        if (isNaN(logDate.getTime())) {
+          matchesTime = false;
+        } else {
+          const now = new Date();
+          if (timeFilter === 'TODAY') {
+            matchesTime = logDate.toDateString() === now.toDateString();
+          } else if (timeFilter === 'WEEK') {
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            matchesTime = logDate >= weekAgo;
+          } else if (timeFilter === 'MONTH') {
+            const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+            matchesTime = logDate >= monthAgo;
+          }
+        }
+      } catch (e) {
+        matchesTime = false;
       }
     }
 

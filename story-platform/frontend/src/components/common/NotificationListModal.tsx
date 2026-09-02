@@ -110,7 +110,15 @@ export const NotificationListModal: React.FC<NotificationListModalProps> = ({
                             </span>
                             <span className="text-[10px] text-slate-400 dark:text-slate-600 flex items-center gap-1">
                               <Clock className="w-3 h-3" />
-                              {formatDistanceToNow(new Date(notif.sentAt.replace(/-/g, '/')), { addSuffix: true, locale: vi })}
+                              {(() => {
+                                try {
+                                  const date = new Date(notif.sentAt.replace(/-/g, '/'));
+                                  if (isNaN(date.getTime())) return 'N/A';
+                                  return formatDistanceToNow(date, { addSuffix: true, locale: vi });
+                                } catch (e) {
+                                  return 'N/A';
+                                }
+                              })()}
                             </span>
                           </div>
                           <h4 className={`text-sm font-bold truncate ${!notif.isRead ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}>

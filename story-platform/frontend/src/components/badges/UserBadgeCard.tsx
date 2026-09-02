@@ -132,9 +132,23 @@ export const UserBadgeCard: React.FC<UserBadgeCardProps> = ({
 
       {/* Footer: Date & Owner Controls */}
       <div className="pt-3 border-t border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
-        <div className="flex items-center gap-1 text-[11px]" title={`Được cấp lúc: ${new Date(assignment.assignedAt).toLocaleString('vi-VN')}`}>
+        <div className="flex items-center gap-1 text-[11px]" title={`Được cấp lúc: ${(() => {
+          try {
+            const date = new Date(assignment.assignedAt);
+            return isNaN(date.getTime()) ? 'N/A' : date.toLocaleString('vi-VN');
+          } catch (e) {
+            return 'N/A';
+          }
+        })()}`}>
           <Calendar className="w-3.5 h-3.5" />
-          <span>{new Date(assignment.assignedAt).toLocaleDateString('vi-VN')}</span>
+          <span>{(() => {
+            try {
+              const date = new Date(assignment.assignedAt);
+              return isNaN(date.getTime()) ? 'N/A' : date.toLocaleDateString('vi-VN');
+            } catch (e) {
+              return 'N/A';
+            }
+          })()}</span>
         </div>
 
         {isOwner && (

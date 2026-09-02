@@ -102,7 +102,15 @@ export const NotificationBell: React.FC = () => {
                             </span>
                             <span className="text-[10px] text-slate-400 dark:text-slate-500 flex items-center gap-1">
                               <Clock className="w-2.5 h-2.5" />
-                              {formatDistanceToNow(new Date(notif.sentAt.replace(/-/g, '/')), { addSuffix: true, locale: vi })}
+                              {(() => {
+                                try {
+                                  const date = new Date(notif.sentAt.replace(/-/g, '/'));
+                                  if (isNaN(date.getTime())) return 'N/A';
+                                  return formatDistanceToNow(date, { addSuffix: true, locale: vi });
+                                } catch (e) {
+                                  return 'N/A';
+                                }
+                              })()}
                             </span>
                           </div>
                           <h4 className={`text-xs font-bold truncate ${!notif.isRead ? 'text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}>
