@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { AdminSubscriptionRecord } from '../../../types/admin';
 import { apiRequest } from '../../../services/apiClient';
+import { useNavigate } from 'react-router-dom';
 
 interface PremiumScreenProps {
   subscriptions?: AdminSubscriptionRecord[];
@@ -25,6 +26,7 @@ interface FAQItem {
 }
 
 export const PremiumScreen: React.FC<PremiumScreenProps> = ({ subscriptions: propSubscriptions }) => {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [subscriptions, setSubscriptions] = useState<AdminSubscriptionRecord[]>(propSubscriptions || []);
   const [loading, setLoading] = useState(!propSubscriptions);
@@ -59,6 +61,31 @@ export const PremiumScreen: React.FC<PremiumScreenProps> = ({ subscriptions: pro
       id: '5',
       question: 'Phương thức thanh toán được hỗ trợ?',
       answer: 'Chúng tôi hỗ trợ thanh toán qua VietQR, thẻ tín dụng/thẻ ghi nợ, và ví điện tử. Tất cả giao dịch đều được bảo mật và an toàn.',
+    },
+    {
+      id: '6',
+      question: 'Gói Premium có bao nhiêu loại?',
+      answer: 'Hiện tại chúng tôi có 3 gói Premium: Gói Tháng (30 ngày), Gói Quý (90 ngày), và Gói Năm (365 ngày). Gói Năm có ưu đãi giá tốt nhất.',
+    },
+    {
+      id: '7',
+      question: 'Tôi có thể chuyển đổi giữa các gói không?',
+      answer: 'Có, bạn có thể nâng cấp gói bất cứ lúc nào. Số tiền đã trả cho gói cũ sẽ được trừ vào giá gói mới theo tỷ lệ thời gian sử dụng.',
+    },
+    {
+      id: '8',
+      question: 'Premium có hỗ trợ trên nhiều thiết bị không?',
+      answer: 'Có, tài khoản Premium của bạn có thể đồng bộ và sử dụng trên tất cả các thiết bị: điện thoại, máy tính bảng, và máy tính.',
+    },
+    {
+      id: '9',
+      question: 'Nếu thanh toán thất bại thì sao?',
+      answer: 'Nếu thanh toán thất bại, tiền sẽ được hoàn trả tự động trong 3-5 ngày làm việc. Bạn có thể thử lại thanh toán hoặc liên hệ hỗ trợ.',
+    },
+    {
+      id: '10',
+      question: 'Tôi có thể chia sẻ tài khoản Premium không?',
+      answer: 'Không, mỗi tài khoản Premium chỉ dành cho một người sử dụng. Việc chia sẻ tài khoản có thể dẫn đến khóa tài khoản.',
     },
   ];
 
@@ -133,16 +160,25 @@ export const PremiumScreen: React.FC<PremiumScreenProps> = ({ subscriptions: pro
           </p>
         </div>
 
-        <div className="bg-slate-950 border border-amber-500/30 rounded-xl p-3 px-4 flex items-center gap-3">
-          <Coins className="w-6 h-6 text-amber-400" />
-          <div>
-            <div className="text-[10px] text-amber-400/90 font-mono font-bold uppercase tracking-wider">
-              Doanh Thu Thực Tế
-            </div>
-            <div className="text-lg font-black text-amber-300 font-mono">
-              {loading ? '...' : totalRevenue.toLocaleString('vi-VN')} đ
+        <div className="flex items-center gap-3">
+          <div className="bg-slate-950 border border-amber-500/30 rounded-xl p-3 px-4 flex items-center gap-3">
+            <Coins className="w-6 h-6 text-amber-400" />
+            <div>
+              <div className="text-[10px] text-amber-400/90 font-mono font-bold uppercase tracking-wider">
+                Doanh Thu Thực Tế
+              </div>
+              <div className="text-lg font-black text-amber-300 font-mono">
+                {loading ? '...' : totalRevenue.toLocaleString('vi-VN')} đ
+              </div>
             </div>
           </div>
+          <button
+            onClick={() => navigate('/admin/tickets')}
+            className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold rounded-xl shadow-lg shadow-cyan-500/20 flex items-center gap-2"
+          >
+            <Send className="w-4 h-4" />
+            Hỗ Trợ 24/7
+          </button>
         </div>
       </div>
 
@@ -156,19 +192,19 @@ export const PremiumScreen: React.FC<PremiumScreenProps> = ({ subscriptions: pro
           {faqs.map((faq) => (
             <details key={faq.id} className="group [&_summary::-webkit-details-marker]:hidden">
               <summary
-                className="flex cursor-pointer items-center justify-between gap-4 border-2 border-slate-700 bg-slate-950 px-4 py-3 font-medium text-gray-200 hover:bg-slate-800 focus:bg-slate-800 focus:outline-none rounded-xl"
+                className="flex cursor-pointer items-center justify-between gap-4 border-2 border-slate-700 bg-white px-4 py-3 font-medium text-gray-900 shadow-[4px_4px_0_0] shadow-slate-900 hover:bg-yellow-100 focus:bg-yellow-100 focus:outline-0 rounded-xl"
               >
                 <span className="font-semibold">{faq.question}</span>
-                <ChevronDown className="size-5 shrink-0 group-open:-rotate-180 text-slate-400" />
+                <ChevronDown className="size-5 shrink-0 group-open:-rotate-180 text-slate-600" />
               </summary>
-              <div className="p-4 bg-slate-950/50 rounded-b-xl border-x-2 border-b-2 border-slate-700">
-                <p className="text-slate-300">{faq.answer}</p>
+              <div className="p-4 bg-white rounded-b-xl border-x-2 border-b-2 border-slate-700 shadow-[4px_4px_0_0] shadow-slate-900">
+                <p className="text-gray-900">{faq.answer}</p>
                 <button
                   onClick={() => {
                     setSelectedQuestion(faq.question);
                     setShowSupportForm(true);
                   }}
-                  className="mt-3 text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1"
+                  className="mt-3 text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1"
                 >
                   <Send className="w-3 h-3" />
                   Cần hỗ trợ thêm?
