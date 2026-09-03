@@ -788,4 +788,111 @@ export class AdminStoriesController {
       });
     }
   }
+
+  // --- Genre Management ---
+
+  @Post('genres')
+  @ApiOperation({ summary: 'Tạo thể loại mới' })
+  async createGenre(@Body() body: { name: string; slug: string; description: string; iconName?: string }) {
+    try {
+      const { name, slug, description, iconName } = body;
+
+      if (!name || !slug) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'name và slug là bắt buộc',
+        });
+      }
+
+      // Check if genre already exists
+      const existing = await this.prisma.genre.findFirst({
+        where: {
+          OR: [
+            { slug },
+            { name: { equals: name, mode: 'insensitive' } },
+          ],
+        },
+      });
+
+      if (existing) {
+        throw new ConflictException({
+          code: 'GENRE_EXISTS',
+          message: 'Thể loại này đã tồn tại',
+        });
+      }
+
+      const genre = await this.prisma.genre.create({
+        data: {
+          name,
+          slug: slug.toLowerCase().replace(/\s+/g, '-'),
+          description,
+          iconName: iconName || 'Disc',
+        },
+      });
+
+      return {
+        success: true,
+        data: genre,
+        message: 'Đã tạo thể loại mới thành công',
+      };
+    } catch (error: any) {
+      if (error instanceof BadRequestException || error instanceof ConflictException) {
+        throw error;
+      }
+      console.error('Error creating genre:', error);
+      throw new BadRequestException({
+        code: 'CREATE_GENRE_ERROR',
+        message: error.message || 'Lỗi khi tạo thể loại',
+      });
+    }
+  }
+
+  @Delete('genres/:genreId')
+  @ApiOperation({ summary: 'Xóa thể loại' })
+  async deleteGenre(@Param('genreId') genreId: string) {
+    try {
+      // Check if genre exists
+      const genre = await this.prisma.genre.findUnique({
+        where: { id: genreId },
+      });
+
+      if (!genre) {
+        throw new NotFoundException({
+          code: 'GENRE_NOT_FOUND',
+          message: 'Không tìm thấy thể loại',
+        });
+      }
+
+      // Check if genre is used by any stories
+      const storyCount = await this.prisma.genreToStory.count({
+        where: { genreId },
+      });
+
+      if (storyCount > 0) {
+        throw new BadRequestException({
+          code: 'GENRE_IN_USE',
+          message: `Thể loại đang được sử dụng bởi ${storyCount} truyện. Vui lòng xóa liên kết trước.`,
+        });
+      }
+
+      // Delete genre
+      await this.prisma.genre.delete({
+        where: { id: genreId },
+      });
+
+      return {
+        success: true,
+        message: 'Đã xóa thể loại thành công',
+      };
+    } catch (error: any) {
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+      console.error('Error deleting genre:', error);
+      throw new BadRequestException({
+        code: 'DELETE_GENRE_ERROR',
+        message: error.message || 'Lỗi khi xóa thể loại',
+      });
+    }
+  }
 }

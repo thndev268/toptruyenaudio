@@ -1310,53 +1310,43 @@ class AdminRepositoryService {
     return genresWithCount;
   }
 
-  addGenre(name: string, slug: string, description: string, iconName?: string): { success: boolean; message: string } {
-    const exists = this.genres.some((g) => g.slug === slug || g.name.toLowerCase() === name.toLowerCase());
-    if (exists) return { success: false, message: 'Thể loại này đã tồn tại.' };
+  async addGenre(name: string, slug: string, description: string, iconName?: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await apiRequest<{ success: boolean; data: any; message: string }>('/admin/stories/genres', {
+        method: 'POST',
+        body: JSON.stringify({ name, slug: slug || name.toLowerCase().replace(/\s+/g, '-'), description, iconName }),
+      });
 
-    const newGenre: AdminGenreItem = {
-      id: 'genre-' + Math.random().toString(36).substring(2, 7),
-      name,
-      slug: slug || name.toLowerCase().replace(/\s+/g, '-'),
-      description,
-      storyCount: 0,
-      iconName: iconName || 'Disc',
-    };
-    this.genres.push(newGenre);
-
-    this.recordAuditLog(
-      'THÊM_THỂ_LOẠI_MỚI',
-      'Genre',
-      newGenre.id,
-      newGenre.name,
-      'Thêm danh mục truyện mới theo định hướng nội dung',
-      `Tạo thể loại "${newGenre.name}"`
-    );
-
-    this.saveToStorage();
-
-    return { success: true, message: 'Đã thêm thể loại mới thành công.' };
+      if (response?.success && response?.data) {
+        // Refresh genres from backend
+        await this.fetchFromBackendApi();
+        return { success: true, message: response.message || 'Đã thêm thể loại mới thành công.' };
+      } else {
+        return { success: false, message: response?.message || 'Lỗi khi thêm thể loại.' };
+      }
+    } catch (error: any) {
+      console.error('[AdminRepository] Failed to add genre:', error);
+      return { success: false, message: error?.message || 'Lỗi khi thêm thể loại.' };
+    }
   }
 
-  deleteGenre(genreId: string, reason: string): { success: boolean; message: string } {
-    const idx = this.genres.findIndex((g) => g.id === genreId);
-    if (idx === -1) return { success: false, message: 'Không tìm thấy thể loại.' };
+  async deleteGenre(genreId: string, reason: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await apiRequest<{ success: boolean; message: string }>(`/admin/stories/genres/${genreId}`, {
+        method: 'DELETE',
+      });
 
-    const genre = this.genres[idx];
-    this.genres.splice(idx, 1);
-
-    this.recordAuditLog(
-      'XÓA_THỂ_LOẠI',
-      'Genre',
-      genre.id,
-      genre.name,
-      reason,
-      `Xóa danh mục "${genre.name}"`
-    );
-
-    this.saveToStorage();
-
-    return { success: true, message: 'Đã xóa thể loại thành công.' };
+      if (response?.success) {
+        // Refresh genres from backend
+        await this.fetchFromBackendApi();
+        return { success: true, message: response.message || 'Đã xóa thể loại thành công.' };
+      } else {
+        return { success: false, message: response?.message || 'Lỗi khi xóa thể loại.' };
+      }
+    } catch (error: any) {
+      console.error('[AdminRepository] Failed to delete genre:', error);
+      return { success: false, message: error?.message || 'Lỗi khi xóa thể loại.' };
+    }
   }
 
   // --- Comments ---

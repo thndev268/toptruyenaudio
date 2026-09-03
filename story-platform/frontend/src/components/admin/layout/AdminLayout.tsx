@@ -502,8 +502,8 @@ export const AdminLayout: React.FC = () => {
     return adminRepository.getStoryChapters(storyId);
   };
 
-  const handleAddGenre = (name: string, slug: string, description: string) => {
-    const res = adminRepository.addGenre(name, slug, description);
+  const handleAddGenre = async (name: string, slug: string, description: string) => {
+    const res = await adminRepository.addGenre(name, slug, description);
     refreshAllData();
     showToast(res.message);
   };
@@ -518,8 +518,8 @@ export const AdminLayout: React.FC = () => {
       variant: 'danger',
       requiresReason: true,
       reasonPlaceholder: 'Nhập lý do xóa thể loại...',
-      onConfirm: (reason) => {
-        const res = adminRepository.deleteGenre(genre.id, reason);
+      onConfirm: async (reason) => {
+        const res = await adminRepository.deleteGenre(genre.id, reason);
         refreshAllData();
         showToast(res.message);
       },
