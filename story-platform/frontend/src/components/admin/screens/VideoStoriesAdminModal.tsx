@@ -531,7 +531,7 @@ https://www.youtube.com/watch?v=dQw4w9WgXcQ`}
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 {videoStories.map((story) => (
                   <div
                     key={story.id}
