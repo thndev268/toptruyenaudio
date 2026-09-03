@@ -895,4 +895,41 @@ export class AdminStoriesController {
       });
     }
   }
+
+  @Post('generate-summary')
+  @ApiOperation({ summary: 'Tạo cốt truyện tự động bằng AI từ tiêu đề' })
+  async generateSummary(@Body() body: { title: string }) {
+    try {
+      const { title } = body;
+
+      if (!title || !title.trim()) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'Tiêu đề là bắt buộc',
+        });
+      }
+
+      // Call AI service to generate summary
+      const { GoogleGenerativeAI } = require('@google/generative-ai');
+      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+      const prompt = `Tạo một cốt truyện ngắn gọn (khoảng 100-150 từ) cho bộ truyện audio với tiêu đề: "${title}". Cốt truyện nên hấp dẫn, phù hợp với thể loại truyện audio, và tập trung vào điểm chính của câu chuyện. Viết bằng tiếng Việt.`;
+
+      const result = await model.generateContent(prompt);
+      const summary = result.response.text();
+
+      return {
+        success: true,
+        data: { summary: summary.trim() },
+        message: 'Đã tạo cốt truyện thành công',
+      };
+    } catch (error: any) {
+      console.error('Error generating summary:', error);
+      throw new BadRequestException({
+        code: 'GENERATE_SUMMARY_ERROR',
+        message: error.message || 'Lỗi khi tạo cốt truyện tự động',
+      });
+    }
+  }
 }

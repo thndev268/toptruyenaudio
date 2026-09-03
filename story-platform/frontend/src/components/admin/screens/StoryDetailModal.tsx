@@ -100,6 +100,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const [editStoryGenreIds, setEditStoryGenreIds] = useState<string[]>([]);
   const [genres, setGenres] = useState<AdminGenreItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // Reset state when story changes or modal closes
@@ -579,11 +580,42 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-300">Tóm Tắt / Cốt Truyện</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-300">Tóm Tắt / Cốt Truyện</label>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!editStoryTitle.trim()) {
+                        alert('Vui lòng nhập tiêu đề truyện trước');
+                        return;
+                      }
+                      setIsGeneratingSummary(true);
+                      try {
+                        const response = await apiRequest<{ success: boolean; data: { summary: string } }>('/admin/stories/generate-summary', {
+                          method: 'POST',
+                          body: JSON.stringify({ title: editStoryTitle }),
+                        });
+                        if (response?.success && response?.data?.summary) {
+                          setEditStorySummary(response.data.summary);
+                        }
+                      } catch (error) {
+                        alert('Lỗi khi tạo cốt truyện tự động');
+                      } finally {
+                        setIsGeneratingSummary(false);
+                      }
+                    }}
+                    disabled={isGeneratingSummary || !editStoryTitle.trim()}
+                    className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    {isGeneratingSummary ? 'Đang tạo...' : 'AI Tự Động'}
+                  </button>
+                </div>
                 <textarea
                   rows={3}
                   value={editStorySummary}
                   onChange={(e) => setEditStorySummary(e.target.value)}
+                  placeholder="Nhập cốt truyện hoặc bấm AI Tự Động để tạo từ tiêu đề..."
                   className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
                 />
               </div>
