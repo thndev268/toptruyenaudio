@@ -361,20 +361,27 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-200 flex items-center gap-2">
                     <Code className="w-4 h-4 text-cyan-400" />
-                    Dán Mã Iframe hoặc Link Video (Hỗ trợ nhiều video cùng lúc, mỗi video 1 dòng hoặc bọc thẻ iframe)
+                    Dán Nhiều Mã Iframe Cùng Lúc (Mỗi video 1 dòng)
                   </label>
                   <span className="text-[10px] text-slate-500 font-mono">
-                    Hỗ trợ: YouTube Embed, Youtube Watch URLs, Vimeo, Iframe HTML
+                    Hỗ trợ: YouTube Embed, YouTube Watch URLs, Iframe HTML
                   </span>
                 </div>
 
                 <textarea
-                  rows={5}
+                  rows={8}
                   value={iframeInputText}
                   onChange={(e) => setIframeInputText(e.target.value)}
-                  placeholder={`<iframe width="560" height="315" src="https://www.youtube.com/embed/jfKfPfyJRdk" title="Truyện Video 1"></iframe>\nhttps://www.youtube.com/watch?v=5qap5aO4i9A`}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-rose-500 resize-y"
+                  placeholder={`<iframe width="560" height="315" src="https://www.youtube.com/embed/jfKfPfyJRdk" title="Truyện Video 1"></iframe>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/5qap5aO4i9A" title="Truyện Video 2"></iframe>
+https://www.youtube.com/watch?v=dQw4w9WgXcQ`}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-xs font-mono text-slate-200 focus:outline-none focus:border-rose-500 resize-y whitespace-pre overflow-x-auto"
                 />
+
+                <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                  <Info className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                  <span>Nhập nhiều iframe, mỗi iframe một dòng. AI sẽ tự động phân tích từng video riêng biệt.</span>
+                </div>
 
                 <div className="flex items-center justify-between pt-2">
                   <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
@@ -502,7 +509,29 @@ export const VideoStoriesAdminModal: React.FC<VideoStoriesAdminModalProps> = ({
           {/* TAB 2: LIST EXISTING VIDEOS */}
           {activeTab === 'LIST' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-rose-400" />
+                  Danh Sách Video ({videoStories.length})
+                </h3>
+                {videoStories.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (confirm(`Bạn có chắc muốn xóa tất cả ${videoStories.length} video? Thao tác này không thể hoàn tác.`)) {
+                        videoStories.forEach(story => {
+                          adminRepository.deleteStory(story.id, 'Admin xóa tất cả video stories');
+                        });
+                        onRefreshData();
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Xóa Tất Cả
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {videoStories.map((story) => (
                   <div
                     key={story.id}
