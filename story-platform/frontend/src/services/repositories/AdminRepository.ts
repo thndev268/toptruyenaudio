@@ -1677,20 +1677,43 @@ class AdminRepositoryService {
     return [...this.notifications];
   }
 
+  async fetchNotificationsFromBackend(): Promise<AdminBroadcastNotification[]> {
+    try {
+      const response = await apiRequest<{ success: boolean; data: any[] }>('/notifications/admin/all?status=SENT');
+      if (response?.success && response?.data) {
+        this.notifications = response.data.map((n: any) => ({
+          id: n.id,
+          title: n.title,
+          content: n.content,
+          type: n.type,
+          targetAudience: n.targetAudience,
+          sentAt: n.sentAt || n.createdAt,
+          sentBy: n.createdBy || 'OWNER_ADMIN',
+          reachCount: n.recipientCount || 0,
+          status: n.status,
+        }));
+        return this.notifications;
+      }
+    } catch (error) {
+      console.error('[AdminRepository] Failed to fetch notifications:', error);
+    }
+    return this.notifications;
+  }
+
   private cachedUserCounts: { total: number; premium: number; creator: number; partner: number } | null = null;
   private userCountsCacheTime: number = 0;
   private readonly USER_COUNTS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   async getUserCounts(): Promise<{ total: number; premium: number; creator: number; partner: number }> {
     const now = Date.now();
-    
+
     // Return cached data if still valid
     if (this.cachedUserCounts && (now - this.userCountsCacheTime) < this.USER_COUNTS_CACHE_TTL) {
       return this.cachedUserCounts;
     }
 
     try {
-      const response = await apiRequest<{ success: boolean; data: { total: number; premium: number; creator: number; partner: number } }>('/admin/user-counts');
+      const response = await apiRequest<{ success: boolean; data: { total: number; premium: number; creator: number; partner: number } }>('/notifications/admin/user-counts');
       if (response?.success && response.data) {
         this.cachedUserCounts = response.data;
         this.userCountsCacheTime = now;

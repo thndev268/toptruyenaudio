@@ -132,4 +132,12 @@ export class NotificationsController {
   async getNotificationStats() {
     return this.notificationsService.getNotificationStats();
   }
+
+  @Get('admin/user-counts')
+  @UseGuards(RolesGuard)
+  @Roles(AccountRole.OWNER_ADMIN)
+  @ApiOperation({ summary: 'Lấy số lượng người dùng theo loại (Admin)' })
+  async getUserCounts() {
+    return this.notificationsService.getUserCounts();
+  }
 }

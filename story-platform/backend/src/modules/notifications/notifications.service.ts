@@ -383,28 +383,37 @@ export class NotificationsService {
     if (query.status) where.status = query.status;
     if (query.targetAudience) where.targetAudience = query.targetAudience;
 
-    const [notifications, total] = await Promise.all([
+    const [notifications, total, userCounts] = await Promise.all([
       this.prisma.notification.findMany({
         where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
-        include: {
-          _count: {
-            select: { userNotifications: true },
-          },
-        },
       }),
       this.prisma.notification.count({ where }),
+      this.getUserCountsData(),
     ]);
 
     return {
       success: true,
-      data: notifications.map(n => ({
-        ...n,
-        recipientCount: n._count.userNotifications,
-        _count: undefined,
-      })),
+      data: notifications.map(n => {
+        let recipientCount = 0;
+        if (n.targetAudience === 'ALL') {
+          recipientCount = userCounts.total;
+        } else if (n.targetAudience === 'PREMIUM') {
+          recipientCount = userCounts.premium;
+        } else if (n.targetAudience === 'CREATOR') {
+          recipientCount = userCounts.creator;
+        } else if (n.targetAudience === 'SPECIFIC_USER') {
+          recipientCount = 1;
+        } else {
+          recipientCount = userCounts.total;
+        }
+        return {
+          ...n,
+          recipientCount,
+        };
+      }),
       meta: {
         page,
         limit,
@@ -412,6 +421,15 @@ export class NotificationsService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  private async getUserCountsData() {
+    const [total, premium, creator] = await Promise.all([
+      this.prisma.profile.count(),
+      this.prisma.profile.count({ where: { membershipTier: 'PREMIUM' } }),
+      this.prisma.profile.count({ where: { role: 'CREATOR' } }),
+    ]);
+    return { total, premium, creator };
   }
 
   async getNotificationStats() {
@@ -431,6 +449,25 @@ export class NotificationsService {
         scheduled,
         draft,
         cancelled,
+      },
+    };
+  }
+
+  async getUserCounts() {
+    const [total, premium, creator, partner] = await Promise.all([
+      this.prisma.profile.count(),
+      this.prisma.profile.count({ where: { membershipTier: 'PREMIUM' } }),
+      this.prisma.profile.count({ where: { role: 'CREATOR' } }),
+      this.prisma.profile.count({ where: { role: 'PARTNER' } }),
+    ]);
+
+    return {
+      success: true,
+      data: {
+        total,
+        premium,
+        creator,
+        partner,
       },
     };
   }
