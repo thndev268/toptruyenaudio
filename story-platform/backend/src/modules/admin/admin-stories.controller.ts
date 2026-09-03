@@ -665,6 +665,92 @@ export class AdminStoriesController {
     }
   }
 
+  @Put(':storyId/chapters/:chapterId')
+  @ApiOperation({ summary: 'Cập nhật thông tin chapter' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('audioFile'))
+  async updateChapter(
+    @Param('storyId') storyId: string,
+    @Param('chapterId') chapterId: string,
+    @Body() body: any,
+    @UploadedFile() audioFile?: Express.Multer.File,
+  ) {
+    try {
+      // Check if chapter exists
+      const chapter = await this.prisma.chapter.findUnique({ where: { id: chapterId } });
+      if (!chapter) {
+        throw new NotFoundException({
+          code: 'CHAPTER_NOT_FOUND',
+          message: `Không tìm thấy chapter với ID: ${chapterId}`,
+        });
+      }
+
+      // Verify chapter belongs to the story
+      if (chapter.storyId !== storyId) {
+        throw new BadRequestException({
+          code: 'CHAPTER_STORY_MISMATCH',
+          message: 'Chapter không thuộc về story này',
+        });
+      }
+
+      let audioUrl = body.audioUrl;
+      if (audioFile) {
+        const ext = audioFile.originalname.split('.').pop();
+        const filename = `audio/${storyId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+        audioUrl = await this.storage.uploadFile('media', filename, audioFile.buffer, audioFile.mimetype);
+      }
+
+      // Extract iframeUrl from iframeCode if provided
+      let iframeUrl = body.videoIframeUrl;
+      let iframeCode = body.iframeCode;
+      if (iframeCode && !iframeUrl) {
+        const srcMatch = iframeCode.match(/src=["']([^"']+)["']/i);
+        if (srcMatch) {
+          iframeUrl = srcMatch[1];
+        }
+      }
+
+      const dataToUpdate: any = {
+        number: body.number ? parseInt(body.number, 10) : undefined,
+        title: body.title,
+        slug: body.slug,
+        audioUrl: audioUrl || undefined,
+        videoIframeUrl: iframeUrl || undefined,
+        iframeCode: iframeCode || undefined,
+        durationSeconds: body.durationSeconds ? parseInt(body.durationSeconds, 10) : undefined,
+        accessLevel: body.accessLevel,
+        audioContent: body.audioContent,
+      };
+
+      // Remove undefined values
+      Object.keys(dataToUpdate).forEach(key => {
+        if (dataToUpdate[key] === undefined) {
+          delete dataToUpdate[key];
+        }
+      });
+
+      const updatedChapter = await this.prisma.chapter.update({
+        where: { id: chapterId },
+        data: dataToUpdate,
+      });
+
+      return {
+        success: true,
+        data: updatedChapter,
+        message: 'Đã cập nhật chapter thành công',
+      };
+    } catch (error: any) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      console.error('Error updating chapter:', error);
+      throw new BadRequestException({
+        code: 'UPDATE_CHAPTER_ERROR',
+        message: error.message || 'Lỗi khi cập nhật chapter',
+      });
+    }
+  }
+
   @Delete(':storyId/chapters/batch')
   @ApiOperation({ summary: 'Xóa nhiều chapter cùng lúc' })
   async deleteChaptersBatch(

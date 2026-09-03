@@ -1143,44 +1143,45 @@ class AdminRepositoryService {
     chapterId: string,
     chapterData: Partial<AudioChapter>
   ): Promise<{ success: boolean; message: string; chapter?: AudioChapter }> {
-    // Note: To fully implement this with the backend, we would need a PUT /admin/stories/:id/chapters/:chapterId API
-    // Since we only created addChapter in the backend, let's keep the local update logic but just return a Promise for compatibility
-    // In a real scenario, we would add the PUT endpoint to the backend as well.
     try {
-      const list = this.storyChapters[storyId] || [];
-      const idx = list.findIndex((c) => c.id === chapterId);
-      if (idx === -1) {
-        return { success: false, message: 'Không tìm thấy tập audio cần sửa.' };
+      const formData = new FormData();
+      if (chapterData.number !== undefined) formData.append('number', chapterData.number.toString());
+      if (chapterData.title) formData.append('title', chapterData.title);
+      if (chapterData.durationSeconds !== undefined) formData.append('durationSeconds', chapterData.durationSeconds.toString());
+      if (chapterData.accessLevel) formData.append('accessLevel', chapterData.accessLevel);
+      if (chapterData.audioUrl) formData.append('audioUrl', chapterData.audioUrl);
+      if (chapterData.iframeCode) formData.append('iframeCode', chapterData.iframeCode);
+      if (chapterData.videoIframeUrl) formData.append('videoIframeUrl', chapterData.videoIframeUrl);
+      if (chapterData.audioContent) formData.append('audioContent', chapterData.audioContent);
+
+      const response = await apiRequest<{ success: boolean; data: any }>(`/admin/stories/${storyId}/chapters/${chapterId}`, {
+        method: 'PUT',
+        body: formData,
+      });
+
+      if (response?.success && response?.data) {
+        // Update local state with the returned data
+        const list = this.storyChapters[storyId] || [];
+        const idx = list.findIndex((c) => c.id === chapterId);
+        if (idx !== -1) {
+          list[idx] = response.data;
+          this.storyChapters[storyId] = list;
+        }
+        
+        // Fetch fresh data to ensure consistency
+        await this.fetchFromBackendApi();
+
+        return {
+          success: true,
+          message: `Đã cập nhật Tập ${response.data.number}: "${response.data.title}" thành công.`,
+          chapter: response.data,
+        };
       }
 
-      const current = list[idx];
-      const updatedChapter: AudioChapter = {
-        ...current,
-        ...chapterData,
-        title: chapterData.title !== undefined ? chapterData.title : current.title,
-        number: chapterData.number !== undefined ? chapterData.number : current.number,
-        narrator: chapterData.narrator !== undefined ? chapterData.narrator : current.narrator,
-        audioUrl: chapterData.audioUrl !== undefined ? chapterData.audioUrl : current.audioUrl,
-        videoIframeUrl: chapterData.videoIframeUrl !== undefined ? chapterData.videoIframeUrl : current.videoIframeUrl,
-        iframeCode: chapterData.iframeCode !== undefined ? chapterData.iframeCode : current.iframeCode,
-        allowVideoDisplay: chapterData.allowVideoDisplay !== undefined ? chapterData.allowVideoDisplay : (chapterData.isVideoEnabled !== undefined ? chapterData.isVideoEnabled : current.allowVideoDisplay),
-        isVideoEnabled: chapterData.isVideoEnabled !== undefined ? chapterData.isVideoEnabled : (chapterData.allowVideoDisplay !== undefined ? chapterData.allowVideoDisplay : current.isVideoEnabled),
-        audioContent: chapterData.audioContent !== undefined ? chapterData.audioContent : current.audioContent,
-        accessLevel: chapterData.accessLevel !== undefined ? chapterData.accessLevel : current.accessLevel,
-        durationSeconds: chapterData.durationSeconds !== undefined ? chapterData.durationSeconds : current.durationSeconds,
-      };
-
-      list[idx] = updatedChapter;
-      this.storyChapters[storyId] = list;
-
-      this.persistState();
-      return {
-        success: true,
-        message: `Đã cập nhật Tập ${updatedChapter.number}: "${updatedChapter.title}" thành công.`,
-        chapter: updatedChapter,
-      };
+      return { success: false, message: 'Cập nhật thất bại' };
     } catch (err: any) {
-      return { success: false, message: err.message };
+      console.error('[updateStoryChapter] Error:', err);
+      return { success: false, message: err.message || 'Lỗi khi cập nhật tập' };
     }
   }
 

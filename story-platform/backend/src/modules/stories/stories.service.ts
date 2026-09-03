@@ -187,7 +187,7 @@ export class StoriesService {
     const isFree = chapter.accessLevel === 'FREE';
     const isPremium = user.membershipTier === MembershipTier.PREMIUM;
 
-    // Premium content yêu cầu subscription
+    // Premium content yêu cầu subscription (chỉ kiểm tra cấp chapter)
     if (!isFree && !isPremium) {
       return {
         canListen: false,
