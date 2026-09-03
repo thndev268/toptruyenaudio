@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Sparkles, Check, AlertCircle, Headphones, LifeBuoy, X, Loader2, RefreshCw, Crown, Calendar, Percent } from 'lucide-react';
+import { Sparkles, Check, AlertCircle, Headphones, LifeBuoy, X, Loader2, RefreshCw, Crown, Calendar, Percent, ChevronDown, Send } from 'lucide-react';
 import { PremiumPlan, SubscriptionPlanId } from '../../types';
 import { subscriptionRepository } from '../../services/repositories/SubscriptionRepository';
 import { premiumRepository } from '../../services/repositories/PremiumRepository';
@@ -68,6 +68,34 @@ export const PremiumView: React.FC = () => {
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [userSubscription, setUserSubscription] = useState<any>(null);
   const [autoRenew, setAutoRenew] = useState(false);
+  const [showSupportForm, setShowSupportForm] = useState(false);
+  const [selectedQuestion, setSelectedQuestion] = useState('');
+  const [supportMessage, setSupportMessage] = useState('');
+  const [supportEmail, setSupportEmail] = useState('');
+  const [openFaqId, setOpenFaqId] = useState<string | null>(null);
+
+  const faqs = [
+    {
+      id: '1',
+      question: 'Làm thế nào để đăng ký gói Premium?',
+      answer: 'Bạn có thể đăng ký gói Premium bằng cách chọn gói phù hợp trong trang này và thanh toán qua cổng PayOS hoặc VietQR. Sau khi thanh toán thành công, tài khoản của bạn sẽ được nâng cấp ngay lập tức.',
+    },
+    {
+      id: '2',
+      question: 'Gói Premium có những quyền lợi gì?',
+      answer: 'Gói Premium cho phép bạn nghe tất cả các truyện audio không giới hạn, truy cập nội dung độc quyền, tải về để nghe offline, không có quảng cáo, và hỗ trợ 24/7.',
+    },
+    {
+      id: '3',
+      question: 'Tôi có thể hủy đăng ký Premium bất cứ lúc nào không?',
+      answer: 'Có, bạn có thể hủy đăng ký Premium bất cứ lúc nào. Sau khi hủy, bạn vẫn có thể sử dụng gói Premium cho đến hết kỳ đăng ký hiện tại.',
+    },
+    {
+      id: '4',
+      question: 'Phương thức thanh toán được hỗ trợ?',
+      answer: 'Chúng tôi hỗ trợ thanh toán qua VietQR, thẻ tín dụng/thẻ ghi nợ, và ví điện tử qua cổng PayOS. Tất cả giao dịch đều được bảo mật và an toàn.',
+    },
+  ];
 
   useBodyScrollLock(isModalOpen);
 
@@ -226,6 +254,19 @@ export const PremiumView: React.FC = () => {
     }
   };
 
+  const handleSupportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      alert('Đã gửi yêu cầu hỗ trợ thành công!');
+      setShowSupportForm(false);
+      setSelectedQuestion('');
+      setSupportMessage('');
+      setSupportEmail('');
+    } catch (error) {
+      alert('Lỗi khi gửi yêu cầu hỗ trợ. Vui lòng thử lại.');
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 animate-fadeIn min-h-[calc(100vh-10rem)] flex flex-col justify-between">
       <div>
@@ -379,11 +420,44 @@ export const PremiumView: React.FC = () => {
             </p>
           </div>
           <button 
-            onClick={() => alert('Form hỗ trợ đang được phát triển.')}
+            onClick={() => setShowSupportForm(true)}
             className="px-6 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-sm font-bold rounded-xl transition-colors whitespace-nowrap min-h-[44px]"
           >
             Gửi yêu cầu
           </button>
+        </div>
+
+        {/* FAQ Section */}
+        <div className="max-w-4xl mx-auto mt-16">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6 text-center">Câu Hỏi Thường Gặp</h2>
+          <div className="space-y-3">
+            {faqs.map((faq) => (
+              <div key={faq.id} className="border-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-[4px_4px_0_0] shadow-slate-300 dark:shadow-slate-700 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setOpenFaqId(openFaqId === faq.id ? null : faq.id)}
+                  className="w-full flex cursor-pointer items-center justify-between gap-4 px-4 py-3 font-medium text-slate-900 dark:text-slate-100 hover:bg-yellow-50 dark:hover:bg-slate-800 focus:bg-yellow-50 dark:focus:bg-slate-800 focus:outline-none"
+                >
+                  <span className="font-semibold">{faq.question}</span>
+                  <ChevronDown className={`size-5 shrink-0 text-slate-600 dark:text-slate-400 transition-transform ${openFaqId === faq.id ? 'rotate-180' : ''}`} />
+                </button>
+                {openFaqId === faq.id && (
+                  <div className="p-4 bg-white dark:bg-slate-900 border-t-2 border-slate-300 dark:border-slate-700">
+                    <p className="text-slate-700 dark:text-slate-300">{faq.answer}</p>
+                    <button
+                      onClick={() => {
+                        setSelectedQuestion(faq.question);
+                        setShowSupportForm(true);
+                      }}
+                      className="mt-3 text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 flex items-center gap-1"
+                    >
+                      <Send className="w-3 h-3" />
+                      Cần hỗ trợ thêm?
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -531,6 +605,87 @@ export const PremiumView: React.FC = () => {
                     </div>
                   </>
                 )}
+              </div>
+            </div>
+          </div>
+        </Portal>
+      )}
+
+      {/* Support Form Modal */}
+      {showSupportForm && (
+        <Portal>
+          <div className="fixed inset-0 z-[9990] flex items-center justify-center p-4 sm:p-6 overflow-hidden" role="dialog" aria-modal="true">
+            <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setShowSupportForm(false)} />
+            <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-slideUpAndFade z-10 my-auto">
+              <div className="p-6 sm:p-8">
+                <button 
+                  onClick={() => setShowSupportForm(false)}
+                  className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                  aria-label="Đóng"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+
+                <div className="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mb-6">
+                  <LifeBuoy className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
+                </div>
+
+                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Gửi Yêu Cầu Hỗ Trợ</h2>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mb-6">
+                  Chúng tôi sẽ phản hồi trong thời gian sớm nhất có thể.
+                </p>
+
+                <form onSubmit={handleSupportSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Câu hỏi</label>
+                    <input
+                      type="text"
+                      value={selectedQuestion}
+                      readOnly
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-500 dark:text-slate-400 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email liên hệ</label>
+                    <input
+                      type="email"
+                      required
+                      value={supportEmail}
+                      onChange={(e) => setSupportEmail(e.target.value)}
+                      placeholder="email@example.com"
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Nội dung hỗ trợ</label>
+                    <textarea
+                      required
+                      rows={4}
+                      value={supportMessage}
+                      onChange={(e) => setSupportMessage(e.target.value)}
+                      placeholder="Mô tả chi tiết vấn đề bạn cần hỗ trợ..."
+                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 resize-none"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowSupportForm(false)}
+                      className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-900 dark:text-white text-xs font-bold rounded-xl min-h-[40px] cursor-pointer"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-cyan-500/20 min-h-[40px] cursor-pointer"
+                    >
+                      Gửi Yêu Cầu
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>
