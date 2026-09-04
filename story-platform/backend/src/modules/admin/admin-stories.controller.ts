@@ -930,7 +930,7 @@ export class AdminStoriesController {
       
       // Call AI service to generate summary
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
 
       const prompt = `Tạo một cốt truyện ngắn gọn (khoảng 100-150 từ) cho bộ truyện audio với tiêu đề: "${title}". Cốt truyện nên hấp dẫn, phù hợp với thể loại truyện audio, và tập trung vào điểm chính của câu chuyện. Viết bằng tiếng Việt.`;
       console.log('[generateSummary] Prompt created, calling AI model...');
