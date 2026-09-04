@@ -901,23 +901,45 @@ export class AdminStoriesController {
   @ApiOperation({ summary: 'Tạo cốt truyện tự động bằng AI từ tiêu đề' })
   async generateSummary(@Body() body: { title: string }) {
     try {
+      console.log('[generateSummary] === Starting AI Summary Generation ===');
       const { title } = body;
+      console.log('[generateSummary] Received title:', title);
 
       if (!title || !title.trim()) {
+       console.error('[generateSummary] Validation error: title is empty');
         throw new BadRequestException({
           code: 'VALIDATION_ERROR',
           message: 'Tiêu đề là bắt buộc',
         });
       }
 
+      // Check for API key
+      const apiKey = process.env.GEMINI_API_KEY;
+      console.log('[generateSummary] GEMINI_API_KEY exists:', !!apiKey);
+      console.log('[generateSummary] GEMINI_API_KEY length:', apiKey?.length || 0);
+      
+      if (!apiKey || apiKey.trim() === '') {
+        console.error('[generateSummary] GEMINI_API_KEY is not configured');
+        throw new BadRequestException({
+          code: 'API_KEY_MISSING',
+          message: 'Chưa cấu hình GEMINI_API_KEY trong môi trường backend',
+        });
+      }
+
+      console.log('[generateSummary] Initializing GoogleGenerativeAI...');
+      
       // Call AI service to generate summary
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+      const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
       const prompt = `Tạo một cốt truyện ngắn gọn (khoảng 100-150 từ) cho bộ truyện audio với tiêu đề: "${title}". Cốt truyện nên hấp dẫn, phù hợp với thể loại truyện audio, và tập trung vào điểm chính của câu chuyện. Viết bằng tiếng Việt.`;
+      console.log('[generateSummary] Prompt created, calling AI model...');
 
       const result = await model.generateContent(prompt);
       const summary = result.response.text();
+
+      console.log('[generateSummary] Successfully generated summary, length:', summary.length);
+      console.log('[generateSummary] Summary preview:', summary.substring(0, 100) + '...');
 
       return {
         success: true,
@@ -925,7 +947,8 @@ export class AdminStoriesController {
         message: 'Đã tạo cốt truyện thành công',
       };
     } catch (error: any) {
-      console.error('Error generating summary:', error);
+      console.error('[generateSummary] Error occurred:', error.message);
+      console.error('[generateSummary] Error stack:', error.stack);
       throw new BadRequestException({
         code: 'GENERATE_SUMMARY_ERROR',
         message: error.message || 'Lỗi khi tạo cốt truyện tự động',
