@@ -904,14 +904,27 @@ export class AdminStoriesController {
       const { title } = body;
 
       if (!title || !title.trim()) {
+       console.error('[generateSummary] Validation error: title is empty');
         throw new BadRequestException({
           code: 'VALIDATION_ERROR',
           message: 'Tiêu đề là bắt buộc',
         });
       }
 
+      // Check for API key
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey || apiKey.trim() === '') {
+        console.error('[generateSummary] GEMINI_API_KEY is not configured');
+        throw new BadRequestException({
+          code: 'API_KEY_MISSING',
+          message: 'Chưa cấu hình GEMINI_API_KEY trong môi trường backend',
+        });
+      }
+
+      console.log('[generateSummary] Starting AI generation for title:', title);
+      
       // Call AI service to generate summary
-      const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+      const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
       const prompt = `Tạo một cốt truyện ngắn gọn (khoảng 100-150 từ) cho bộ truyện audio với tiêu đề: "${title}". Cốt truyện nên hấp dẫn, phù hợp với thể loại truyện audio, và tập trung vào điểm chính của câu chuyện. Viết bằng tiếng Việt.`;
@@ -919,13 +932,15 @@ export class AdminStoriesController {
       const result = await model.generateContent(prompt);
       const summary = result.response.text();
 
+      console.log('[generateSummary] Successfully generated summary');
+
       return {
         success: true,
         data: { summary: summary.trim() },
         message: 'Đã tạo cốt truyện thành công',
       };
     } catch (error: any) {
-      console.error('Error generating summary:', error);
+      console.error('[generateSummary] Error:', error);
       throw new BadRequestException({
         code: 'GENERATE_SUMMARY_ERROR',
         message: error.message || 'Lỗi khi tạo cốt truyện tự động',
