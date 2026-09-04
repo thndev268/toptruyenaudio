@@ -152,9 +152,7 @@ export const StoryDetailView: React.FC = () => {
   // ALL STATE HOOKS - MUST BE BEFORE ANY CONDITIONAL RETURNS
 
   const [isIframeVisible, setIsIframeVisible] = useState<boolean>(
-
-    !videoSettings.hideIframeWithCSS || videoSettings.showIframeByDefault
-
+    videoSettings.globalVideoEnabled && (!videoSettings.hideIframeWithCSS || videoSettings.showIframeByDefault)
   );
 
   const [isStoryLoading, setIsStoryLoading] = useState(true);

@@ -778,7 +778,37 @@ https://www.youtube.com/watch?v=dQw4w9WgXcQ`}
                 )}
 
                 <div className="space-y-4 pt-2">
-                  {/* Option 1: Hide iframe with CSS */}
+                  {/* Option 1: Global Video Enabled - MASTER SWITCH */}
+                  <div className="flex items-center justify-between p-4 bg-slate-950/80 border-2 border-rose-500/50 rounded-2xl">
+                    <div className="space-y-1 max-w-[80%]">
+                      <div className="flex items-center gap-2">
+                        <Video className="w-4 h-4 text-rose-400" />
+                        <span className="text-xs font-bold text-white">BẬT/TẮT HIỂN THỊ VIDEO TOÀN HỆ THỐNG (MASTER SWITCH)</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        Mặc định TẮT. Khi BẬT, video sẽ hiển thị cho tất cả người dùng. Khi TẮT, video bị ẩn hoàn toàn.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updated = { ...videoSettings, globalVideoEnabled: !videoSettings.globalVideoEnabled };
+                        setVideoSettings(updated);
+                        const res = adminRepository.saveVideoSettings(updated);
+                        setSettingsMessage(res.message);
+                        setTimeout(() => setSettingsMessage(null), 3000);
+                      }}
+                      className={`px-4 py-2 text-xs font-bold rounded-xl transition-all border ${
+                        videoSettings.globalVideoEnabled
+                          ? 'bg-emerald-500 text-slate-950 border-emerald-400 font-black'
+                          : 'bg-rose-500 text-white border-rose-400 font-black'
+                      }`}
+                    >
+                      {videoSettings.globalVideoEnabled ? 'VIDEO ĐANG BẬT (ON)' : 'VIDEO ĐANG TẮT (OFF)'}
+                    </button>
+                  </div>
+
+                  {/* Option 2: Hide Iframe with CSS */}
                   <div className="flex items-center justify-between p-4 bg-slate-950/80 border border-slate-800 rounded-2xl">
                     <div className="space-y-1 max-w-[80%]">
                       <div className="flex items-center gap-2">
@@ -808,7 +838,7 @@ https://www.youtube.com/watch?v=dQw4w9WgXcQ`}
                     </button>
                   </div>
 
-                  {/* Option 2: Allow User Toggle */}
+                  {/* Option 3: Allow User Toggle */}
                   <div className="flex items-center justify-between p-4 bg-slate-950/80 border border-slate-800 rounded-2xl">
                     <div className="space-y-1 max-w-[80%]">
                       <div className="flex items-center gap-2">
@@ -838,7 +868,7 @@ https://www.youtube.com/watch?v=dQw4w9WgXcQ`}
                     </button>
                   </div>
 
-                  {/* Option 3: Autoplay Video */}
+                  {/* Option 4: Autoplay Video */}
                   <div className="flex items-center justify-between p-4 bg-slate-950/80 border border-slate-800 rounded-2xl">
                     <div className="space-y-1 max-w-[80%]">
                       <div className="flex items-center gap-2">

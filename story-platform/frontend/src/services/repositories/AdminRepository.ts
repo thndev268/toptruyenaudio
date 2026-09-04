@@ -29,6 +29,7 @@ export interface VideoIframeSettings {
   hideIframeWithCSS: boolean;
   allowUserToggleIframe: boolean;
   autoPlayVideo: boolean;
+  globalVideoEnabled: boolean; // Global toggle for video display - default OFF
 }
 
 class AdminRepositoryService {
@@ -97,6 +98,7 @@ class AdminRepositoryService {
     hideIframeWithCSS: true,
     allowUserToggleIframe: true,
     autoPlayVideo: false,
+    globalVideoEnabled: false, // Default OFF - videos hidden globally
   };
   private ownerProfile: OwnerAdminProfile = {
     id: 'owner-admin-01',

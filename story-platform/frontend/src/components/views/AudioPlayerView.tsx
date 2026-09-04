@@ -79,7 +79,7 @@ export const AudioPlayerView: React.FC = () => {
 
   const videoSettings = adminRepository.getVideoSettings();
   const [isIframeVisible, setIsIframeVisible] = useState<boolean>(
-    !videoSettings.hideIframeWithCSS || videoSettings.showIframeByDefault
+    videoSettings.globalVideoEnabled && (!videoSettings.hideIframeWithCSS || videoSettings.showIframeByDefault)
   );
 
   useEffect(() => {
