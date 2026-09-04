@@ -932,7 +932,18 @@ export class AdminStoriesController {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
 
-      const prompt = `Tạo một cốt truyện ngắn gọn (khoảng 100-150 từ) cho bộ truyện audio với tiêu đề: "${title}". Cốt truyện nên hấp dẫn, phù hợp với thể loại truyện audio, và tập trung vào điểm chính của câu chuyện. Viết bằng tiếng Việt.`;
+      const prompt = `Tạo một cốt truyện hấp dẫn và chi tiết (khoảng 200-250 từ) cho bộ truyện audio với tiêu đề: "${title}". 
+
+Yêu cầu:
+- Viết bằng tiếng Việt, văn phong lôi cuốn, giàu cảm xúc
+- Bắt đầu bằng một tình huống hoặc bí mật thú vị để thu hút người nghe
+- Mô tả bối cảnh, nhân vật chính và xung đột cốt lõi
+- Gợi mở sự kiện quan trọng hoặc bước ngoặt trong câu chuyện
+- Kết thúc bằng một câu hỏi hoặc sự tò mò để kích thích người nghe muốn tiếp tục
+- Phù hợp với thể loại truyện audio, tập trung vào điểm nhấn và cảm xúc
+- Tránh quá dài dòng, giữ ngắn gọn nhưng đầy đủ ý nghĩa
+
+Cốt truyện nên khiến người nghe cảm thấy như đang sống trong câu chuyện.`;
       console.log('[generateSummary] Prompt created, calling AI model...');
 
       const result = await model.generateContent(prompt);
