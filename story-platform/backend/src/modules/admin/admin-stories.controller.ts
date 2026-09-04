@@ -16,6 +16,7 @@ import {
   NotFoundException,
   ValidationPipe,
 } from '@nestjs/common';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { AdminCreateStoryDto } from '../stories/dto/story.dto';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -910,7 +911,6 @@ export class AdminStoriesController {
       }
 
       // Call AI service to generate summary
-      const { GoogleGenerativeAI } = require('@google/generative-ai');
       const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
       const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
