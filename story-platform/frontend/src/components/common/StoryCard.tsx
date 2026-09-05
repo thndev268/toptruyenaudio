@@ -98,26 +98,42 @@ export const StoryCard: React.FC<StoryCardProps> = ({
   const isPremiumStory = story.isExclusive || chapters.some((c: any) => c.accessLevel === 'PREMIUM');
 
   return (
-    <div
-      onClick={handleCardClick}
-      className="group bg-slate-900/90 hover:bg-slate-850 border border-slate-800 hover:border-cyan-500/40 rounded-2xl overflow-hidden flex flex-col h-full cursor-pointer transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] shadow-md hover:shadow-cyan-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 w-full gpu-accelerated"
-      tabIndex={0}
-      role="button"
-      aria-label={`Chi tiết truyện ${story.title}`}
-    >
+    <>
+      <style>{`
+        .story-card-3d-container {
+          perspective: 500px;
+        }
+        .story-card-3d-image {
+          transform-style: preserve-3d;
+          will-change: transform;
+          transition: transform 0.5s;
+        }
+        .story-card-3d-image:hover {
+          transform: translateZ(10px) rotateX(5deg) rotateY(5deg);
+        }
+      `}</style>
+      <div
+        onClick={handleCardClick}
+        className="group bg-slate-900/90 hover:bg-slate-850 border border-slate-800 hover:border-cyan-500/40 rounded-2xl overflow-hidden flex flex-col h-full cursor-pointer transition-all duration-200 hover:-translate-y-1 active:scale-[0.98] shadow-md hover:shadow-cyan-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 w-full gpu-accelerated"
+        tabIndex={0}
+        role="button"
+        aria-label={`Chi tiết truyện ${story.title}`}
+      >
       {/* 1. TOP 16:9 ASPECT-VIDEO THUMBNAIL */}
-      <div className="relative aspect-video w-full overflow-hidden bg-slate-900/90 rounded-t-2xl flex items-center justify-center border-b border-slate-800/60 shrink-0 transform-gpu">
-        <img
-          loading="lazy"
-          src={thumbnailUrl}
-          alt={story.title}
-          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300 ease-out bg-slate-800/80 will-change-transform"
-          onError={(e) => {
-            (e.target as HTMLImageElement).src =
-              story.coverUrl ||
-              'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&auto=format&fit=crop&q=80';
-          }}
-        />
+      <div className="story-card-3d-container relative aspect-video w-full overflow-hidden bg-slate-900/90 rounded-t-2xl flex items-center justify-center border-b border-slate-800/60 shrink-0 transform-gpu">
+        <div className="story-card-3d-image w-full h-full">
+          <img
+            loading="lazy"
+            src={thumbnailUrl}
+            alt={story.title}
+            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300 ease-out bg-slate-800/80 will-change-transform"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src =
+                story.coverUrl ||
+                'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&auto=format&fit=crop&q=80';
+            }}
+          />
+        </div>
 
         {/* Subtle Dark Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-black/30 pointer-events-none" />
@@ -255,5 +271,6 @@ export const StoryCard: React.FC<StoryCardProps> = ({
         </div>
       </div>
     </div>
+    </>
   );
 };
