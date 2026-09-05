@@ -500,7 +500,6 @@ export class AdminService {
       this.prisma.payment.aggregate({
         where: {
           status: 'PAID',
-          createdAt: { gte: dateFrom, lte: dateTo },
         },
         _sum: {
           amount: true,
