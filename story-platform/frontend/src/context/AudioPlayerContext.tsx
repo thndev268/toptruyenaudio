@@ -223,15 +223,74 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   useEffect(() => {
     currentStoryRef.current = currentStory;
     currentChapterRef.current = currentChapter;
+
+    // Setup Media Session API for background playback
+    if ('mediaSession' in navigator && currentStory && currentChapter) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentStory.title,
+        artist: currentStory.authorName || 'Unknown',
+        album: 'TopTruyenAudio',
+        artwork: currentStory.coverUrl ? [{ src: currentStory.coverUrl, sizes: '512x512', type: 'image/jpeg' }] : [],
+      });
+
+      // Set up action handlers
+      navigator.mediaSession.setActionHandler('play', () => {
+        togglePlayPause();
+      });
+
+      navigator.mediaSession.setActionHandler('pause', () => {
+        togglePlayPause();
+      });
+
+      navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.seekTime && !isNaN(details.seekTime)) {
+          seek(details.seekTime);
+        }
+      });
+
+      navigator.mediaSession.setActionHandler('seekforward', (details) => {
+        const offset = details.seekOffset || 10;
+        skipSeconds(offset);
+      });
+
+      navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+        const offset = details.seekOffset || 10;
+        skipSeconds(-offset);
+      });
+
+      navigator.mediaSession.setActionHandler('nexttrack', () => {
+        playNextChapter();
+      });
+
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+        playPreviousChapter();
+      });
+    }
   }, [currentStory, currentChapter]);
 
   useEffect(() => {
     currentTimeRef.current = currentTime;
+    
+    // Update Media Session position state for background playback
+    if ('mediaSession' in navigator && duration > 0) {
+      navigator.mediaSession.setPositionState({
+        duration: duration,
+        playbackRate: playbackRate,
+        position: currentTime,
+      });
+    }
   }, [currentTime]);
 
   useEffect(() => {
     durationRef.current = duration;
   }, [duration]);
+
+  // Update Media Session playback state when playing state changes
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    }
+  }, [isPlaying]);
 
   useEffect(() => {
     listeningProgressMapRef.current = listeningProgressMap;
