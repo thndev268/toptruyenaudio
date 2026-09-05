@@ -133,7 +133,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       : (timePreset === 'THIS_MONTH' 
       ? 'Đang hoạt động trên nền tảng' 
       : `Thành viên ${timePreset === 'TODAY' ? 'hôm nay' : timePreset === 'THIS_WEEK' ? 'tuần này' : 'tích lũy'}`),
-    stories: metrics.stories?.total || 0,
+    stories: metrics.stories?.total || totalStoriesCount,
     storyLabel: timePreset === 'THIS_MONTH' 
       ? 'Bao gồm cả Free và Premium' 
       : `Phát hành ${timePreset === 'TODAY' ? 'hôm nay' : timePreset === 'THIS_WEEK' ? 'tuần này' : 'tích lũy'}`,

@@ -487,7 +487,7 @@ export class AdminService {
           createdAt: { gte: dateFrom, lte: dateTo },
         },
         _sum: {
-          durationSeconds: true,
+          validListeningSeconds: true,
         },
       }),
       this.prisma.userSubscription.count(),
@@ -520,11 +520,11 @@ export class AdminService {
           createdAt: { gte: dateFrom, lte: dateTo },
         },
         _sum: {
-          durationSeconds: true,
+          validListeningSeconds: true,
         },
         orderBy: {
           _sum: {
-            durationSeconds: 'desc',
+            validListeningSeconds: 'desc',
           },
         },
         take: 10,
@@ -556,12 +556,12 @@ export class AdminService {
       const story = stories.find(st => st.id === s.storyId);
       return {
         storyTitle: story?.title || 'Unknown',
-        totalHours: Math.floor((s._sum.durationSeconds || 0) / 3600),
+        totalHours: Math.floor(((s._sum as any).validListeningSeconds || 0) / 3600),
       };
     });
 
     // Calculate hours from seconds
-    const totalHours = Math.floor((listeningDuration._sum.durationSeconds || 0) / 3600);
+    const totalHours = Math.floor(((listeningDuration._sum as any).validListeningSeconds || 0) / 3600);
     const hoursString = totalHours > 0 ? `${totalHours.toLocaleString('vi-VN')}h` : '0h';
 
     // Calculate revenue
@@ -581,7 +581,7 @@ export class AdminService {
       listening: {
         totalSessions: totalListeningSessions,
         totalHours: hoursString,
-        totalSeconds: listeningDuration._sum.durationSeconds || 0,
+        totalSeconds: (listeningDuration._sum as any).validListeningSeconds || 0,
       },
       subscriptions: {
         total: totalSubscriptions,
