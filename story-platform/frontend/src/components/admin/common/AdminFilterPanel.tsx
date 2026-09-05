@@ -34,7 +34,7 @@ export const AdminFilterPanel: React.FC<AdminFilterPanelProps> = ({
             placeholder={searchPlaceholder}
             value={searchTerm}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2.5 pl-10 pr-10 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 transition-all"
+            className="w-full bg-slate-900 border-2 border-slate-700 sm:border-slate-800 rounded-xl py-2.5 pl-10 pr-10 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 transition-all"
           />
           {searchTerm && (
             <button
@@ -50,10 +50,10 @@ export const AdminFilterPanel: React.FC<AdminFilterPanelProps> = ({
         <button
           onClick={onToggleExpand}
           className={`
-            px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all border
+            px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all border-2
             ${isExpanded || activeCount > 0 
               ? 'bg-cyan-500 text-slate-950 border-cyan-400 shadow-lg shadow-cyan-500/10' 
-              : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-600'}
+              : 'bg-slate-800 text-slate-300 border-slate-600 sm:border-slate-700 hover:border-slate-500'}
           `}
         >
           <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -69,7 +69,7 @@ export const AdminFilterPanel: React.FC<AdminFilterPanelProps> = ({
         {activeCount > 0 && (
           <button
             onClick={onReset}
-            className="p-2.5 rounded-xl bg-slate-800/50 text-slate-500 hover:text-rose-400 border border-transparent hover:border-slate-700 transition-all"
+            className="p-2.5 rounded-xl bg-slate-800/50 text-slate-500 hover:text-rose-400 border-2 border-slate-600 hover:border-slate-500 transition-all"
             title="Xóa tất cả lọc"
           >
             <RotateCcw className="w-4 h-4" />
@@ -85,12 +85,12 @@ export const AdminFilterPanel: React.FC<AdminFilterPanelProps> = ({
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
+            <div className="bg-slate-900/80 border-2 border-cyan-500/30 sm:border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {children}
               </div>
               
-              <div className="pt-4 border-t border-slate-800 flex justify-end">
+              <div className="pt-4 border-t border-slate-700 sm:border-slate-800 flex justify-end">
                 <button
                   onClick={onReset}
                   className="text-xs font-bold text-slate-500 hover:text-white transition-colors flex items-center gap-2"
