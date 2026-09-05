@@ -223,6 +223,148 @@ export const TrendingStoriesSection: React.FC<TrendingStoriesSectionProps> = ({ 
   const offsets = [-2, -1, 0, 1, 2];
 
   return (
+    <>
+      <style>{`
+        .gradient-btn-wrapper {
+          --rad: 32px;
+          --color-wrapper-border: #fff;
+          --color-btn-bg: #06b6d4;
+          --color-btn-text: #000;
+          --color-btn-text-shadow: #fff;
+          --color-btn-inset-shadow: #558;
+          --color-layer-a: #fff;
+          --color-layer-b: #00f;
+          --color-overlay-text: #000;
+          --color-overlay-glow: #fff;
+          --color-overlay-shadow: #0004;
+          --color-overlay-highlight: #fff5;
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: clip;
+          overflow-clip-margin: 4px;
+          border: 2px solid var(--color-wrapper-border);
+          border-radius: var(--rad);
+          font-family: "Inter", sans-serif;
+          font-size: 0.875rem;
+          font-weight: 600;
+          filter: saturate(0.65) brightness(1.8);
+        }
+        .gradient-btn {
+          position: relative;
+          z-index: -1;
+          padding: 12px 24px;
+          border: none;
+          border-radius: var(--rad);
+          font-family: inherit;
+          font-size: inherit;
+          font-weight: inherit;
+          letter-spacing: 0.15rem;
+          color: var(--color-btn-text);
+          background-color: var(--color-btn-bg);
+          background-size: 200% 200%;
+          box-shadow: inset 0 0 10px 9px var(--color-btn-inset-shadow);
+          text-shadow: 0 1px 3px var(--color-btn-text-shadow);
+          cursor: pointer;
+          mix-blend-mode: color-dodge;
+          transition: color 0.3s ease, text-shadow 0.3s ease;
+        }
+        .gradient-btn::after {
+          content: "";
+          position: absolute;
+          pointer-events: none;
+          left: 0;
+          top: 0;
+          width: 100%;
+          height: 100%;
+          border-radius: var(--rad);
+          background-size: 200% 200%;
+          mix-blend-mode: difference;
+          z-index: 1;
+        }
+        .gradient-layer {
+          position: absolute;
+          pointer-events: none;
+          left: -160px;
+          width: 500%;
+          aspect-ratio: 1;
+          background: radial-gradient(
+            ellipse at 65% 180%,
+            var(--color-layer-a),
+            var(--color-layer-b),
+            var(--color-layer-a),
+            var(--color-layer-b),
+            var(--color-layer-a),
+            var(--color-layer-b),
+            var(--color-layer-a),
+            var(--color-layer-b),
+            var(--color-layer-a),
+            var(--color-layer-b),
+            var(--color-layer-a)
+          );
+          mix-blend-mode: difference;
+          animation: rotate 8s linear infinite;
+        }
+        .gradient-layer:last-child {
+          mix-blend-mode: color-dodge;
+        }
+        @keyframes rotate {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .text-overlay {
+          position: absolute;
+          pointer-events: none;
+          z-index: 2;
+          padding: 12px 24px;
+          border-radius: var(--rad);
+          font-family: inherit;
+          font-size: inherit;
+          font-weight: inherit;
+          letter-spacing: 0.15rem;
+          color: var(--color-overlay-text);
+          text-shadow: 0 0 4px var(--color-overlay-glow);
+          box-shadow: inset 0 -4px 4px 0 var(--color-overlay-shadow), inset 0 4px 4px 0 var(--color-overlay-highlight);
+          mix-blend-mode: multiply;
+          transition: transform 0.3s ease;
+          animation: opacityPulse 5s ease infinite;
+        }
+        .gradient-btn-wrapper:hover .text-overlay {
+          transform: scale(1.1);
+        }
+        .gradient-btn-wrapper:hover .gradient-btn {
+          color: #0000;
+          text-shadow: 0 0 0 #0000;
+        }
+        .gradient-btn-wrapper:active .text-overlay {
+          transform: scale(0.95);
+        }
+        .gradient-btn-wrapper:active .gradient-btn {
+          color: #0000;
+          text-shadow: 0 0 0 #0000;
+        }
+        .light {
+          position: absolute;
+          pointer-events: none;
+          z-index: 1;
+          border-radius: 50px;
+          width: 80%;
+          height: 1.9rem;
+          aspect-ratio: 1;
+          background-color: #fff5;
+          filter: blur(5px);
+          animation: pulse 3s ease-in-out infinite;
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.1; }
+        }
+        @keyframes opacityPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+      `}</style>
     <div className="space-y-4 relative w-full overflow-hidden" ref={containerRef}>
       {/* Header Section */}
       <div className="flex items-center justify-between gap-2 px-1">
@@ -457,14 +599,20 @@ export const TrendingStoriesSection: React.FC<TrendingStoriesSectionProps> = ({ 
                       </div>
 
                       {/* Primary "Nghe Ngay" Action Button */}
-                      <button
-                        onClick={(e) => handlePlayNow(e, story)}
-                        className="w-full py-3 px-4 bg-gradient-to-r from-cyan-500 to-cyan-400 hover:from-cyan-400 hover:to-cyan-300 text-slate-950 font-black rounded-2xl shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/30 transition-all duration-200 flex items-center justify-center gap-2 active:scale-[0.98] min-h-[46px] cursor-pointer"
-                        aria-label={`Nghe ngay ${story.title}`}
-                      >
-                        <Play className="w-5 h-5 fill-slate-950 ml-0.5" />
-                        <span className="text-sm uppercase tracking-wider font-extrabold">Nghe Ngay</span>
-                      </button>
+                      <div className="gradient-btn-wrapper">
+                        <div className="gradient-layer"></div>
+                        <div className="gradient-layer"></div>
+                        <button
+                          onClick={(e) => handlePlayNow(e, story)}
+                          className="gradient-btn flex items-center justify-center gap-2"
+                          aria-label={`Nghe ngay ${story.title}`}
+                        >
+                          <Play className="w-5 h-5 fill-slate-950 ml-0.5" />
+                          <span className="text-sm uppercase tracking-wider font-extrabold">Nghe Ngay</span>
+                        </button>
+                        <div className="text-overlay"></div>
+                        <div className="light"></div>
+                      </div>
                     </div>
                   ) : (
                     /* Side Card Minimal Footer */
@@ -491,5 +639,6 @@ export const TrendingStoriesSection: React.FC<TrendingStoriesSectionProps> = ({ 
         }
       />
     </div>
+    </>
   );
 };
