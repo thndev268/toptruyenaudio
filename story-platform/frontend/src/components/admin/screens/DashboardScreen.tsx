@@ -70,8 +70,6 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
   const [timePreset, setTimePreset] = useState<TimeFilterPreset>('THIS_MONTH');
   const [startDate, setStartDate] = useState<string>('2026-08-01');
   const [endDate, setEndDate] = useState<string>('2026-08-07');
-  const [startTime, setStartTime] = useState<string>('00:00');
-  const [endTime, setEndTime] = useState<string>('23:59');
   const [metrics, setMetrics] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -88,7 +86,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
   useEffect(() => {
     fetchMetrics();
-  }, [timePreset, startDate, endDate, startTime, endTime]);
+  }, [timePreset, startDate, endDate]);
 
   const fetchMetrics = async () => {
     try {
@@ -323,7 +321,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
         {/* Custom Calendar & Time Picker Input Bar */}
         {timePreset === 'CUSTOM' && (
-          <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-950 p-4 rounded-xl border border-amber-500/20 animate-fadeIn">
+          <div className="pt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-950 p-4 rounded-xl border border-amber-500/20 animate-fadeIn">
             <div>
               <label className="block text-[11px] font-bold text-slate-300 mb-1">
                 Từ Ngày (Chọn từ Lịch)
@@ -338,36 +336,12 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
             <div>
               <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                Giờ Bắt Đầu
-              </label>
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 min-h-[38px] [color-scheme:dark]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-300 mb-1">
                 Đến Ngày (Chọn từ Lịch)
               </label>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 min-h-[38px] [color-scheme:dark]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                Giờ Kết Thúc
-              </label>
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 min-h-[38px] [color-scheme:dark]"
               />
             </div>
