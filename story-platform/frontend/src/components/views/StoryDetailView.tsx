@@ -92,6 +92,8 @@ export const StoryDetailView: React.FC = () => {
 
   const navigate = useNavigate();
 
+  const [isPlotExpanded, setIsPlotExpanded] = useState(false);
+
   // Redirect if slug is empty - but give it time to load from URL
   useEffect(() => {
     // Only redirect if slug is truly missing after a short delay
@@ -1179,11 +1181,31 @@ export const StoryDetailView: React.FC = () => {
 
                 </h4>
 
-                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed whitespace-pre-line">
-
-                  {story.storyline || story.summary || 'Chưa có cốt truyện chi tiết.'}
-
-                </p>
+                <div className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  <p className={isPlotExpanded ? '' : 'line-clamp-3 whitespace-pre-line'}>
+                    {story.storyline || story.summary || 'Chưa có cốt truyện chi tiết.'}
+                  </p>
+                  
+                  {(story.storyline || story.summary) && (story.storyline?.length > 200 || story.summary?.length > 200) && (
+                    <button
+                      type="button"
+                      onClick={() => setIsPlotExpanded(!isPlotExpanded)}
+                      className="mt-2 text-xs font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1 cursor-pointer"
+                    >
+                      {isPlotExpanded ? (
+                        <>
+                          <EyeOff className="w-3.5 h-3.5" />
+                          <span>Thu gọn</span>
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="w-3.5 h-3.5" />
+                          <span>Xem thêm</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
 
               </div>
 
