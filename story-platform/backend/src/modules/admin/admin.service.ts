@@ -560,11 +560,29 @@ export class AdminService {
     });
 
     // Calculate hours from seconds
+    console.log('[getDashboardMetrics] listeningDuration._sum:', listeningDuration._sum);
     const totalHours = Math.floor(((listeningDuration._sum as any).validListeningSeconds || 0) / 3600);
     const hoursString = totalHours > 0 ? `${totalHours.toLocaleString('vi-VN')}h` : '0h';
+    console.log('[getDashboardMetrics] totalHours:', totalHours, 'hoursString:', hoursString);
 
-    // Calculate revenue
-    const revenue = totalRevenue._sum.amount || 0;
+    // Calculate revenue from active subscriptions (like PremiumScreen)
+    const activeSubscriptionsForRevenue = await this.prisma.userSubscription.findMany({
+      where: {
+        status: 'ACTIVE',
+        endAt: { gte: now },
+      },
+      include: {
+        plan: {
+          select: {
+            price: true,
+          },
+        },
+      },
+    });
+    const subscriptionRevenue = activeSubscriptionsForRevenue.reduce((sum, s) => sum + (s.plan?.price || 0), 0);
+
+    // Calculate revenue from payments (fallback)
+    const revenue = subscriptionRevenue > 0 ? subscriptionRevenue : (totalRevenue._sum.amount || 0);
 
     return {
       users: {
