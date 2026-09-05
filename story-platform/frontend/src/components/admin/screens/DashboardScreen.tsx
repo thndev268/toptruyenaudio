@@ -99,15 +99,21 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         if (endDate) queryParams.endDate = endDate;
       }
 
-      const response = await apiRequest<{ success: boolean; data: any }>('/admin/dashboard/metrics', {
+      const queryString = new URLSearchParams(queryParams).toString();
+      const url = `/admin/dashboard/metrics${queryString ? `?${queryString}` : ''}`;
+      
+      console.log('[Dashboard] Fetching metrics from:', url);
+      const response = await apiRequest<{ success: boolean; data: any }>(url, {
         method: 'GET',
       });
+      
+      console.log('[Dashboard] Metrics response:', response);
       
       if (response?.data) {
         setMetrics(response.data);
       }
     } catch (error) {
-      console.error('Failed to fetch dashboard metrics:', error);
+      console.error('[Dashboard] Failed to fetch dashboard metrics:', error);
       // Fallback to default values on error - use real user counts from context
       setMetrics({
         users: { total: userCounts?.total || totalUsersCount, new: 0 },
