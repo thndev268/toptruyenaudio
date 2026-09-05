@@ -364,7 +364,12 @@ export const StoryDetailView: React.FC = () => {
 
     }
 
-    return relatedStories.filter((s) => (s.genres || []).includes(selectedFilterGenre));
+    return relatedStories.filter((s) => {
+      const genres = s.genres || [];
+      // Handle both string and object genres
+      const genreNames = genres.map((g: any) => typeof g === 'string' ? g : g.name);
+      return genreNames.includes(selectedFilterGenre);
+    });
 
   }, [relatedStories, selectedFilterGenre]);
 
