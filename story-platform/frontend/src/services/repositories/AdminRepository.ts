@@ -1352,13 +1352,18 @@ class AdminRepositoryService {
   }
 
   // --- Comments ---
-  getComments(): AdminCommentItem[] {
+  getComments(filters?: { status?: string; storyId?: string }): AdminCommentItem[] {
     return [...this.comments];
   }
 
-  async fetchCommentsApi(): Promise<AdminCommentItem[]> {
+  async fetchCommentsApi(filters?: { status?: string; storyId?: string }): Promise<AdminCommentItem[]> {
     try {
-      const res = await apiRequest<{ success: boolean; data: any[]; pagination: any }>('/admin/comments');
+      const queryParams = new URLSearchParams();
+      if (filters?.status) queryParams.append('status', filters.status);
+      if (filters?.storyId) queryParams.append('storyId', filters.storyId);
+      
+      const url = `/admin/comments${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const res = await apiRequest<{ success: boolean; data: any[]; pagination: any }>(url);
       
       if (res && Array.isArray(res.data)) {
         this.comments = res.data.map((c: any) => ({

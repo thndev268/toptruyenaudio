@@ -87,6 +87,7 @@ export interface AdminLayoutContextType {
   handleDeleteGenre: (genre: AdminGenreItem) => void;
   handleHideComment: (comment: AdminCommentItem) => void;
   handleDeleteComment: (comment: AdminCommentItem) => void;
+  handleFetchComments: (filters?: { status?: string; storyId?: string }) => void;
   handleResolveReport: (report: AdminViolationReport) => void;
   handleDismissReport: (report: AdminViolationReport) => void;
   handleResolveClaim: (claim: AdminCopyrightClaim) => void;
@@ -553,6 +554,11 @@ export const AdminLayout: React.FC = () => {
     });
   };
 
+  const handleFetchComments = async (filters?: { status?: string; storyId?: string }) => {
+    const fetchedComments = await adminRepository.fetchCommentsApi(filters);
+    setComments(fetchedComments);
+  };
+
   const handleResolveReport = (report: AdminViolationReport) => {
     setConfirmModal({
       isOpen: true,
@@ -783,6 +789,7 @@ export const AdminLayout: React.FC = () => {
     handleDeleteGenre,
     handleHideComment,
     handleDeleteComment,
+    handleFetchComments,
     handleResolveReport,
     handleDismissReport,
     handleResolveClaim,

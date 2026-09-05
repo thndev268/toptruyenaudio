@@ -934,11 +934,15 @@ export class AdminService {
   }
 
   // Comments Management
-  async getComments(query: { status?: string; page?: number; limit?: number }) {
+  async getComments(query: { status?: string; storyId?: string; page?: number; limit?: number }) {
     const where: any = {};
     
     if (query.status) {
       where.status = query.status;
+    }
+    
+    if (query.storyId) {
+      where.storyId = query.storyId;
     }
 
     const page = query.page || 1;

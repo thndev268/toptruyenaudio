@@ -222,8 +222,10 @@ export const AdminCommentsPage: React.FC = () => {
     <AdminPageContainer>
       <CommentsScreen
         comments={ctx.comments}
+        stories={ctx.stories}
         onHideComment={ctx.handleHideComment}
         onDeleteComment={ctx.handleDeleteComment}
+        onFetchComments={ctx.handleFetchComments}
       />
     </AdminPageContainer>
   );
