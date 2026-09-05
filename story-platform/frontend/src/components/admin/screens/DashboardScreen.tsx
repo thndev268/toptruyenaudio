@@ -168,6 +168,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     dateText: 'Đang tải...',
   };
 
+  console.log('[Dashboard] Metrics state:', metrics);
+  console.log('[Dashboard] Display metrics:', displayMetrics);
+  console.log('[Dashboard] Loading:', loading);
+
   return (
     <div className="space-y-5 animate-fadeIn">
       {/* Top Banner Notice */}
