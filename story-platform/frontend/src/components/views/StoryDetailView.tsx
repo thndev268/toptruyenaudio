@@ -1131,7 +1131,7 @@ export const StoryDetailView: React.FC = () => {
 
         {/* Cốt Truyện & Nội Dung Âm Thanh */}
 
-        {(story.audioContent || story.storyline) && (
+        {(story.audioContent || story.storyline || story.summary) && (
 
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
 
