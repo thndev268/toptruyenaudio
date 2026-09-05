@@ -118,7 +118,43 @@ export const QuickStoryFilter: React.FC = () => {
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800/90 rounded-3xl p-4 sm:p-5 lg:p-6 shadow-2xl relative">
+    <>
+      <style>{`
+        .gradient-border-card {
+          position: relative;
+        }
+        .gradient-border-card::before {
+          content: '';
+          position: absolute;
+          width: 150%;
+          height: 150%;
+          background-image: linear-gradient(180deg, rgb(0, 183, 255), rgb(255, 48, 255));
+          animation: rotBGimg 3s linear infinite;
+          transition: all 0.2s linear;
+          top: -25%;
+          left: -25%;
+        }
+        @keyframes rotBGimg {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        .gradient-border-card::after {
+          content: '';
+          position: absolute;
+          background: #07182E;
+          inset: 3px;
+          border-radius: 20px;
+        }
+        .gradient-border-card > * {
+          position: relative;
+          z-index: 1;
+        }
+      `}</style>
+      <div className="gradient-border-card bg-slate-900 rounded-3xl p-4 sm:p-5 lg:p-6 shadow-2xl relative overflow-hidden">
       {/* Header Info */}
       <div className="flex items-center justify-between gap-3 mb-3 sm:mb-4">
         <div className="flex items-center gap-2.5">
@@ -518,7 +554,8 @@ export const QuickStoryFilter: React.FC = () => {
           </div>
         </Portal>
       )}
-    </div>
+      </div>
+    </>
   );
 };
 
