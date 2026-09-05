@@ -110,9 +110,10 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       console.log('[Dashboard] Metrics response:', response);
       console.log('[Dashboard] Response data:', response?.data);
       
-      if (response?.data) {
-        console.log('[Dashboard] Setting metrics:', response.data);
-        setMetrics(response.data);
+      // API returns data directly in response, not in response.data
+      if (response) {
+        console.log('[Dashboard] Setting metrics:', response);
+        setMetrics(response);
       } else {
         console.log('[Dashboard] No data in response, setting null');
         setMetrics(null);
