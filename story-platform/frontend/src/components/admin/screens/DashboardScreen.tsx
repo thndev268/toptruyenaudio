@@ -85,11 +85,13 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     pendingCounts.security;
 
   useEffect(() => {
+    console.log('[Dashboard] useEffect triggered, timePreset:', timePreset);
     fetchMetrics();
   }, [timePreset, startDate, endDate]);
 
   const fetchMetrics = async () => {
     try {
+      console.log('[Dashboard] fetchMetrics called');
       setLoading(true);
       const queryParams: any = { timeFilter: timePreset };
       if (timePreset === 'CUSTOM') {
@@ -106,9 +108,14 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
       });
       
       console.log('[Dashboard] Metrics response:', response);
+      console.log('[Dashboard] Response data:', response?.data);
       
       if (response?.data) {
+        console.log('[Dashboard] Setting metrics:', response.data);
         setMetrics(response.data);
+      } else {
+        console.log('[Dashboard] No data in response, setting null');
+        setMetrics(null);
       }
     } catch (error) {
       console.error('[Dashboard] Failed to fetch dashboard metrics:', error);
@@ -121,6 +128,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         dateRange: { filter: timePreset },
       });
     } finally {
+      console.log('[Dashboard] fetchMetrics completed, loading:', false);
       setLoading(false);
     }
   };
