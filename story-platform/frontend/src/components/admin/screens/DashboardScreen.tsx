@@ -464,7 +464,71 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         </div>
       </div>
 
-      {/* Row 2: Công việc cần xử lý (8 cols) & Tình trạng hệ thống (4 cols) */}
+      {/* Row 2: Story Distribution & Top Listening */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Story Distribution by Genre */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <Disc className="w-4 h-4 text-rose-400" />
+              <h2 className="text-base font-bold text-white">Phân Bố Truyện Theo Thể Loại</h2>
+            </div>
+            <span className="text-xs text-slate-400">Tổng số: {metrics?.stories?.total || 0} bộ</span>
+          </div>
+
+          <div className="space-y-2">
+            {metrics?.stories?.genreDistribution?.slice(0, 8).map((item: any, index: number) => (
+              <div key={index} className="flex items-center justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800/80">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="text-xs font-bold text-slate-400 w-6">{index + 1}</span>
+                  <span className="text-xs font-medium text-white truncate">{item.genreName}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-24 h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-rose-500 rounded-full"
+                      style={{ width: `${(item.count / (metrics?.stories?.total || 1)) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-mono font-bold text-rose-400 w-12 text-right">{item.count}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Top Stories by Listening Time */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-emerald-400" />
+              <h2 className="text-base font-bold text-white">Truyện Được Nghe Nhiều Nhất</h2>
+            </div>
+            <span className="text-xs text-slate-400">Theo giờ nghe tích lũy</span>
+          </div>
+
+          <div className="space-y-2">
+            {metrics?.stories?.topListeningStories?.slice(0, 8).map((item: any, index: number) => (
+              <div key={index} className="flex items-center justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800/80">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className={`text-xs font-bold w-6 ${
+                    index === 0 ? 'text-amber-400' : 
+                    index === 1 ? 'text-slate-300' : 
+                    index === 2 ? 'text-amber-600' : 'text-slate-400'
+                  }`}>{index + 1}</span>
+                  <span className="text-xs font-medium text-white truncate">{item.storyTitle}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="w-3 h-3 text-emerald-400" />
+                  <span className="text-xs font-mono font-bold text-emerald-400">{item.totalHours}h</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Row 3: Công việc cần xử lý (8 cols) & Tình trạng hệ thống (4 cols) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Pending Tasks (8 cols) */}
         <div className="lg:col-span-8 bg-slate-900 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl space-y-4">

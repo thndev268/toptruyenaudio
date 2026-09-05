@@ -462,6 +462,8 @@ export class AdminService {
       totalSubscriptions,
       activeSubscriptions,
       totalRevenue,
+      storiesByGenre,
+      topStoriesByListening,
     ] = await Promise.all([
       this.prisma.profile.count(),
       this.prisma.profile.count({
@@ -504,7 +506,59 @@ export class AdminService {
           amount: true,
         },
       }),
+      // Story distribution by genre
+      this.prisma.genreToStory.groupBy({
+        by: ['genreId'],
+        _count: {
+          storyId: true,
+        },
+      }),
+      // Top stories by listening time
+      this.prisma.listeningSession.groupBy({
+        by: ['storyId'],
+        where: {
+          createdAt: { gte: dateFrom, lte: dateTo },
+        },
+        _sum: {
+          durationSeconds: true,
+        },
+        orderBy: {
+          _sum: {
+            durationSeconds: 'desc',
+          },
+        },
+        take: 10,
+      }),
     ]);
+
+    // Get genre names for distribution
+    const genreIds = storiesByGenre.map(g => g.genreId);
+    const genres = await this.prisma.genre.findMany({
+      where: { id: { in: genreIds } },
+    });
+
+    const genreDistribution = storiesByGenre.map(g => {
+      const genre = genres.find(gen => gen.id === g.genreId);
+      return {
+        genreName: genre?.name || 'Unknown',
+        count: g._count.storyId,
+      };
+    }).sort((a, b) => b.count - a.count);
+
+    // Get story titles for top listening
+    const storyIds = topStoriesByListening.map(s => s.storyId).filter((id): id is string => id !== null);
+    const stories = await this.prisma.story.findMany({
+      where: { id: { in: storyIds } },
+      select: { id: true, title: true },
+    });
+
+    const topListeningStories = topStoriesByListening.map(s => {
+      const story = stories.find(st => st.id === s.storyId);
+      return {
+        storyTitle: story?.title || 'Unknown',
+        totalHours: Math.floor((s._sum.durationSeconds || 0) / 3600),
+      };
+    });
 
     // Calculate hours from seconds
     const totalHours = Math.floor((listeningDuration._sum.durationSeconds || 0) / 3600);
@@ -521,10 +575,13 @@ export class AdminService {
       stories: {
         total: totalStories,
         new: newStories,
+        genreDistribution,
+        topListeningStories,
       },
       listening: {
         totalSessions: totalListeningSessions,
         totalHours: hoursString,
+        totalSeconds: listeningDuration._sum.durationSeconds || 0,
       },
       subscriptions: {
         total: totalSubscriptions,
@@ -533,6 +590,11 @@ export class AdminService {
       revenue: {
         total: revenue,
         formatted: `${revenue.toLocaleString('vi-VN')}đ`,
+      },
+      dateRange: {
+        filter: timeFilter,
+        from: dateFrom,
+        to: dateTo,
       },
     };
   }
