@@ -897,6 +897,110 @@ export class AdminStoriesController {
     }
   }
 
+  @Post('suggest-genres')
+  @ApiOperation({ summary: 'AI gợi ý thể loại cho truyện dựa trên tiêu đề và cốt truyện' })
+  async suggestGenres(@Body() body: { title: string; summary?: string }) {
+    try {
+      const { title, summary } = body;
+
+      if (!title || !title.trim()) {
+        throw new BadRequestException({
+          code: 'VALIDATION_ERROR',
+          message: 'Tiêu đề là bắt buộc',
+        });
+      }
+
+      // Check for API key
+      const apiKey = process.env.GEMINI_API_KEY;
+      console.log('[suggestGenres] GEMINI_API_KEY exists:', !!apiKey);
+      
+      if (!apiKey || apiKey.trim() === '') {
+        console.error('[suggestGenres] GEMINI_API_KEY is not configured');
+        throw new BadRequestException({
+          code: 'API_KEY_MISSING',
+          message: 'Chưa cấu hình GEMINI_API_KEY trong môi trường backend',
+        });
+      }
+
+      console.log('[suggestGenres] Starting AI genre suggestion for title:', title);
+
+      // Call AI service to suggest genres
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-3.1-flash-lite' });
+
+      const context = summary ? `Tiêu đề: "${title}"\nCốt truyện: "${summary}"` : `Tiêu đề: "${title}"`;
+      
+      const prompt = `Dựa trên thông tin sau, hãy gợi ý 3-5 thể loại phù hợp nhất cho bộ truyện audio:
+
+${context}
+
+Danh sách thể loại trong hệ thống:
+- Cao Võ
+- Chuyển Chức
+- Dị Giới
+- Dị Năng
+- Đô Thị
+- Hệ Thống
+- Huyền Huyễn
+- Kinh Dị
+- Mạt Thế
+- Ngôn Tình
+- Ngự Thú
+- Phản Diện
+- Tiên Hiệp
+- Trọng Sinh
+- Tu Tiên
+- Võng Du
+
+Yêu cầu:
+- Chỉ trả về tên thể loại từ danh sách trên
+- Trả về dưới dạng JSON array: ["Thể loại 1", "Thể loại 2", "Thể loại 3"]
+- Chọn thể loại phù hợp nhất với nội dung
+- Không thêm giải thích hay văn bản khác`;
+
+      console.log('[suggestGenres] Prompt created, calling AI model...');
+
+      const result = await model.generateContent(prompt);
+      const response = result.response.text();
+      
+      console.log('[suggestGenres] AI response:', response);
+
+      // Parse JSON response
+      let suggestedGenres: string[] = [];
+      try {
+        // Extract JSON from response (might have markdown formatting)
+        const jsonMatch = response.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          suggestedGenres = JSON.parse(jsonMatch[0]);
+        } else {
+          suggestedGenres = JSON.parse(response);
+        }
+      } catch (parseError) {
+        console.error('[suggestGenres] Error parsing AI response:', parseError);
+        // Fallback: extract genres from text
+        const genreMatches = response.match(/([A-ZÀ-Ỹ][a-zà-ỹ\s\/]+)/g);
+        if (genreMatches) {
+          suggestedGenres = genreMatches.slice(0, 5);
+        }
+      }
+
+      console.log('[suggestGenres] Suggested genres:', suggestedGenres);
+
+      return {
+        success: true,
+        data: { genres: suggestedGenres },
+        message: 'Đã gợi ý thể loại thành công',
+      };
+    } catch (error: any) {
+      console.error('[suggestGenres] Error occurred:', error.message);
+      console.error('[suggestGenres] Error stack:', error.stack);
+      throw new BadRequestException({
+        code: 'SUGGEST_GENRES_ERROR',
+        message: error.message || 'Lỗi khi gợi ý thể loại',
+      });
+    }
+  }
+
   @Post('generate-summary')
   @ApiOperation({ summary: 'Tạo cốt truyện tự động bằng AI từ tiêu đề' })
   async generateSummary(@Body() body: { title: string }) {

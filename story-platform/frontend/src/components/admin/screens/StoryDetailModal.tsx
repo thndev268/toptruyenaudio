@@ -101,6 +101,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const [genres, setGenres] = useState<AdminGenreItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [isSuggestingGenres, setIsSuggestingGenres] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // Reset state when story changes or modal closes
@@ -621,7 +622,57 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] font-bold text-slate-300">Thể Loại</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-300">Thể Loại</label>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!editStoryTitle.trim()) {
+                        alert('Vui lòng nhập tiêu đề truyện trước');
+                        return;
+                      }
+                      setIsSuggestingGenres(true);
+                      try {
+                        const response = await apiRequest<{ success: boolean; data: { genres: string[] } }>('/admin/stories/suggest-genres', {
+                          method: 'POST',
+                          body: JSON.stringify({ 
+                            title: editStoryTitle,
+                            summary: editStorySummary || undefined 
+                          }),
+                        });
+                        if (response?.success && response?.data?.genres) {
+                          // Find genre IDs from suggested genre names
+                          const suggestedGenreIds = response.data.genres
+                            .map((genreName) => {
+                              const genre = genres.find((g) => g.name === genreName);
+                              return genre?.id;
+                            })
+                            .filter((id): id is string => id !== undefined);
+                          
+                          // Add suggested genres to selected genres (avoid duplicates)
+                          setEditStoryGenreIds((prev) => {
+                            const newIds = [...prev];
+                            suggestedGenreIds.forEach((id) => {
+                              if (!newIds.includes(id)) {
+                                newIds.push(id);
+                              }
+                            });
+                            return newIds;
+                          });
+                        }
+                      } catch (error) {
+                        alert('Lỗi khi gợi ý thể loại');
+                      } finally {
+                        setIsSuggestingGenres(false);
+                      }
+                    }}
+                    disabled={isSuggestingGenres || !editStoryTitle.trim()}
+                    className="text-[10px] font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    {isSuggestingGenres ? 'Đang gợi ý...' : 'AI Gợi Ý'}
+                  </button>
+                </div>
                 <div className="bg-slate-900 border border-slate-800 rounded-xl p-2.5 min-h-[80px] max-h-[160px] overflow-y-auto">
                   {genres.length > 0 ? (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
