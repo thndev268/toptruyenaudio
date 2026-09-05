@@ -15,6 +15,7 @@ import {
   ConflictException,
   NotFoundException,
   ValidationPipe,
+  Req,
 } from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { AdminCreateStoryDto } from '../stories/dto/story.dto';
@@ -23,10 +24,13 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AccountRole } from '../../common/enums';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { ConfigService } from '@nestjs/config';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { Request } from 'express';
 
 @ApiTags('Admin Stories (ADMIN)')
 @Controller('admin/stories')
@@ -38,6 +42,7 @@ export class AdminStoriesController {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly configService: ConfigService,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   @Post('analyze-video')
@@ -184,9 +189,14 @@ export class AdminStoriesController {
   @Post()
   @ApiOperation({ summary: 'Tạo truyện mới' })
   @UsePipes(new ValidationPipe({ skipMissingProperties: true, whitelist: true, forbidNonWhitelisted: true }))
-  async createStory(@Body() dto: AdminCreateStoryDto) {
+  async createStory(
+    @Body() dto: AdminCreateStoryDto,
+    @CurrentUser('id') adminId: string,
+    @Req() req: Request,
+  ) {
     try {
       console.log('[createStory] Received DTO:', dto);
+      const requestId = (req.headers['x-request-id'] as string) || (req as any).id;
 
       // Generate unique slug if not provided
       let slug = dto.slug || dto.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -318,6 +328,21 @@ export class AdminStoriesController {
         });
       }
 
+      // Log audit
+      await this.auditLogsService.log({
+        performedByAdminId: adminId,
+        action: 'STORY_CREATED',
+        resource: 'Story',
+        resourceId: story.id,
+        entityName: story.title,
+        requestId,
+        metadata: {
+          slug: story.slug,
+          authorName: story.authorName,
+          genreCount: storyWithGenres.genres.length,
+        },
+      });
+
       // Transform genres from GenreToStory[] to Genre[] in response
       const transformedStory = storyWithGenres.genres ? {
         ...storyWithGenres,
@@ -347,10 +372,13 @@ export class AdminStoriesController {
   @UseInterceptors(FileInterceptor('coverFile'))
   async updateStory(
     @Param('id') id: string,
+    @CurrentUser('id') adminId: string,
+    @Req() req: Request,
     @Body() body: any,
     @UploadedFile() coverFile?: Express.Multer.File,
   ) {
     try {
+      const requestId = (req.headers['x-request-id'] as string) || (req as any).id;
       // Check if story exists
       const existingStory = await this.prisma.story.findUnique({ where: { id } });
       if (!existingStory) {
@@ -481,6 +509,21 @@ export class AdminStoriesController {
         return transformedStory;
       });
 
+      // Log audit
+      await this.auditLogsService.log({
+        performedByAdminId: adminId,
+        action: 'STORY_UPDATED',
+        resource: 'Story',
+        resourceId: id,
+        entityName: updatedStory.title,
+        requestId,
+        metadata: {
+          slug: updatedStory.slug,
+          changes: Object.keys(dataToUpdate).join(', '),
+          genreCount: updatedStory.genres?.length || 0,
+        },
+      });
+
       return {
         success: true,
         data: updatedStory,
@@ -525,9 +568,12 @@ export class AdminStoriesController {
   @UseInterceptors(FileInterceptor('audioFile'))
   async addChapter(
     @Param('id') storyId: string,
+    @CurrentUser('id') adminId: string,
+    @Req() req: Request,
     @Body() body: any,
     @UploadedFile() audioFile?: Express.Multer.File,
   ) {
+    const requestId = (req.headers['x-request-id'] as string) || (req as any).id;
     // Check if story exists
     const story = await this.prisma.story.findUnique({ where: { id: storyId } });
     if (!story) {
@@ -580,6 +626,22 @@ export class AdminStoriesController {
       },
     });
 
+    // Log audit
+    await this.auditLogsService.log({
+      performedByAdminId: adminId,
+      action: 'CHAPTER_CREATED',
+      resource: 'Chapter',
+      resourceId: chapter.id,
+      entityName: chapter.title,
+      requestId,
+      metadata: {
+        storyId,
+        storyTitle: story.title,
+        chapterNumber: chapter.number,
+        accessLevel: chapter.accessLevel,
+      },
+    });
+
     return {
       success: true,
       data: chapter,
@@ -589,8 +651,13 @@ export class AdminStoriesController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Xóa truyện' })
-  async deleteStory(@Param('id') id: string) {
+  async deleteStory(
+    @Param('id') id: string,
+    @CurrentUser('id') adminId: string,
+    @Req() req: Request,
+  ) {
     try {
+      const requestId = (req.headers['x-request-id'] as string) || (req as any).id;
       // Check if story exists
       const existingStory = await this.prisma.story.findUnique({ where: { id } });
       if (!existingStory) {
@@ -599,6 +666,8 @@ export class AdminStoriesController {
           message: `Không tìm thấy truyện với ID: ${id}`,
         });
       }
+
+      const storyTitle = existingStory.title;
 
       // Use transaction to delete all related records
       await this.prisma.$transaction(async (tx) => {
@@ -616,6 +685,20 @@ export class AdminStoriesController {
         
         // Delete the story itself (this will cascade delete chapters due to schema)
         await tx.story.delete({ where: { id } });
+      });
+
+      // Log audit
+      await this.auditLogsService.log({
+        performedByAdminId: adminId,
+        action: 'STORY_DELETED',
+        resource: 'Story',
+        resourceId: id,
+        entityName: storyTitle,
+        requestId,
+        metadata: {
+          slug: existingStory.slug,
+          authorName: existingStory.authorName,
+        },
       });
 
       return {
@@ -636,8 +719,14 @@ export class AdminStoriesController {
 
   @Delete(':storyId/chapters/:chapterId')
   @ApiOperation({ summary: 'Xóa một chapter' })
-  async deleteChapter(@Param('storyId') storyId: string, @Param('chapterId') chapterId: string) {
+  async deleteChapter(
+    @Param('storyId') storyId: string,
+    @Param('chapterId') chapterId: string,
+    @CurrentUser('id') adminId: string,
+    @Req() req: Request,
+  ) {
     try {
+      const requestId = (req.headers['x-request-id'] as string) || (req as any).id;
       // Check if chapter exists
       const chapter = await this.prisma.chapter.findUnique({ where: { id: chapterId } });
       if (!chapter) {
@@ -647,8 +736,26 @@ export class AdminStoriesController {
         });
       }
 
+      const chapterTitle = chapter.title;
+      const story = await this.prisma.story.findUnique({ where: { id: storyId } });
+
       // Delete chapter (listening progress will cascade delete)
       await this.prisma.chapter.delete({ where: { id: chapterId } });
+
+      // Log audit
+      await this.auditLogsService.log({
+        performedByAdminId: adminId,
+        action: 'CHAPTER_DELETED',
+        resource: 'Chapter',
+        resourceId: chapterId,
+        entityName: chapterTitle,
+        requestId,
+        metadata: {
+          storyId,
+          storyTitle: story?.title,
+          chapterNumber: chapter.number,
+        },
+      });
 
       return {
         success: true,
@@ -673,10 +780,13 @@ export class AdminStoriesController {
   async updateChapter(
     @Param('storyId') storyId: string,
     @Param('chapterId') chapterId: string,
+    @CurrentUser('id') adminId: string,
+    @Req() req: Request,
     @Body() body: any,
     @UploadedFile() audioFile?: Express.Multer.File,
   ) {
     try {
+      const requestId = (req.headers['x-request-id'] as string) || (req as any).id;
       // Check if chapter exists
       const chapter = await this.prisma.chapter.findUnique({ where: { id: chapterId } });
       if (!chapter) {
@@ -733,6 +843,21 @@ export class AdminStoriesController {
       const updatedChapter = await this.prisma.chapter.update({
         where: { id: chapterId },
         data: dataToUpdate,
+      });
+
+      // Log audit
+      await this.auditLogsService.log({
+        performedByAdminId: adminId,
+        action: 'CHAPTER_UPDATED',
+        resource: 'Chapter',
+        resourceId: chapterId,
+        entityName: updatedChapter.title,
+        requestId,
+        metadata: {
+          storyId,
+          chapterNumber: updatedChapter.number,
+          changes: Object.keys(dataToUpdate).join(', '),
+        },
       });
 
       return {
@@ -794,8 +919,13 @@ export class AdminStoriesController {
 
   @Post('genres')
   @ApiOperation({ summary: 'Tạo thể loại mới' })
-  async createGenre(@Body() body: { name: string; slug: string; description: string; iconName?: string }) {
+  async createGenre(
+    @Body() body: { name: string; slug: string; description: string; iconName?: string },
+    @CurrentUser('id') adminId: string,
+    @Req() req: Request,
+  ) {
     try {
+      const requestId = (req.headers['x-request-id'] as string) || (req as any).id;
       const { name, slug, description, iconName } = body;
 
       if (!name || !slug) {
@@ -831,10 +961,24 @@ export class AdminStoriesController {
         },
       });
 
+      // Log audit
+      await this.auditLogsService.log({
+        performedByAdminId: adminId,
+        action: 'GENRE_CREATED',
+        resource: 'Genre',
+        resourceId: genre.id,
+        entityName: genre.name,
+        requestId,
+        metadata: {
+          slug: genre.slug,
+          iconName: genre.iconName,
+        },
+      });
+
       return {
         success: true,
         data: genre,
-        message: 'Đã tạo thể loại mới thành công',
+        message: 'Đã tạo thể loại thành công',
       };
     } catch (error: any) {
       if (error instanceof BadRequestException || error instanceof ConflictException) {
