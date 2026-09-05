@@ -563,15 +563,15 @@ export class AdminStoriesController {
   }
 
   @Post(':id/chapters')
-  @ApiOperation({ summary: 'Thêm chương mới' })
-  @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('audioFile'))
-  async addChapter(
+  @ApiOperation({ summary: 'Tạo chương mới cho truyện' })
+  @UseInterceptors(FileInterceptor('audioFile'), FileInterceptor('videoFile'))
+  async createChapter(
     @Param('id') storyId: string,
     @CurrentUser('id') adminId: string,
     @Req() req: Request,
     @Body() body: any,
     @UploadedFile() audioFile?: Express.Multer.File,
+    @UploadedFile() videoFile?: Express.Multer.File,
   ) {
     const requestId = (req.headers['x-request-id'] as string) || (req as any).id;
     // Check if story exists
@@ -588,6 +588,13 @@ export class AdminStoriesController {
       const ext = audioFile.originalname.split('.').pop();
       const filename = `audio/${storyId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
       audioUrl = await this.storage.uploadFile('media', filename, audioFile.buffer, audioFile.mimetype);
+    }
+
+    let videoUrl = body.videoUrl;
+    if (videoFile) {
+      const ext = videoFile.originalname.split('.').pop();
+      const filename = `video/${storyId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+      videoUrl = await this.storage.uploadFile('media', filename, videoFile.buffer, videoFile.mimetype);
     }
 
     // Auto-increment chapter number if not provided
@@ -617,6 +624,7 @@ export class AdminStoriesController {
         title: body.title || `Tập ${chapterNumber}`,
         slug: `${story.slug}-tap-${chapterNumber}`,
         audioUrl,
+        videoUrl,
         videoIframeUrl: iframeUrl,
         iframeCode: iframeCode,
         durationSeconds: parseInt(body.durationSeconds, 10) || 1800,
@@ -776,7 +784,7 @@ export class AdminStoriesController {
   @Put(':storyId/chapters/:chapterId')
   @ApiOperation({ summary: 'Cập nhật thông tin chapter' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('audioFile'))
+  @UseInterceptors(FileInterceptor('audioFile'), FileInterceptor('videoFile'))
   async updateChapter(
     @Param('storyId') storyId: string,
     @Param('chapterId') chapterId: string,
@@ -784,6 +792,7 @@ export class AdminStoriesController {
     @Req() req: Request,
     @Body() body: any,
     @UploadedFile() audioFile?: Express.Multer.File,
+    @UploadedFile() videoFile?: Express.Multer.File,
   ) {
     try {
       const requestId = (req.headers['x-request-id'] as string) || (req as any).id;
@@ -811,6 +820,13 @@ export class AdminStoriesController {
         audioUrl = await this.storage.uploadFile('media', filename, audioFile.buffer, audioFile.mimetype);
       }
 
+      let videoUrl = body.videoUrl;
+      if (videoFile) {
+        const ext = videoFile.originalname.split('.').pop();
+        const filename = `video/${storyId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+        videoUrl = await this.storage.uploadFile('media', filename, videoFile.buffer, videoFile.mimetype);
+      }
+
       // Extract iframeUrl from iframeCode if provided
       let iframeUrl = body.videoIframeUrl;
       let iframeCode = body.iframeCode;
@@ -826,6 +842,7 @@ export class AdminStoriesController {
         title: body.title,
         slug: body.slug,
         audioUrl: audioUrl || undefined,
+        videoUrl: videoUrl || undefined,
         videoIframeUrl: iframeUrl || undefined,
         iframeCode: iframeCode || undefined,
         durationSeconds: body.durationSeconds ? parseInt(body.durationSeconds, 10) : undefined,

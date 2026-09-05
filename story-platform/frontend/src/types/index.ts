@@ -40,6 +40,7 @@ export interface AudioChapter {
   title: string;
   slug: string;
   audioUrl?: string;
+  videoUrl?: string;
   videoIframeUrl?: string;
   iframeCode?: string;
   iframeUrl?: string;
@@ -57,6 +58,8 @@ export interface AudioChapter {
   canListen?: boolean;
   requiresAuthentication?: boolean;
   requiresPremium?: boolean;
+  audioFile?: File;
+  videoFile?: File;
 }
 
 export interface AudioStory {

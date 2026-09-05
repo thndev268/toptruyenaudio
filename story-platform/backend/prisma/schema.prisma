@@ -107,6 +107,7 @@ model Chapter {
   title           String
   slug            String?
   audioUrl        String?
+  videoUrl        String?
   videoIframeUrl  String?
   iframeCode      String?
   audioContent    String?

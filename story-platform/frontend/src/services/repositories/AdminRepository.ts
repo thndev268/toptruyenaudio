@@ -1120,9 +1120,14 @@ class AdminRepositoryService {
       if (chapterData.durationSeconds) formData.append('durationSeconds', chapterData.durationSeconds.toString());
       if (chapterData.accessLevel) formData.append('accessLevel', chapterData.accessLevel);
       if (chapterData.audioUrl) formData.append('audioUrl', chapterData.audioUrl);
+      if (chapterData.videoUrl) formData.append('videoUrl', chapterData.videoUrl);
       if (chapterData.iframeCode) formData.append('iframeCode', chapterData.iframeCode);
       if (chapterData.videoIframeUrl) formData.append('videoIframeUrl', chapterData.videoIframeUrl);
       if (chapterData.audioContent) formData.append('audioContent', chapterData.audioContent);
+      
+      // Handle file uploads
+      if (chapterData.audioFile) formData.append('audioFile', chapterData.audioFile);
+      if (chapterData.videoFile) formData.append('videoFile', chapterData.videoFile);
 
       await apiRequest(`/admin/stories/${storyId}/chapters`, {
         method: 'POST',
@@ -1152,9 +1157,14 @@ class AdminRepositoryService {
       if (chapterData.durationSeconds !== undefined) formData.append('durationSeconds', chapterData.durationSeconds.toString());
       if (chapterData.accessLevel) formData.append('accessLevel', chapterData.accessLevel);
       if (chapterData.audioUrl) formData.append('audioUrl', chapterData.audioUrl);
+      if (chapterData.videoUrl) formData.append('videoUrl', chapterData.videoUrl);
       if (chapterData.iframeCode) formData.append('iframeCode', chapterData.iframeCode);
       if (chapterData.videoIframeUrl) formData.append('videoIframeUrl', chapterData.videoIframeUrl);
       if (chapterData.audioContent) formData.append('audioContent', chapterData.audioContent);
+      
+      // Handle file uploads
+      if (chapterData.audioFile) formData.append('audioFile', chapterData.audioFile);
+      if (chapterData.videoFile) formData.append('videoFile', chapterData.videoFile);
 
       const response = await apiRequest<{ success: boolean; data: any }>(`/admin/stories/${storyId}/chapters/${chapterId}`, {
         method: 'PUT',

@@ -74,6 +74,9 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const [newChapterNumber, setNewChapterNumber] = useState<number>(1);
   const [newChapterNarrator, setNewChapterNarrator] = useState('');
   const [newChapterAudioUrl, setNewChapterAudioUrl] = useState('');
+  const [newChapterAudioFile, setNewChapterAudioFile] = useState<File | null>(null);
+  const [newChapterVideoUrl, setNewChapterVideoUrl] = useState('');
+  const [newChapterVideoFile, setNewChapterVideoFile] = useState<File | null>(null);
   const [newChapterIframe, setNewChapterIframe] = useState('');
   const [newChapterAllowVideoDisplay, setNewChapterAllowVideoDisplay] = useState<boolean>(true);
   const [newChapterAccessLevel, setNewChapterAccessLevel] = useState<'FREE' | 'PREMIUM'>('FREE');
@@ -85,6 +88,9 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   const [editChapterTitle, setEditChapterTitle] = useState('');
   const [editChapterNarrator, setEditChapterNarrator] = useState('');
   const [editChapterAudioUrl, setEditChapterAudioUrl] = useState('');
+  const [editChapterAudioFile, setEditChapterAudioFile] = useState<File | null>(null);
+  const [editChapterVideoUrl, setEditChapterVideoUrl] = useState('');
+  const [editChapterVideoFile, setEditChapterVideoFile] = useState<File | null>(null);
   const [editChapterIframe, setEditChapterIframe] = useState('');
   const [editChapterAllowVideoDisplay, setEditChapterAllowVideoDisplay] = useState<boolean>(true);
   const [editChapterAccessLevel, setEditChapterAccessLevel] = useState<'FREE' | 'PREMIUM'>('FREE');
@@ -259,6 +265,9 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
       title,
       narrator: newChapterNarrator || story.narratorName,
       audioUrl: newChapterAudioUrl || 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+      audioFile: newChapterAudioFile || undefined,
+      videoUrl: newChapterVideoUrl || undefined,
+      videoFile: newChapterVideoFile || undefined,
       iframeCode: newChapterIframe,
       videoIframeUrl: newChapterIframe,
       allowVideoDisplay: newChapterAllowVideoDisplay,
@@ -271,6 +280,9 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
       setIsAddingChapter(false);
       setNewChapterTitle('');
       setNewChapterAudioUrl('');
+      setNewChapterAudioFile(null);
+      setNewChapterVideoUrl('');
+      setNewChapterVideoFile(null);
       setNewChapterIframe('');
       setNewChapterAllowVideoDisplay(true);
       setNewChapterContent('');
@@ -287,6 +299,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     setEditChapterTitle(chapter.title);
     setEditChapterNarrator(chapter.narrator || story.narratorName || '');
     setEditChapterAudioUrl(chapter.audioUrl || '');
+    setEditChapterVideoUrl(chapter.videoUrl || '');
     setEditChapterIframe(chapter.iframeCode || chapter.videoIframeUrl || '');
     setEditChapterAllowVideoDisplay(
       chapter.allowVideoDisplay !== undefined ? chapter.allowVideoDisplay : (chapter.isVideoEnabled !== undefined ? chapter.isVideoEnabled : true)
@@ -304,6 +317,9 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
       title: editChapterTitle.trim() || `Tập ${editChapterNumber}`,
       narrator: editChapterNarrator || story.narratorName,
       audioUrl: editChapterAudioUrl,
+      audioFile: editChapterAudioFile || undefined,
+      videoUrl: editChapterVideoUrl,
+      videoFile: editChapterVideoFile || undefined,
       iframeCode: editChapterIframe,
       videoIframeUrl: editChapterIframe,
       allowVideoDisplay: editChapterAllowVideoDisplay,
@@ -314,6 +330,8 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     setIsSaving(false);
     if (res.success) {
       setEditingChapterId(null);
+      setEditChapterAudioFile(null);
+      setEditChapterVideoFile(null);
       refreshChapters();
     } else {
       setSaveError(res.message);
@@ -921,6 +939,48 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                 </div>
 
                 <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-300">Link File Audio MP3 / Streaming URL</label>
+                  <input
+                    type="text"
+                    value={newChapterAudioUrl}
+                    onChange={(e) => setNewChapterAudioUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-300">Upload File Audio (MP3)</label>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={(e) => setNewChapterAudioFile(e.target.files?.[0] || null)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-300">Link File Video MP4 / Streaming URL</label>
+                  <input
+                    type="text"
+                    value={newChapterVideoUrl}
+                    onChange={(e) => setNewChapterVideoUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-300">Upload File Video (MP4)</label>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) => setNewChapterVideoFile(e.target.files?.[0] || null)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
                   <label className="text-[11px] font-bold text-cyan-400">Nội Dung / Kịch Bản Lời Thoại Tập</label>
                   <textarea
                     rows={3}
@@ -1180,6 +1240,37 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
                     onChange={(e) => setEditChapterAudioUrl(e.target.value)}
                     placeholder="https://..."
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-300">Upload File Audio (MP3)</label>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    onChange={(e) => setEditChapterAudioFile(e.target.files?.[0] || null)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-300">Link File Video MP4 / Streaming URL</label>
+                  <input
+                    type="text"
+                    value={editChapterVideoUrl}
+                    onChange={(e) => setEditChapterVideoUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-300">Upload File Video (MP4)</label>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) => setEditChapterVideoFile(e.target.files?.[0] || null)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
                   />
                 </div>
 
