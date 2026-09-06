@@ -49,7 +49,27 @@ export class StoriesController {
       console.error('Error fetching genres:', error);
       throw new BadRequestException({
         code: 'FETCH_GENRES_ERROR',
-        message: error.message || 'Lỗi khi lấy danh sách thể loại',
+        message: error instanceof Error ? error.message : 'Lỗi khi lấy danh sách thể loại',
+      });
+    }
+  }
+
+  @Post(':id/increment-listen')
+  @ApiOperation({ summary: 'Tăng lượt nghe của truyện' })
+  @ApiBearerAuth()
+  @UseGuards(OptionalJwtAuthGuard)
+  async incrementListenCount(@Param('id') id: string) {
+    try {
+      await this.storiesService.incrementListenCount(id);
+      return {
+        success: true,
+        message: 'Đã tăng lượt nghe thành công',
+      };
+    } catch (error) {
+      console.error('Error incrementing listen count:', error);
+      throw new BadRequestException({
+        success: false,
+        message: 'Không thể tăng lượt nghe',
       });
     }
   }
@@ -122,7 +142,7 @@ export class StoriesController {
       console.error('Error fetching stories by genre:', error);
       throw new BadRequestException({
         code: 'FETCH_STORIES_BY_GENRE_ERROR',
-        message: error.message || 'Lỗi khi lấy danh sách truyện theo thể loại',
+        message: error instanceof Error ? error.message : 'Lỗi khi lấy danh sách truyện theo thể loại',
       });
     }
   }

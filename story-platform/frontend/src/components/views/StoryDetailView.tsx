@@ -936,6 +936,16 @@ export const StoryDetailView: React.FC = () => {
 
     }
 
+    // Increment listen count when user plays
+    try {
+      await apiRequest(`/stories/${story.id}/increment-listen`, {
+        method: 'POST',
+      });
+    } catch (error) {
+      console.error('Failed to increment listen count:', error);
+      // Don't block playback if increment fails
+    }
+
     const success = await playChapter(story, chapter, startPos);
 
     if (success) {
