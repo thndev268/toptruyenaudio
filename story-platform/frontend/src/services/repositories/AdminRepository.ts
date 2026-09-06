@@ -2263,6 +2263,50 @@ class AdminRepositoryService {
     }
     return this.getAuditLogs();
   }
+
+  // --- Profanity Filter Management ---
+  async getProfanityWords(): Promise<string[]> {
+    if (getDataSourceMode() === 'API') {
+      try {
+        const res = await apiRequest<{ success: boolean; data: string[] }>('/comments/profanity-words');
+        if (res && Array.isArray(res.data)) {
+          return res.data;
+        }
+      } catch (err) {
+        if (getDataSourceMode() === 'API') throw err;
+      }
+    }
+    return [];
+  }
+
+  async addProfanityWord(word: string): Promise<{ success: boolean; message: string }> {
+    if (getDataSourceMode() === 'API') {
+      try {
+        const res = await apiRequest<{ success: boolean; message: string }>('/comments/profanity-words', {
+          method: 'POST',
+          body: JSON.stringify({ word }),
+        });
+        return res;
+      } catch (err) {
+        if (getDataSourceMode() === 'API') throw err;
+      }
+    }
+    return { success: true, message: 'Đã thêm từ ngữ lọc thành công' };
+  }
+
+  async removeProfanityWord(word: string): Promise<{ success: boolean; message: string }> {
+    if (getDataSourceMode() === 'API') {
+      try {
+        const res = await apiRequest<{ success: boolean; message: string }>(`/comments/profanity-words/${word}`, {
+          method: 'DELETE',
+        });
+        return res;
+      } catch (err) {
+        if (getDataSourceMode() === 'API') throw err;
+      }
+    }
+    return { success: true, message: 'Đã xóa từ ngữ lọc thành công' };
+  }
 }
 
 export const adminRepository = new AdminRepositoryService();

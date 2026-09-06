@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   MessageSquare,
   Search,
@@ -8,8 +8,15 @@ import {
   Star,
   ShieldAlert,
   Disc,
+  AlertTriangle,
+  Ban,
+  CheckCircle,
+  Plus,
+  X,
+  Settings,
 } from 'lucide-react';
 import { AdminCommentItem } from '../../../types/admin';
+import { adminRepository } from '../../../services/repositories/AdminRepository';
 
 interface CommentsScreenProps {
   comments: AdminCommentItem[];
@@ -29,6 +36,17 @@ export const CommentsScreen: React.FC<CommentsScreenProps> = ({
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'HIDDEN' | 'FLAGGED'>('ALL');
   const [storyFilter, setStoryFilter] = useState<string>('ALL');
+  const [showProfanitySettings, setShowProfanitySettings] = useState(false);
+  const [profanityWords, setProfanityWords] = useState<string[]>([]);
+  const [newWord, setNewWord] = useState('');
+  const [openaiModerationEnabled, setOpenaiModerationEnabled] = useState(false);
+
+  // Load profanity words when modal opens
+  useEffect(() => {
+    if (showProfanitySettings) {
+      adminRepository.getProfanityWords().then(setProfanityWords).catch(console.error);
+    }
+  }, [showProfanitySettings]);
 
   const filtered = comments.filter((c) => {
     const matchSearch =
@@ -123,7 +141,197 @@ export const CommentsScreen: React.FC<CommentsScreenProps> = ({
             </option>
           ))}
         </select>
+
+        <button
+          type="button"
+          onClick={() => setShowProfanitySettings(true)}
+          className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold transition-all flex items-center gap-2 min-h-[42px]"
+        >
+          <Settings className="w-4 h-4" />
+          <span>Quản Lý Lọc Từ</span>
+        </button>
       </div>
+
+      {/* Profanity Filter Settings Modal */}
+      {showProfanitySettings && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-white">Quản Lý Lọc Từ Ngữ Không Phù Hợp</h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Thêm/xóa từ ngữ cần lọc trong bình luận
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowProfanitySettings(false)}
+                className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            {/* Add new word */}
+            <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 mb-6">
+              <label className="text-xs font-bold text-slate-300 mb-2 block">Thêm từ ngữ mới</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newWord}
+                  onChange={(e) => setNewWord(e.target.value)}
+                  placeholder="Nhập từ ngữ cần lọc..."
+                  className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && newWord.trim()) {
+                      setProfanityWords([...profanityWords, newWord.trim()]);
+                      setNewWord('');
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (newWord.trim()) {
+                      setProfanityWords([...profanityWords, newWord.trim()]);
+                      setNewWord('');
+                    }
+                  }}
+                  className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Thêm</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Current profanity words list */}
+            <div className="bg-slate-950 border border-slate-800 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-xs font-bold text-slate-300">Danh sách từ ngữ đang lọc ({profanityWords.length})</label>
+                {profanityWords.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm('Bạn có chắc muốn xóa tất cả từ ngữ lọc?')) {
+                        setProfanityWords([]);
+                      }
+                    }}
+                    className="text-xs text-rose-400 hover:text-rose-300 font-bold"
+                  >
+                    Xóa tất cả
+                  </button>
+                )}
+              </div>
+              
+              {profanityWords.length === 0 ? (
+                <div className="text-center py-8 text-slate-500 text-xs">
+                  <AlertTriangle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p>Chưa có từ ngữ nào trong danh sách lọc</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {profanityWords.map((word, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-lg px-3 py-2"
+                    >
+                      <span className="text-xs text-white font-mono">{word}</span>
+                      <button
+                        type="button"
+                        onClick={() => setProfanityWords(profanityWords.filter((_, i) => i !== index))}
+                        className="p-1.5 hover:bg-rose-500/20 rounded-lg transition-colors group"
+                      >
+                        <X className="w-3.5 h-3.5 text-slate-400 group-hover:text-rose-400" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Warning info */}
+            <div className="mt-6 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-200">
+                  <p className="font-bold mb-1">Cảnh báo về hệ thống lọc:</p>
+                  <ul className="space-y-1 list-disc list-inside text-slate-300">
+                    <li>Lần 1: Cảnh báo, từ chối bình luận</li>
+                    <li>Lần 2: Cảnh báo, từ chối bình luận</li>
+                    <li>Lần 3: Block 1 giờ</li>
+                    <li>Lần 5: Block 7 ngày</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            {/* OpenAI Moderation Toggle */}
+            <div className="mt-6 bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-cyan-500/20 rounded-lg">
+                    <ShieldAlert className="w-5 h-5 text-cyan-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">OpenAI Moderation AI</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Phát hiện nội dung không phù hợp thông minh hơn (xúc phạm, khiêu dâm, bạo lực)
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOpenaiModerationEnabled(!openaiModerationEnabled)}
+                  className={`relative w-12 h-6 rounded-full transition-colors ${
+                    openaiModerationEnabled ? 'bg-cyan-500' : 'bg-slate-700'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                      openaiModerationEnabled ? 'translate-x-6' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
+            {/* Save button */}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowProfanitySettings(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-all"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    // Save all profanity words to backend
+                    await Promise.all(profanityWords.map(word => adminRepository.addProfanityWord(word)));
+                    setShowProfanitySettings(false);
+                    alert('Đã lưu danh sách từ ngữ lọc thành công!');
+                  } catch (error) {
+                    console.error('Failed to save profanity words:', error);
+                    alert('Có lỗi xảy ra khi lưu danh sách từ ngữ lọc. Vui lòng thử lại.');
+                  }
+                }}
+                className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                <span>Lưu Thay Đổi</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Comments List - Grouped by Story */}
       <div className="space-y-4">
