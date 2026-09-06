@@ -51,7 +51,17 @@ export class UsersService {
 
     const subscription = await this.prisma.userSubscription.findFirst({ where: { profileId: userId } });
 
-    return this.buildUserProfileResponse(user, subscription);
+    const response = this.buildUserProfileResponse(user, subscription);
+
+    // Sync membershipTier in database if it differs from effective tier
+    if (response.membership.tier !== user.membershipTier) {
+      await this.prisma.profile.update({
+        where: { id: userId },
+        data: { membershipTier: response.membership.tier },
+      });
+    }
+
+    return response;
   }
 
   async updateProfile(userId: string, dto: UpdateMyProfileDto): Promise<UserProfileResponse> {

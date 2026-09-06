@@ -110,7 +110,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       // Sync membership tier from subscription status
       try {
-        await apiRequest('/subscriptions/sync', { method: 'POST' });
+        console.log('[AuthContext] Calling /subscriptions/sync');
+        const syncResult = await apiRequest('/subscriptions/sync', { method: 'POST' });
+        console.log('[AuthContext] Sync result:', syncResult);
       } catch (err) {
         console.warn('[AuthContext] Failed to sync membership tier:', err);
         // Don't block profile fetch if sync fails
@@ -118,6 +120,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // Fetch from backend API only
       const data = await apiRequest('/users/me');
+      console.log('[AuthContext] User data from /users/me:', data);
       
       if (data) {
         lastFetchedSessionRef.current = sessionKey;

@@ -123,22 +123,42 @@ export class SubscriptionsService {
   }
 
   async syncMembershipTier(userId: string) {
+    this.logger.log(`[syncMembershipTier] Starting sync for user: ${userId}`);
+    
     const sub = await this.getUserSubscription(userId);
+    this.logger.log(`[syncMembershipTier] User subscription status: ${sub.status}, endAt: ${sub.endAt}`);
+    
     const profile = await this.prisma.profile.findUnique({ where: { id: userId } });
     
     if (!profile) {
+      this.logger.error(`[syncMembershipTier] User not found: ${userId}`);
       throw new NotFoundException('User not found');
     }
+
+    this.logger.log(`[syncMembershipTier] Current profile membershipTier: ${profile.membershipTier}`);
 
     let newTier = MembershipTier.FREE;
     if (sub.status === SubscriptionStatus.ACTIVE) {
       newTier = MembershipTier.PREMIUM;
     }
 
+    this.logger.log(`[syncMembershipTier] Determined newTier: ${newTier} based on subscription status: ${sub.status}`);
+
+    if (profile.membershipTier === newTier) {
+      this.logger.log(`[syncMembershipTier] No change needed, membershipTier already: ${newTier}`);
+      return {
+        membershipTier: profile.membershipTier,
+        subscriptionStatus: sub.status,
+        subscriptionEndAt: sub.endAt,
+      };
+    }
+
     const updatedProfile = await this.prisma.profile.update({
       where: { id: userId },
       data: { membershipTier: newTier },
     });
+
+    this.logger.log(`[syncMembershipTier] Updated profile membershipTier from ${profile.membershipTier} to ${updatedProfile.membershipTier}`);
 
     return {
       membershipTier: updatedProfile.membershipTier,
