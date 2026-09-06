@@ -269,101 +269,7 @@ export const PremiumView: React.FC = () => {
 
   return (
     <>
-      <style>{`
-        .premium-container {
-          background: radial-gradient(ellipse at bottom, #321b35 0%, #090a0f 100%);
-          position: relative;
-          overflow: hidden;
-        }
-        .premium-card {
-          --white: hsl(0, 0%, 100%);
-          --black: hsl(240, 15%, 9%);
-          --paragraph: hsl(0, 0%, 83%);
-          --line: hsl(240, 9%, 17%);
-          --primary: hsl(189, 92%, 58%);
-
-          position: relative;
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-          padding: 1rem;
-          background-color: hsla(240, 15%, 9%, 1);
-          background-image: radial-gradient(
-              at 88% 40%,
-              hsla(240, 15%, 9%, 1) 0px,
-              transparent 85%
-            ),
-            radial-gradient(at 49% 30%, hsla(240, 15%, 9%, 1) 0px, transparent 85%),
-            radial-gradient(at 14% 26%, hsla(240, 15%, 9%, 1) 0px, transparent 85%),
-            radial-gradient(at 0% 64%, hsl(189, 99%, 26%) 0px, transparent 85%),
-            radial-gradient(at 41% 94%, hsl(189, 97%, 36%) 0px, transparent 85%),
-            radial-gradient(at 100% 99%, hsl(188, 94%, 13%) 0px, transparent 85%);
-          border-radius: 1rem;
-          box-shadow: 0px -16px 24px 0px rgba(255, 255, 255, 0.25) inset;
-        }
-        .premium-card__border {
-          overflow: hidden;
-          pointer-events: none;
-          position: absolute;
-          z-index: -10;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%);
-          width: calc(100% + 2px);
-          height: calc(100% + 2px);
-          background-image: linear-gradient(
-            0deg,
-            hsl(0, 0%, 100%) -50%,
-            hsl(0, 0%, 40%) 100%
-          );
-          border-radius: 1rem;
-        }
-        .premium-card__border::before {
-          content: "";
-          pointer-events: none;
-          position: fixed;
-          z-index: 200;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%, -50%), rotate(0deg);
-          transform-origin: left;
-          width: 200%;
-          height: 10rem;
-          background-image: linear-gradient(
-            0deg,
-            hsla(0, 0%, 100%, 0) 0%,
-            hsl(189, 100%, 50%) 40%,
-            hsl(189, 100%, 50%) 60%,
-            hsla(0, 0%, 40%, 0) 100%
-          );
-          animation: rotate 8s linear infinite;
-        }
-        @keyframes rotate {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-        .premium-card > * {
-          position: relative;
-          z-index: 1;
-        }
-        .premium-card-button {
-          cursor: pointer;
-          padding: 0.5rem;
-          width: 100%;
-          background-image: linear-gradient(
-            0deg,
-            hsl(189, 92%, 58%),
-            hsl(189, 99%, 26%) 100%
-          );
-          font-size: 0.75rem;
-          color: var(--white);
-          border: 0;
-          border-radius: 9999px;
-          box-shadow: inset 0 -2px 25px -4px var(--white);
-        }
-      `}</style>
-      <div className="premium-container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 animate-fadeIn min-h-[calc(100vh-10rem)] flex flex-col justify-between relative">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 animate-fadeIn min-h-[calc(100vh-10rem)] flex flex-col justify-between">
       <div>
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto mb-12 sm:mb-16">
@@ -443,9 +349,8 @@ export const PremiumView: React.FC = () => {
           {PLANS.map((plan) => (
             <div
               key={plan.code}
-              className={`premium-card relative rounded-3xl p-6 sm:p-8 flex flex-col shadow-lg ${plan.isPopular ? 'scale-105' : ''}`}
+              className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 flex flex-col shadow-lg ${plan.isPopular ? 'scale-105' : ''}`}
             >
-              <div className="premium-card__border"></div>
               {(plan.isPopular || plan.isBestDeal) && (
                 <div className={`absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 text-xs font-black uppercase tracking-wider rounded-full shadow-lg ${plan.isPopular ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950' : 'bg-cyan-500 text-slate-950'}`}>
                   {plan.isPopular ? 'Được đề xuất' : (plan.isBestDeal ? 'Tiết kiệm nhất' : '')}
@@ -480,7 +385,7 @@ export const PremiumView: React.FC = () => {
 
               <button
                 onClick={() => handleSelectPlan(plan)}
-                className={`premium-card-button py-3.5 rounded-xl text-sm font-bold transition-all mb-8 shadow-md ${
+                className={`py-3.5 rounded-xl text-sm font-bold transition-all mb-8 shadow-md ${
                   plan.isPopular
                     ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 hover:opacity-90'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700'
