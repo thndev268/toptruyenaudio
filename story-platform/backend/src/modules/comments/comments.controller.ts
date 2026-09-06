@@ -2,9 +2,12 @@ import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Re
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { CommentsService } from './comments.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { SkipThrottle } from '@nestjs/throttler';
 import { CreateCommentDto, UpdateCommentDto, GetCommentsDto } from './dto/comment.dto';
+import { UserRole } from '../../common/enums';
 
 @ApiTags('Comments')
 @Controller('comments')
@@ -100,5 +103,42 @@ export class CommentsController {
       throw new Error('User ID not found in request');
     }
     return this.commentsService.voteHelpful(id, userId);
+  }
+
+  /**
+   * Lấy danh sách từ ngữ lọc (Admin only)
+   */
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER_ADMIN)
+  @Get('profanity-words')
+  @ApiOperation({ summary: 'Lấy danh sách từ ngữ lọc' })
+  @ApiResponse({ status: 200, description: 'Lấy danh sách thành công' })
+  async getProfanityWords() {
+    return this.commentsService.getProfanityWords();
+  }
+
+  /**
+   * Thêm từ ngữ lọc (Admin only)
+   */
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER_ADMIN)
+  @Post('profanity-words')
+  @ApiOperation({ summary: 'Thêm từ ngữ lọc' })
+  @ApiResponse({ status: 201, description: 'Thêm thành công' })
+  async addProfanityWord(@Body() body: { word: string }) {
+    return this.commentsService.addProfanityWord(body.word);
+  }
+
+  /**
+   * Xóa từ ngữ lọc (Admin only)
+   */
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.OWNER_ADMIN)
+  @Delete('profanity-words/:word')
+  @ApiOperation({ summary: 'Xóa từ ngữ lọc' })
+  @ApiParam({ name: 'word', description: 'Từ ngữ cần xóa' })
+  @ApiResponse({ status: 200, description: 'Xóa thành công' })
+  async removeProfanityWord(@Param('word') word: string) {
+    return this.commentsService.removeProfanityWord(word);
   }
 }

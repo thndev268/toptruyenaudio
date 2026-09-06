@@ -1,10 +1,16 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateCommentDto, UpdateCommentDto, GetCommentsDto } from './dto/comment.dto';
+import { ProfanityFilterService } from './profanity-filter.service';
+import { OpenAIModerationService } from './openai-moderation.service';
 
 @Injectable()
 export class CommentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly profanityFilter: ProfanityFilterService,
+    private readonly openaiModeration: OpenAIModerationService
+  ) {}
 
   /**
    * Lấy danh sách bình luận theo story hoặc chapter
@@ -119,6 +125,131 @@ export class CommentsService {
    */
   async createComment(userId: string, dto: CreateCommentDto) {
     const { storyId, chapterId, content, hasSpoiler, parentId } = dto;
+
+    // Kiểm tra user có bị block comment không
+    const user = await this.prisma.profile.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Không tìm thấy người dùng');
+    }
+
+    // Kiểm tra nếu user đang bị block
+    if ((user as any).commentBlockedUntil && (user as any).commentBlockedUntil > new Date()) {
+      const remainingMinutes = Math.ceil(
+        ((user as any).commentBlockedUntil.getTime() - Date.now()) / (1000 * 60)
+      );
+      throw new BadRequestException(
+        `Bạn đã bị chặn bình luận do vi phạm quy định. Vui lòng thử lại sau ${remainingMinutes} phút.`
+      );
+    }
+
+    // Kiểm tra nội dung có từ ngữ không phù hợp
+    const profanityCheck = this.profanityFilter.checkProfanity(content);
+
+    if (profanityCheck.containsProfanity) {
+      // Tăng số lần cảnh báo
+      const warningCount = ((user as any).commentWarningCount || 0) + 1;
+      
+      // Xác định thời gian block dựa trên số lần vi phạm
+      let blockDuration: number | null = null;
+      if (warningCount >= 5) {
+        blockDuration = 7 * 24 * 60 * 60 * 1000; // 7 ngày
+      } else if (warningCount >= 3) {
+        blockDuration = 24 * 60 * 60 * 1000; // 1 ngày
+      } else if (warningCount >= 2) {
+        blockDuration = 60 * 60 * 1000; // 1 giờ
+      }
+
+      const blockedUntil = blockDuration ? new Date(Date.now() + blockDuration) : null;
+
+      // Cập nhật user với cảnh báo mới
+      await this.prisma.profile.update({
+        where: { id: userId },
+        data: {
+          commentWarningCount: warningCount,
+          commentBlockedUntil: blockedUntil,
+          lastCommentWarningAt: new Date(),
+        },
+      });
+
+      // Tạo thông báo cảnh báo cho user
+      await this.prisma.userNotification.create({
+        data: {
+          notificationId: 'system-warning',
+          userId,
+          isRead: false,
+        },
+      });
+
+      // Nếu bị block, throw error
+      if (blockDuration !== null) {
+        const remainingHours = Math.ceil(blockDuration / (1000 * 60 * 60));
+        throw new BadRequestException(
+          `Bình luận của bạn chứa từ ngữ không phù hợp. Bạn đã bị chặn bình luận trong ${remainingHours} giờ do vi phạm quy định ${warningCount} lần.`
+        );
+      }
+
+      // Nếu chưa bị block, chỉ cảnh báo và từ chối comment này
+      throw new BadRequestException(
+        `Bình luận của bạn chứa từ ngữ không phù hợp (${profanityCheck.detectedWords.join(', ')}). Đây là lần cảnh báo thứ ${warningCount}. Vui lòng sử dụng ngôn ngữ lịch sự.`
+      );
+    }
+
+    // Kiểm tra nội dung với OpenAI Moderation API (nếu được bật)
+    if (this.openaiModeration.isEnabled()) {
+      const moderationResult = await this.openaiModeration.moderateContent(content);
+      
+      if (moderationResult.flagged) {
+        // Tăng số lần cảnh báo
+        const warningCount = ((user as any).commentWarningCount || 0) + 1;
+        
+        // Xác định thời gian block dựa trên số lần vi phạm
+        let blockDuration: number | null = null;
+        if (warningCount >= 5) {
+          blockDuration = 7 * 24 * 60 * 60 * 1000; // 7 ngày
+        } else if (warningCount >= 3) {
+          blockDuration = 24 * 60 * 60 * 1000; // 1 ngày
+        } else if (warningCount >= 2) {
+          blockDuration = 60 * 60 * 1000; // 1 giờ
+        }
+
+        const blockedUntil = blockDuration ? new Date(Date.now() + blockDuration) : null;
+
+        // Cập nhật user với cảnh báo mới
+        await this.prisma.profile.update({
+          where: { id: userId },
+          data: {
+            commentWarningCount: warningCount,
+            commentBlockedUntil: blockedUntil,
+            lastCommentWarningAt: new Date(),
+          },
+        });
+
+        // Tạo thông báo cảnh báo cho user
+        await this.prisma.userNotification.create({
+          data: {
+            notificationId: 'system-warning',
+            userId,
+            isRead: false,
+          },
+        });
+
+        // Nếu bị block, throw error
+        if (blockDuration !== null) {
+          const remainingHours = Math.ceil(blockDuration / (1000 * 60 * 60));
+          throw new BadRequestException(
+            `Bình luận của bạn chứa nội dung không phù hợp (${moderationResult.detectedCategories.join(', ')}). Bạn đã bị chặn bình luận trong ${remainingHours} giờ do vi phạm quy định ${warningCount} lần.`
+          );
+        }
+
+        // Nếu chưa bị block, chỉ cảnh báo và từ chối comment này
+        throw new BadRequestException(
+          `Bình luận của bạn chứa nội dung không phù hợp (${moderationResult.detectedCategories.join(', ')}). Đây là lần cảnh báo thứ ${warningCount}. Vui lòng sử dụng ngôn ngữ lịch sự.`
+        );
+      }
+    }
 
     // Kiểm tra story tồn tại
     const story = await this.prisma.story.findUnique({
@@ -312,5 +443,42 @@ export class CommentsService {
       default:
         return { createdAt: 'desc' as const };
     }
+  }
+
+  /**
+   * Lấy danh sách từ ngữ lọc
+   */
+  getProfanityWords() {
+    return {
+      success: true,
+      data: this.profanityFilter.getProfanityList(),
+    };
+  }
+
+  /**
+   * Thêm từ ngữ lọc
+   */
+  addProfanityWord(word: string) {
+    if (!word || word.trim().length === 0) {
+      throw new BadRequestException('Từ ngữ không được để trống');
+    }
+    this.profanityFilter.addProfanityWord(word.trim());
+    return {
+      success: true,
+      message: 'Đã thêm từ ngữ lọc thành công',
+      data: { word: word.trim() },
+    };
+  }
+
+  /**
+   * Xóa từ ngữ lọc
+   */
+  removeProfanityWord(word: string) {
+    this.profanityFilter.removeProfanityWord(word);
+    return {
+      success: true,
+      message: 'Đã xóa từ ngữ lọc thành công',
+      data: { word },
+    };
   }
 }
