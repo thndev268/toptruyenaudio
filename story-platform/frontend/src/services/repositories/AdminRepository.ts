@@ -330,13 +330,28 @@ class AdminRepositoryService {
         iframeCode: s.iframeCode,
         iframeUrl: s.iframeUrl,
         stats: {
-          viewCount: (s.listenCount || 500) * 2,
-          listenCount: s.listenCount || 500,
-          favoriteCount: Math.floor((s.listenCount || 500) / 10),
+          viewCount: s.listenCount || 0,
+          listenCount: s.listenCount || 0,
+          favoriteCount: 0,
         },
         chapters: chapters.length > 0 ? chapters : [],
       };
     });
+  }
+
+  async fetchPublicStoriesApi(): Promise<any[]> {
+    if (getDataSourceMode() === 'API') {
+      try {
+        const res = await apiRequest<any[]>('/stories');
+        if (Array.isArray(res)) {
+          this.stories = res;
+          return this.getPublicStories();
+        }
+      } catch (err) {
+        if (getDataSourceMode() === 'API') throw err;
+      }
+    }
+    return this.getPublicStories();
   }
 
   private genres: AdminGenreItem[] = [];

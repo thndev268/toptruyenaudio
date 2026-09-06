@@ -20,7 +20,7 @@ export function useStories() {
     hasTimedOut: false,
   });
 
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
 
   const fetchStories = useCallback(async (isInitial = true) => {
@@ -50,7 +50,7 @@ export function useStories() {
 
     try {
       // Fetch from repository
-      const fetchedStories = adminRepository.getPublicStories();
+      const fetchedStories = await adminRepository.fetchPublicStoriesApi();
       
       // Ensure fetchedStories is an array
       const storiesArray = Array.isArray(fetchedStories) ? fetchedStories : [];

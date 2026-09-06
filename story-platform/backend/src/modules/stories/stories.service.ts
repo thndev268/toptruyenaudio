@@ -25,7 +25,26 @@ export class StoriesService {
           ],
         }),
       },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        authorName: true,
+        narratorName: true,
+        summary: true,
+        storyline: true,
+        audioContent: true,
+        coverUrl: true,
+        iframeCode: true,
+        iframeUrl: true,
+        isVideoStory: true,
+        storyStatus: true,
+        publishStatus: true,
+        accessLevel: true,
+        rating: true,
+        listenCount: true,
+        createdAt: true,
+        updatedAt: true,
         genres: {
           include: { genre: true },
         },
@@ -51,18 +70,42 @@ export class StoriesService {
     });
 
     // Transform genres from GenreToStory[] to Genre[] for consistent API response
-    // Add totalChapters count
+    // Add totalChapters count and stats object
     return stories.map(story => ({
       ...story,
       genres: story.genres ? story.genres.map(g => g.genre) : [],
       totalChapters: story._count.chapters || 0,
+      stats: {
+        viewCount: 0, // Not currently tracked
+        listenCount: story.listenCount || 0,
+        favoriteCount: 0, // Not currently tracked
+      },
     }));
   }
 
   async findBySlug(slug: string) {
     const story = await this.prisma.story.findFirst({
       where: { slug, publishStatus: 'PUBLISHED' },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        authorName: true,
+        narratorName: true,
+        summary: true,
+        storyline: true,
+        audioContent: true,
+        coverUrl: true,
+        iframeCode: true,
+        iframeUrl: true,
+        isVideoStory: true,
+        storyStatus: true,
+        publishStatus: true,
+        accessLevel: true,
+        rating: true,
+        listenCount: true,
+        createdAt: true,
+        updatedAt: true,
         genres: {
           include: { genre: true },
         },
@@ -82,7 +125,17 @@ export class StoriesService {
     });
 
     if (!story) throw new NotFoundException('Truyện không tồn tại hoặc chưa xuất bản');
-    return story;
+    
+    return {
+      ...story,
+      genres: story.genres ? story.genres.map(g => g.genre) : [],
+      totalChapters: story.chapters?.length || 0,
+      stats: {
+        viewCount: 0,
+        listenCount: story.listenCount || 0,
+        favoriteCount: 0,
+      },
+    };
   }
 
   async findChaptersByStorySlug(slug: string, user?: any) {
