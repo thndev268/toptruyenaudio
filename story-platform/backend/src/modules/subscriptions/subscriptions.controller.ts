@@ -37,6 +37,14 @@ export class SubscriptionsController {
     return this.subscriptionsService.getUserSubscription(userId);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Post('subscriptions/sync')
+  @ApiOperation({ summary: 'Đồng bộ membershipTier từ subscription status' })
+  async syncMembershipTier(@CurrentUser('id') userId: string) {
+    return this.subscriptionsService.syncMembershipTier(userId);
+  }
+
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(AccountRole.OWNER_ADMIN)
   @ApiBearerAuth()

@@ -108,6 +108,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     
     try {
+      // Sync membership tier from subscription status
+      try {
+        await apiRequest('/subscriptions/sync', { method: 'POST' });
+      } catch (err) {
+        console.warn('[AuthContext] Failed to sync membership tier:', err);
+        // Don't block profile fetch if sync fails
+      }
+      
       // Fetch from backend API only
       const data = await apiRequest('/users/me');
       
@@ -127,10 +135,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           role: mappedRole,
           avatarUrl: data.avatarUrl,
           accountStatus: data.accountStatus,
-          isPremium: data.membership?.tier === 'PREMIUM',
+          isPremium: data.membershipTier === 'PREMIUM',
           membership: {
-            tier: data.membership?.tier || 'FREE',
-            subscriptionStatus: data.membership?.subscriptionStatus || 'ACTIVE',
+            tier: data.membershipTier || 'FREE',
+            subscriptionStatus: 'ACTIVE',
           }
         };
         

@@ -168,6 +168,10 @@ export class StoriesService {
     return chapters.map(chapter => {
       const isFree = chapter.accessLevel === 'FREE';
       const isPremium = user.membershipTier === MembershipTier.PREMIUM;
+      
+      // Debug logging
+      this.logger.log(`[Premium Check] User ID: ${user.id}, membershipTier: ${user.membershipTier}, isPremium: ${isPremium}, chapter accessLevel: ${chapter.accessLevel}, isFree: ${isFree}, canListen: ${isFree || isPremium}`);
+      
       const canListen = isFree || isPremium;
       return {
         id: chapter.id,

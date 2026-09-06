@@ -105,7 +105,46 @@ export class SubscriptionsService {
       });
     }
 
+    // Sync membershipTier based on subscription status
+    const profile = await this.prisma.profile.findUnique({ where: { id: userId } });
+    if (profile && sub.status === SubscriptionStatus.ACTIVE && profile.membershipTier !== MembershipTier.PREMIUM) {
+      await this.prisma.profile.update({
+        where: { id: userId },
+        data: { membershipTier: MembershipTier.PREMIUM },
+      });
+    } else if (profile && sub.status !== SubscriptionStatus.ACTIVE && profile.membershipTier === MembershipTier.PREMIUM) {
+      await this.prisma.profile.update({
+        where: { id: userId },
+        data: { membershipTier: MembershipTier.FREE },
+      });
+    }
+
     return sub;
+  }
+
+  async syncMembershipTier(userId: string) {
+    const sub = await this.getUserSubscription(userId);
+    const profile = await this.prisma.profile.findUnique({ where: { id: userId } });
+    
+    if (!profile) {
+      throw new NotFoundException('User not found');
+    }
+
+    let newTier = MembershipTier.FREE;
+    if (sub.status === SubscriptionStatus.ACTIVE) {
+      newTier = MembershipTier.PREMIUM;
+    }
+
+    const updatedProfile = await this.prisma.profile.update({
+      where: { id: userId },
+      data: { membershipTier: newTier },
+    });
+
+    return {
+      membershipTier: updatedProfile.membershipTier,
+      subscriptionStatus: sub.status,
+      subscriptionEndAt: sub.endAt,
+    };
   }
 
   async grantPremium(params: {
