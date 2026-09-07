@@ -249,7 +249,7 @@ export const SupportChat: React.FC = () => {
         className="chatBtn fixed z-50 cursor-pointer"
         style={{
           right: '1.5rem',
-          bottom: 'calc(var(--mini-player-height, 72px) + env(safe-area-inset-bottom) + 160px)',
+          bottom: 'calc(var(--mini-player-height, 72px) + env(safe-area-inset-bottom) + 240px)',
         }}
         title="Chat hỗ trợ"
       >
