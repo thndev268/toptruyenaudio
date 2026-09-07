@@ -261,10 +261,17 @@ export const SupportChat: React.FC = () => {
   }
 
   return (
-    <div className="fixed z-50 w-[calc(100vw-2rem)] max-w-sm sm:max-w-md sm:w-96 lg:w-[450px] lg:max-w-lg bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden" style={{
-      right: '32px',
-      bottom: 'calc(var(--mini-player-height, 72px) + env(safe-area-inset-bottom) + 160px)',
-    }}>
+    <>
+      {/* Mobile overlay to close chat when clicking outside */}
+      <div 
+        className="fixed inset-0 bg-black/50 z-40 md:hidden"
+        onClick={handleClose}
+      />
+      
+      <div className="fixed z-50 w-[calc(100vw-2rem)] max-w-sm sm:max-w-md sm:w-96 lg:w-[450px] lg:max-w-lg bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden" style={{
+        right: '32px',
+        bottom: 'calc(var(--mini-player-height, 72px) + env(safe-area-inset-bottom) + 160px)',
+      }}>
       {/* Header */}
       <div className={`bg-gradient-to-r p-3 sm:p-4 flex items-center justify-between ${
         conversation ? getStatusColor(conversation.status) : getUserColor(user?.id || 'default')
@@ -310,7 +317,7 @@ export const SupportChat: React.FC = () => {
       {!isMinimized && (
         <>
           {/* Messages */}
-          <div className="h-[60vh] sm:h-96 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 bg-slate-800/50">
+          <div className="h-[50vh] sm:h-96 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 bg-slate-800/50">
             {isLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="loader-wrapper">
@@ -385,9 +392,18 @@ export const SupportChat: React.FC = () => {
                 </button>
               </div>
             )}
+            
+            {/* Mobile close button */}
+            <button
+              onClick={handleClose}
+              className="md:hidden w-full mt-3 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              Đóng chat
+            </button>
           </div>
         </>
       )}
-    </div>
+      </div>
+    </>
   );
 };
