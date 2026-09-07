@@ -9,17 +9,13 @@
   border: none;
   background-color: #FFE53B;
   background-image: linear-gradient(147deg, #FFE53B, #FF2525,#FFE53B);
-  cursor: grab;
+  cursor: pointer;
   padding-top: 3px;
   box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.164);
   position: relative;
   background-size: 300%;
   background-position: left;
   transition-duration: 1s;
-}
-
-.chatBtn.cursor-grabbing {
-  cursor: grabbing;
 }
 
 .tooltip {

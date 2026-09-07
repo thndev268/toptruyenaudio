@@ -12,73 +12,6 @@ const ChatIcon = () => (
   </svg>
 );
 
-// Draggable hook
-const useDraggable = (initialPosition: { x: number; y: number }) => {
-  const [position, setPosition] = useState(initialPosition);
-  const [isDragging, setIsDragging] = useState(false);
-  const dragRef = useRef<HTMLButtonElement>(null);
-  const dragOffset = useRef({ x: 0, y: 0 });
-
-  useEffect(() => {
-    const handleMouseDown = (e: MouseEvent) => {
-      if (!dragRef.current) return;
-      
-      setIsDragging(true);
-      dragOffset.current = {
-        x: e.clientX - position.x,
-        y: e.clientY - position.y,
-      };
-    };
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging) return;
-
-      const newPosition = {
-        x: e.clientX - dragOffset.current.x,
-        y: e.clientY - dragOffset.current.y,
-      };
-
-      // Get window dimensions
-      const windowWidth = window.innerWidth;
-      const windowHeight = window.innerHeight;
-      const buttonSize = 55; // chat button size
-
-      // Get header height (assuming header is around 64px)
-      const headerHeight = 64;
-
-      // Constrain within viewport
-      const constrainedPosition = {
-        x: Math.max(0, Math.min(newPosition.x, windowWidth - buttonSize)),
-        y: Math.max(headerHeight, Math.min(newPosition.y, windowHeight - buttonSize)),
-      };
-
-      setPosition(constrainedPosition);
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-    };
-
-    const element = dragRef.current;
-    if (element) {
-      element.addEventListener('mousedown', handleMouseDown);
-    }
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      if (element) {
-        element.removeEventListener('mousedown', handleMouseDown);
-      }
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging, position]);
-
-  return { position, dragRef, isDragging };
-};
-
 // Generate a consistent color based on user ID
 const getUserColor = (userId: string): string => {
   const colors = [
@@ -145,12 +78,6 @@ export const SupportChat: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<Socket | null>(null);
-  
-  // Initialize draggable position near Zalo button (right side)
-  const { position, dragRef, isDragging } = useDraggable({
-    x: window.innerWidth - 88, // 1.5rem + 55px button width
-    y: window.innerHeight - 252, // mini player (72px) + 180px
-  });
 
   useEffect(() => {
     if (!user) return;
@@ -318,15 +245,14 @@ export const SupportChat: React.FC = () => {
   if (!isOpen) {
     return (
       <button
-        ref={dragRef}
         onClick={handleOpen}
-        className={`chatBtn fixed cursor-pointer ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        className="chatBtn fixed cursor-pointer"
         style={{
-          left: `${position.x}px`,
-          top: `${position.y}px`,
+          right: '32px',
+          bottom: 'calc(var(--mini-player-height, 72px) + env(safe-area-inset-bottom) + 160px)',
           zIndex: 1000,
         }}
-        title="Chat hỗ trợ - Kéo để di chuyển"
+        title="Chat hỗ trợ"
       >
         <ChatIcon />
         <span className="tooltip">Chat</span>
