@@ -6,6 +6,7 @@ import { Footer } from './Footer';
 import { Breadcrumbs } from '../common/Breadcrumbs';
 import { ScrollToTopButton } from '../common/ScrollToTopButton';
 import { FloatingZaloButton } from '../common/FloatingZaloButton';
+import { SupportChat } from '../common/SupportChat';
 import { Play, X, Wrench } from 'lucide-react';
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
 import { MiniAudioPlayer } from '../player/MiniAudioPlayer';
@@ -136,6 +137,7 @@ export const PublicLayout: React.FC = () => {
       <FullAudioPlayerModal />
       <ScrollToTopButton />
       <FloatingZaloButton />
+      <SupportChat />
 
       {/* Access Gate Modals */}
       <BannedUserModal 
