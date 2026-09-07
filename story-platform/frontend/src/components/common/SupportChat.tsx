@@ -261,7 +261,10 @@ export const SupportChat: React.FC = () => {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-[calc(100vw-2rem)] max-w-sm sm:max-w-md sm:w-96 sm:bottom-6 sm:right-6 md:bottom-8 md:right-8 lg:w-[450px] lg:max-w-lg bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden">
+    <div className="fixed z-50 w-[calc(100vw-2rem)] max-w-sm sm:max-w-md sm:w-96 lg:w-[450px] lg:max-w-lg bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden" style={{
+      right: '32px',
+      bottom: 'calc(var(--mini-player-height, 72px) + env(safe-area-inset-bottom) + 160px)',
+    }}>
       {/* Header */}
       <div className={`bg-gradient-to-r p-3 sm:p-4 flex items-center justify-between ${
         conversation ? getStatusColor(conversation.status) : getUserColor(user?.id || 'default')
