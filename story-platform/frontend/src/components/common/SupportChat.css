@@ -12,7 +12,6 @@
   cursor: pointer;
   padding-top: 3px;
   box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.164);
-  position: relative;
   background-size: 300%;
   background-position: left;
   transition-duration: 1s;
@@ -21,6 +20,8 @@
 .tooltip {
   position: absolute;
   top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
   opacity: 0;
   background-color: rgb(255, 180, 82);
   color: white;
@@ -32,6 +33,7 @@
   transition-duration: .5s;
   pointer-events: none;
   letter-spacing: 0.5px;
+  white-space: nowrap;
 }
 
 .chatBtn:hover .tooltip {
