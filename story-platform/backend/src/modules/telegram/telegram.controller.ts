@@ -102,9 +102,13 @@ export class TelegramController {
 
   private async handleCallbackQuery(callbackQuery: any) {
     const { id, from, data, message } = callbackQuery;
+    console.log('[Telegram] Callback query received:', { id, from, data, messageId: message?.message_id });
+    
     const conversationId = this.telegramService.extractConversationId(data);
+    console.log('[Telegram] Extracted conversation ID:', conversationId);
 
     if (!conversationId) {
+      console.log('[Telegram] Invalid conversation ID from callback data:', data);
       await this.telegramService.answerCallbackQuery(id, 'Invalid action');
       return;
     }
@@ -115,12 +119,16 @@ export class TelegramController {
     });
 
     if (!conversation) {
+      console.log('[Telegram] Conversation not found:', conversationId);
       await this.telegramService.answerCallbackQuery(id, 'Conversation not found');
       return;
     }
 
+    console.log('[Telegram] Conversation found:', conversation.id, 'Status:', conversation.status);
+
     if (data.startsWith('reply_')) {
       // Admin clicked "Reply" - set conversation as active for next message
+      console.log('[Telegram] Admin clicked Reply button');
       await this.telegramService.answerCallbackQuery(id, '💬 Nhập tin nhắn trả lời của bạn...');
 
       // Store the trigger message ID to mark this conversation as active
@@ -131,7 +139,7 @@ export class TelegramController {
         },
       });
 
-      console.log(`[Telegram] Reply mode activated for conversation ${conversationId}, user: ${conversation.userName}`);
+      console.log(`[Telegram] Reply mode activated for conversation ${conversationId}, user: ${conversation.userName}, telegramMessageId: ${message.message_id}`);
 
       // Send confirmation with detailed context
       await this.telegramService.sendToAdmin(
@@ -142,6 +150,7 @@ export class TelegramController {
       );
     } else if (data.startsWith('close_')) {
       // Admin clicked "Close conversation"
+      console.log('[Telegram] Admin clicked Close button');
       const updatedConv = await this.prisma.supportConversation.update({
         where: { id: conversationId },
         data: {

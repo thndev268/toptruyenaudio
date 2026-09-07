@@ -105,11 +105,12 @@ export class TelegramService {
     return this.sendToAdmin(text, replyMarkup);
   }
 
-  async answerCallbackQuery(callbackQueryId: string, text?: string): Promise<any> {
+  async answerCallbackQuery(callbackQueryId: string, text?: string, showAlert: boolean = true): Promise<any> {
     try {
       await axios.post(`${this.apiUrl}/answerCallbackQuery`, {
         callback_query_id: callbackQueryId,
         text: text || '',
+        show_alert: showAlert,
       });
     } catch (error) {
       this.logger.error('Failed to answer callback query:', error);
