@@ -225,6 +225,30 @@ export class SupportService {
       },
     });
 
+    console.log(`[SupportService] User message sent, conversation: ${conversationId}, notifying Telegram admin`);
+
+    // Send notification to Telegram admin for follow-up messages with inline keyboard
+    try {
+      const replyMarkup = {
+        inline_keyboard: [
+          [
+            { text: '💬 Trả lời', callback_data: `reply_${conversationId}` },
+            { text: '❌ Đóng hội thoại', callback_data: `close_${conversationId}` },
+          ],
+        ],
+      };
+
+      await this.telegramService.sendToAdmin(
+        `💬 <b>Tin nhắn mới từ ${conv.userName}:</b>\n\n` +
+        `${dto.content}\n\n` +
+        `🆔 Conversation: <code>${conversationId}</code>`,
+        replyMarkup
+      );
+      console.log(`[SupportService] Telegram notification with buttons sent for follow-up message`);
+    } catch (error) {
+      console.error('[SupportService] Failed to send Telegram notification for follow-up:', error);
+    }
+
     return this.formatConversation(updatedConv, updatedConv.messages);
   }
 

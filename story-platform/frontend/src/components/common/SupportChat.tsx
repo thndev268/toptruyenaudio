@@ -94,7 +94,7 @@ export const SupportChat: React.FC = () => {
     });
 
     socket.on('new-message', (data) => {
-      console.log('[SupportChat] New message received:', data);
+      console.log('[FRONTEND] new-message received:', data);
       if (conversation && data.conversationId === conversation.id) {
         setConversation((prev) => {
           if (!prev) return prev;
