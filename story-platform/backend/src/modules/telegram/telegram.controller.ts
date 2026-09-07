@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Headers, Get } from '@nestjs/common';
+import { Controller, Post, Body, Headers, Get, Inject, forwardRef } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { TelegramService } from './telegram.service';
 import { SupportService } from '../support/support.service';
@@ -10,6 +10,7 @@ import { ChatGateway } from '../chat/chat.gateway';
 export class TelegramController {
   constructor(
     private readonly telegramService: TelegramService,
+    @Inject(forwardRef(() => SupportService))
     private readonly supportService: SupportService,
     private readonly prisma: PrismaService,
     private readonly chatGateway: ChatGateway,

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { SupportController } from './support.controller';
 import { SupportService } from './support.service';
 import { PrismaModule } from '../../prisma/prisma.module';
@@ -10,7 +10,7 @@ import { ChatModule } from '../chat/chat.module';
   imports: [
     PrismaModule,
     AuditLogsModule,
-    TelegramModule,
+    forwardRef(() => TelegramModule),
     ChatModule,
   ],
   controllers: [SupportController],
