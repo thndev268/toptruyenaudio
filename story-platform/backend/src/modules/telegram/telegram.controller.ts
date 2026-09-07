@@ -108,11 +108,11 @@ export class TelegramController {
       // Admin clicked "Reply" - set conversation as active for next message
       await this.telegramService.answerCallbackQuery(id, '💬 Nhập tin nhắn trả lời của bạn...');
 
-      // Store the admin's chat ID to mark this conversation as active
+      // Store the trigger message ID to mark this conversation as active
       await this.prisma.supportConversation.update({
         where: { id: conversationId },
         data: {
-          telegramChatId: String(message.chat.id),
+          telegramMessageId: message.message_id, // Store the trigger message ID
         },
       });
 
@@ -160,10 +160,13 @@ export class TelegramController {
       return;
     }
 
+    console.log('[Telegram] Received admin message:', { text, chatId: chat.id, hasReply: !!reply_to_message });
+
     let conversation: any = null;
 
     // If this is a reply to a conversation message, find the conversation
     if (reply_to_message) {
+      console.log('[Telegram] Looking for conversation by reply_to_message_id:', reply_to_message.message_id);
       conversation = await this.prisma.supportConversation.findFirst({
         where: {
           telegramMessageId: reply_to_message.message_id,
@@ -171,13 +174,23 @@ export class TelegramController {
       });
     } else {
       // If not a reply, check if there's an active conversation waiting for reply
-      // Active conversation is one with telegramChatId set (from the "Reply" button click)
+      // Active conversation is one with telegramMessageId set (from the "Reply" button click)
+      // Get the most recently updated one within last 5 minutes
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      console.log('[Telegram] Looking for active conversation updated after:', fiveMinutesAgo);
+      
       conversation = await this.prisma.supportConversation.findFirst({
         where: {
-          telegramChatId: String(chat.id),
+          telegramMessageId: { not: null },
+          updatedAt: { gte: fiveMinutesAgo },
         } as any,
+        orderBy: {
+          updatedAt: 'desc',
+        },
       });
     }
+
+    console.log('[Telegram] Found conversation:', conversation ? conversation.id : 'none');
 
     if (conversation) {
       // Save admin message to database
@@ -203,7 +216,7 @@ export class TelegramController {
         },
       });
 
-      console.log(`[Telegram] Admin reply saved for conversation ${conversation.id}`);
+      console.log(`[Telegram] Admin reply saved for conversation ${conversation.id}, user: ${conversation.userId}`);
 
       // Emit Socket.IO event to user
       await this.chatGateway.sendToUser(conversation.userId, 'new-message', {
