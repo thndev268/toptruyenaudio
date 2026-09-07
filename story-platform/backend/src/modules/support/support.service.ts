@@ -3,6 +3,8 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -19,6 +21,7 @@ export class SupportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
+    @Inject(forwardRef(() => TelegramService))
     private readonly telegramService: TelegramService,
     private readonly chatGateway: ChatGateway,
   ) {}
