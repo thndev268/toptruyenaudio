@@ -80,7 +80,7 @@ export class TelegramController {
       const info = await this.telegramService.getWebhookInfo();
       return { success: true, info };
     } catch (error) {
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
 
