@@ -138,10 +138,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           role: mappedRole,
           avatarUrl: data.avatarUrl,
           accountStatus: data.accountStatus,
-          isPremium: data.membershipTier === 'PREMIUM',
+          isPremium: data.membership?.tier === 'PREMIUM',
           membership: {
-            tier: data.membershipTier || 'FREE',
-            subscriptionStatus: 'ACTIVE',
+            tier: data.membership?.tier || 'FREE',
+            subscriptionStatus: data.membership?.subscriptionStatus || 'ACTIVE',
+            planId: data.membership?.planId,
+            startedAt: data.membership?.startedAt,
+            expiresAt: data.membership?.expiresAt,
           }
         };
         

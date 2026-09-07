@@ -232,8 +232,8 @@ export class UsersService {
     const isPremiumActive =
       subscription &&
       subscription.status === SubscriptionStatus.ACTIVE &&
-      subscription.expiresAt &&
-      new Date(subscription.expiresAt).getTime() > serverNow.getTime();
+      subscription.endAt &&
+      new Date(subscription.endAt).getTime() > serverNow.getTime();
 
     const effectiveTier = isPremiumActive ? MembershipTier.PREMIUM : MembershipTier.FREE;
     let effectiveStatus = subscription?.status || SubscriptionStatus.NONE;
@@ -254,8 +254,8 @@ export class UsersService {
         tier: effectiveTier,
         subscriptionStatus: effectiveStatus,
         planId: isPremiumActive ? subscription?.planId : undefined,
-        startedAt: isPremiumActive && subscription?.startedAt ? subscription.startedAt.toISOString() : undefined,
-        expiresAt: isPremiumActive && subscription?.expiresAt ? subscription.expiresAt.toISOString() : undefined,
+        startedAt: isPremiumActive && subscription?.startAt ? subscription.startAt.toISOString() : undefined,
+        expiresAt: isPremiumActive && subscription?.endAt ? subscription.endAt.toISOString() : undefined,
       },
       createdAt: user.createdAt ? user.createdAt.toISOString() : serverNow.toISOString(),
       updatedAt: user.updatedAt ? user.updatedAt.toISOString() : serverNow.toISOString(),
