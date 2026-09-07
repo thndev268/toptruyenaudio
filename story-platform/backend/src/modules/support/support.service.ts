@@ -58,7 +58,18 @@ export class SupportService {
 
     // Send notification to Telegram admin
     try {
-      await this.telegramService.sendReplyButtons(conv.id, userName, dto.subject, dto.message);
+      const telegramResult = await this.telegramService.sendReplyButtons(conv.id, userName, dto.subject, dto.message);
+      
+      // Store the Telegram message ID for reply tracking
+      if (telegramResult && telegramResult.ok && telegramResult.result) {
+        await this.prisma.supportConversation.update({
+          where: { id: conv.id },
+          data: {
+            telegramMessageId: telegramResult.result.message_id,
+          },
+        });
+        console.log(`[SupportService] Telegram message ID ${telegramResult.result.message_id} stored for conversation ${conv.id}`);
+      }
     } catch (error) {
       console.error('[SupportService] Failed to send Telegram notification:', error);
       // Don't fail the conversation creation if Telegram fails

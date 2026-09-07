@@ -164,7 +164,7 @@ export class TelegramController {
 
     let conversation: any = null;
 
-    // If this is a reply to a conversation message, find the conversation
+    // If this is a reply to a conversation message, find the conversation by telegramMessageId
     if (reply_to_message) {
       console.log('[Telegram] Looking for conversation by reply_to_message_id:', reply_to_message.message_id);
       conversation = await this.prisma.supportConversation.findFirst({
@@ -172,6 +172,22 @@ export class TelegramController {
           telegramMessageId: reply_to_message.message_id,
         } as any,
       });
+      
+      if (conversation) {
+        console.log('[Telegram] Found conversation by telegramMessageId:', conversation.id);
+      } else {
+        console.log('[Telegram] Conversation not found by telegramMessageId, trying to parse from text');
+        // Fallback: try to extract conversation ID from the replied message text
+        if (reply_to_message.text) {
+          const match = reply_to_message.text.match(/Conversation ID: <code>([a-z0-9]+)<\/code>/i);
+          if (match && match[1]) {
+            console.log('[Telegram] Extracted conversation ID from text:', match[1]);
+            conversation = await this.prisma.supportConversation.findUnique({
+              where: { id: match[1] },
+            });
+          }
+        }
+      }
     } else {
       // If not a reply, check if there's an active conversation waiting for reply
       // Active conversation is one with telegramMessageId set (from the "Reply" button click)
