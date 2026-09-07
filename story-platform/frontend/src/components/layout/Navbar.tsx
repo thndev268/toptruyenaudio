@@ -32,6 +32,29 @@ import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { InstallPwaButton } from '../common/InstallPwaButton';
 import { usePwaInstall } from '../../context/PwaInstallContext';
 
+// Avatar component with VIP/Free border
+const AvatarWithBorder: React.FC<{ isPremium?: boolean; avatarUrl?: string; className?: string }> = ({ 
+  isPremium, 
+  avatarUrl, 
+  className = '' 
+}) => {
+  const borderClass = isPremium
+    ? 'bg-gradient-to-br from-amber-400 via-yellow-500 to-orange-500 p-[2px] rounded-full'
+    : 'border-2 border-slate-300 dark:border-slate-700 rounded-full';
+
+  return (
+    <div className={`${borderClass} ${className}`}>
+      <div className="w-full h-full rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+        {avatarUrl ? (
+          <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+        ) : (
+          <User className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+        )}
+      </div>
+    </div>
+  );
+};
+
 export const Navbar: React.FC = () => {
   const { role, user, logout, switchRole } = useAuth();
   const { unreadCount, markAsRead, deleteNotification, openNotificationModal } = useNotifications();
@@ -180,10 +203,14 @@ export const Navbar: React.FC = () => {
             {role !== 'GUEST' ? (
               <Link
                 to="/premium"
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20 hover:from-amber-500/20 hover:to-orange-500/20 border border-amber-500/40 text-amber-700 dark:text-amber-300 rounded-full text-xs font-bold shadow-sm transition-all shrink-0 min-h-[38px]"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold shadow-sm transition-all shrink-0 min-h-[38px] ${
+                  user?.membership?.tier === 'PREMIUM'
+                    ? 'bg-gradient-to-r from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20 hover:from-amber-500/20 hover:to-orange-500/20 border border-amber-500/40 text-amber-700 dark:text-amber-300'
+                    : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                }`}
               >
-                <Crown className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
-                <span>Premium</span>
+                <Crown className={`w-3.5 h-3.5 ${user?.membership?.tier === 'PREMIUM' ? 'text-amber-500 dark:text-amber-400' : 'text-slate-400'}`} />
+                <span>{user?.membership?.tier === 'PREMIUM' ? 'PREMIUM' : 'FREE'}</span>
               </Link>
             ) : (
               <Link
@@ -215,12 +242,16 @@ export const Navbar: React.FC = () => {
               <div className="relative hidden sm:block">
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="relative p-2 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full border border-slate-300 dark:border-slate-700 min-w-[40px] min-h-[40px] flex items-center justify-center"
+                  className="relative min-w-[40px] min-h-[40px] flex items-center justify-center"
                   aria-label="Tài khoản người dùng"
                 >
-                  <User className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                  <AvatarWithBorder 
+                    isPremium={user?.membership?.tier === 'PREMIUM'} 
+                    avatarUrl={user?.avatarUrl}
+                    className="w-10 h-10"
+                  />
                   {showInstallAttention && !userDropdownOpen && (
-                    <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-cyan-400 rounded-full border border-white dark:border-slate-900" />
+                    <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-cyan-400 rounded-full border border-white dark:border-slate-900" />
                   )}
                 </button>
 
@@ -374,9 +405,11 @@ export const Navbar: React.FC = () => {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 flex items-center justify-center group-hover:border-cyan-500/50 transition-colors">
-                          <User className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
-                        </div>
+                        <AvatarWithBorder 
+                          isPremium={user?.membership?.tier === 'PREMIUM'} 
+                          avatarUrl={user?.avatarUrl}
+                          className="w-10 h-10"
+                        />
                         <div className="min-w-0">
                           <div className="font-bold text-slate-900 dark:text-white truncate text-sm">{user?.name || 'Thành Viên Audio'}</div>
                           <div className="text-[10px] text-slate-500 truncate">{user?.email}</div>
@@ -385,9 +418,14 @@ export const Navbar: React.FC = () => {
                       <Settings className="w-4 h-4 text-slate-400 group-hover:text-cyan-500 transition-colors" />
                     </div>
                     <div className="flex items-center gap-2">
-                      {user?.isPremium && (
+                      {user?.membership?.tier === 'PREMIUM' && (
                         <span className="px-2 py-0.5 bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-mono font-bold rounded flex items-center gap-1">
                           <Crown className="w-2.5 h-2.5" /> PREMIUM
+                        </span>
+                      )}
+                      {user?.membership?.tier === 'FREE' && (
+                        <span className="px-2 py-0.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-[10px] font-mono font-bold rounded">
+                          FREE
                         </span>
                       )}
                     </div>
