@@ -1,9 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, Send, X, Minimize2, Maximize2 } from 'lucide-react';
+import { Send, X, Minimize2, Maximize2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../services/apiClient';
 import { io, Socket } from 'socket.io-client';
 import './SupportChat.css';
+
+// Custom chat icon from Uiverse.io
+const ChatIcon = () => (
+  <svg height="1.6em" fill="white" xmlSpace="preserve" viewBox="0 0 1000 1000" y="0px" x="0px" version="1.1">
+    <path d="M881.1,720.5H434.7L173.3,941V720.5h-54.4C58.8,720.5,10,671.1,10,610.2v-441C10,108.4,58.8,59,118.9,59h762.2C941.2,59,990,108.4,990,169.3v441C990,671.1,941.2,720.5,881.1,720.5L881.1,720.5z M935.6,169.3c0-30.4-24.4-55.2-54.5-55.2H118.9c-30.1,0-54.5,24.7-54.5,55.2v441c0,30.4,24.4,55.1,54.5,55.1h54.4h54.4v110.3l163.3-110.2H500h381.1c30.1,0,54.5-24.7,54.5-55.1V169.3L935.6,169.3z M717.8,444.8c-30.1,0-54.4-24.7-54.4-55.1c0-30.4,24.3-55.2,54.4-55.2c30.1,0,54.5,24.7,54.5,55.2C772.2,420.2,747.8,444.8,717.8,444.8L717.8,444.8z M500,444.8c-30.1,0-54.4-24.7-54.4-55.1c0-30.4,24.3-55.2,54.4-55.2c30.1,0,54.4,24.7,54.4,55.2C554.4,420.2,530.1,444.8,500,444.8L500,444.8z M282.2,444.8c-30.1,0-54.5-24.7-54.5-55.1c0-30.4,24.4-55.2,54.5-55.2c30.1,0,54.4,24.7,54.4,55.2C336.7,420.2,312.3,444.8,282.2,444.8L282.2,444.8z"></path>
+  </svg>
+);
 
 // Generate a consistent color based on user ID
 const getUserColor = (userId: string): string => {
@@ -239,10 +246,15 @@ export const SupportChat: React.FC = () => {
     return (
       <button
         onClick={handleOpen}
-        className="fixed bottom-4 right-4 z-50 bg-cyan-500 hover:bg-cyan-600 text-white p-3 sm:p-4 rounded-full shadow-lg transition-all hover:scale-105 md:bottom-8 md:right-8"
+        className="chatBtn fixed z-50 cursor-pointer"
+        style={{
+          right: '1.5rem',
+          bottom: 'calc(var(--mini-player-height, 72px) + env(safe-area-inset-bottom) + 160px)',
+        }}
         title="Chat hỗ trợ"
       >
-        <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6" />
+        <ChatIcon />
+        <span className="tooltip">Chat</span>
       </button>
     );
   }
@@ -254,7 +266,9 @@ export const SupportChat: React.FC = () => {
         conversation ? getStatusColor(conversation.status) : getUserColor(user?.id || 'default')
       }`}>
         <div className="flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+          <div className="w-6 h-6 sm:w-7 sm:h-7">
+            <ChatIcon />
+          </div>
           <div className="flex flex-col">
             <h3 className="text-white font-semibold text-xs sm:text-sm">Hỗ trợ trực tuyến</h3>
             {conversation && (
