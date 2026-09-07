@@ -107,16 +107,23 @@ export class TelegramController {
     if (data.startsWith('reply_')) {
       // Admin clicked "Reply" - send a message to admin asking them to type their reply
       await this.telegramService.answerCallbackQuery(id, '💬 Nhập tin nhắn trả lời của bạn...');
-      
-      // Store the conversation ID in a temporary state for the next message
-      await this.prisma.supportConversation.update({
-        where: { id: conversationId },
-        data: { 
-          telegramMessageId: message.message_id,
-          isTelegramLinked: true,
-          telegramChatId: String(message.chat.id)
-        },
-      });
+
+      // Send a message that admin can reply to
+      const result = await this.telegramService.sendToAdmin(
+        `📝 <b>Trả lời cho ${conversation.userName}:</b>\n\nVui lòng reply tin nhắn này để gửi phản hồi của bạn.`
+      );
+
+      // Store the conversation ID with the NEW message ID for the next message
+      if (result && result.ok) {
+        await this.prisma.supportConversation.update({
+          where: { id: conversationId },
+          data: { 
+            telegramMessageId: result.result.message_id,
+            isTelegramLinked: true,
+            telegramChatId: String(message.chat.id)
+          },
+        });
+      }
     } else if (data.startsWith('close_')) {
       // Admin clicked "Close conversation"
       const updatedConv = await this.prisma.supportConversation.update({

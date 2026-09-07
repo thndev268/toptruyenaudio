@@ -3,6 +3,7 @@ import { MessageSquare, Send, X, Minimize2, Maximize2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../services/apiClient';
 import { io, Socket } from 'socket.io-client';
+import './SupportChat.css';
 
 interface Message {
   id: string;
@@ -240,8 +241,18 @@ export const SupportChat: React.FC = () => {
           {/* Messages */}
           <div className="h-[60vh] sm:h-96 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 bg-slate-800/50">
             {isLoading ? (
-              <div className="flex items-center justify-center h-full text-slate-400 text-sm sm:text-base">
-                Đang tải...
+              <div className="flex items-center justify-center h-full">
+                <div className="loader-wrapper">
+                  <div className="loader"></div>
+                  <span className="loader-letter">Đ</span>
+                  <span className="loader-letter">A</span>
+                  <span className="loader-letter">N</span>
+                  <span className="loader-letter">G</span>
+                  <span className="loader-letter"> </span>
+                  <span className="loader-letter">T</span>
+                  <span className="loader-letter">Ả</span>
+                  <span className="loader-letter">I</span>
+                </div>
               </div>
             ) : conversation && conversation.messages.length > 0 ? (
               conversation.messages.map((msg) => (

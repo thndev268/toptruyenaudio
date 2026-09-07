@@ -83,9 +83,12 @@ export class TelegramService {
     });
   }
 
-  async sendReplyButtons(conversationId: string, userName: string): Promise<any> {
-    const text = `📨 <b>Phản hồi từ người dùng:</b> ${userName}\n\nConversation ID: <code>${conversationId}</code>`;
-    
+  async sendReplyButtons(conversationId: string, userName: string, subject?: string, message?: string): Promise<any> {
+    const text = `📨 <b>Phản hồi từ người dùng:</b> ${userName}\n\n` +
+      `<b>Chủ đề:</b> ${subject || 'Không có'}\n\n` +
+      `<b>Nội dung:</b>\n${message || 'Không có'}\n\n` +
+      `Conversation ID: <code>${conversationId}</code>`;
+
     const replyMarkup = {
       inline_keyboard: [
         [

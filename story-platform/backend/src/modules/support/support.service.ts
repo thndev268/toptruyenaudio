@@ -58,7 +58,7 @@ export class SupportService {
 
     // Send notification to Telegram admin
     try {
-      await this.telegramService.sendReplyButtons(conv.id, userName);
+      await this.telegramService.sendReplyButtons(conv.id, userName, dto.subject, dto.message);
     } catch (error) {
       console.error('[SupportService] Failed to send Telegram notification:', error);
       // Don't fail the conversation creation if Telegram fails
