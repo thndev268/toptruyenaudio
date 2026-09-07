@@ -87,7 +87,10 @@ export const SupportChat: React.FC = () => {
       auth: {
         token: localStorage.getItem('accessToken'),
       },
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'], // Add polling as fallback
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
     });
 
     socketRef.current = socket;
@@ -98,10 +101,13 @@ export const SupportChat: React.FC = () => {
 
     socket.on('connected', (data) => {
       console.log('[SupportChat] Socket connected:', data);
+      // Auto-load conversation when socket connects to ensure we receive messages
+      loadConversation();
     });
 
     socket.on('new-message', (data) => {
       console.log('[FRONTEND] new-message received:', data);
+      // If conversation is loaded and matches, append the message
       if (conversation && data.conversationId === conversation.id) {
         setConversation((prev) => {
           if (!prev) return prev;
@@ -110,6 +116,10 @@ export const SupportChat: React.FC = () => {
             messages: [...prev.messages, data.message],
           };
         });
+      } else {
+        // If chat is not open or different conversation, reload to get the correct one
+        console.log('[FRONTEND] Reloading conversation for new message');
+        loadConversation();
       }
     });
 
@@ -139,6 +149,10 @@ export const SupportChat: React.FC = () => {
       }
     });
 
+    socket.on('connect_error', (error) => {
+      console.error('[SupportChat] Socket connection error:', error);
+    });
+
     socket.on('error', (error) => {
       console.error('[SupportChat] Socket error:', error);
     });
@@ -166,10 +180,12 @@ export const SupportChat: React.FC = () => {
         // Find the first non-closed conversation
         const activeConv = conversations.find((c: any) => c.status !== 'CLOSED');
         if (activeConv) {
+          console.log('[SupportChat] Joining existing conversation:', activeConv.id);
           await socketRef.current?.emit('join-conversation', { conversationId: activeConv.id });
           setConversation(activeConv);
         } else {
           // All conversations are closed, create new one
+          console.log('[SupportChat] All conversations closed, creating new one');
           const newConv = await apiRequest('/support/conversations', {
             method: 'POST',
             body: JSON.stringify({
@@ -178,11 +194,13 @@ export const SupportChat: React.FC = () => {
               message: 'Xin chào, tôi cần hỗ trợ.',
             }),
           });
+          console.log('[SupportChat] New conversation created:', newConv.id);
           await socketRef.current?.emit('join-conversation', { conversationId: newConv.id });
           setConversation(newConv);
         }
       } else {
         // Create new conversation
+        console.log('[SupportChat] No conversations found, creating new one');
         const newConv = await apiRequest('/support/conversations', {
           method: 'POST',
           body: JSON.stringify({
@@ -191,6 +209,7 @@ export const SupportChat: React.FC = () => {
             message: 'Xin chào, tôi cần hỗ trợ.',
           }),
         });
+        console.log('[SupportChat] New conversation created:', newConv.id);
         await socketRef.current?.emit('join-conversation', { conversationId: newConv.id });
         setConversation(newConv);
       }

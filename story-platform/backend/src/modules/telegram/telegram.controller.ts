@@ -216,6 +216,11 @@ export class TelegramController {
 
     // Only process messages from admin chat
     const adminChatId = process.env.TELEGRAM_ADMIN_CHAT_ID;
+    if (!adminChatId) {
+      console.log('[Telegram] TELEGRAM_ADMIN_CHAT_ID not configured');
+      return;
+    }
+    
     if (String(chat.id) !== adminChatId) {
       console.log('[Telegram] Message from non-admin chat, ignoring');
       return;
@@ -276,6 +281,22 @@ export class TelegramController {
     if (!conversation) {
       console.log('[TELEGRAM] Conversation not found, message not delivered');
       console.log('[TELEGRAM] Unhandled message from admin:', text);
+      
+      // Send error message to admin
+      await this.telegramService.sendToAdmin(
+        `❌ Không tìm thấy cuộc hội thoại để trả lời.\n\n` +
+        `💬 Hãy nhấn nút "Trả lời" trên tin nhắn thông báo trước.`
+      );
+      return;
+    }
+
+    // Check if conversation is closed
+    if (conversation.status === 'CLOSED') {
+      console.log('[TELEGRAM] Conversation is closed, cannot send message');
+      await this.telegramService.sendToAdmin(
+        `❌ Cuộc hội thoại này đã đóng.\n\n` +
+        `💬 ID: ${conversation.id}`
+      );
       return;
     }
 
@@ -309,33 +330,44 @@ export class TelegramController {
     // Emit Socket.IO event to user
     console.log('[SOCKET] Room = user:', conversation.userId);
     console.log('[SOCKET] Event = new-message');
-    await this.chatGateway.sendToUser(conversation.userId, 'new-message', {
-      conversationId: conversation.id,
-      message: {
-        id: newMessage.id,
+    
+    try {
+      await this.chatGateway.sendToUser(conversation.userId, 'new-message', {
         conversationId: conversation.id,
-        senderId: 'ADMIN',
-        senderRole: 'OWNER_ADMIN',
-        senderName: 'Ban Quản Trị',
-        content: text,
-        createdAt: newMessage.createdAt.toISOString(),
-      },
-    });
+        message: {
+          id: newMessage.id,
+          conversationId: conversation.id,
+          senderId: 'ADMIN',
+          senderRole: 'OWNER_ADMIN',
+          senderName: 'Ban Quản Trị',
+          content: text,
+          createdAt: newMessage.createdAt.toISOString(),
+        },
+      });
+      console.log('[SOCKET] new-message sent to user:', conversation.userId);
+    } catch (socketError) {
+      console.error('[SOCKET] Failed to send message to user:', socketError);
+    }
 
     // Also send to conversation room
     console.log('[SOCKET] Room = conversation:', conversation.id);
-    await this.chatGateway.sendToConversation(conversation.id, 'new-message', {
-      conversationId: conversation.id,
-      message: {
-        id: newMessage.id,
+    try {
+      await this.chatGateway.sendToConversation(conversation.id, 'new-message', {
         conversationId: conversation.id,
-        senderId: 'ADMIN',
-        senderRole: 'OWNER_ADMIN',
-        senderName: 'Ban Quản Trị',
-        content: text,
-        createdAt: newMessage.createdAt.toISOString(),
-      },
-    });
+        message: {
+          id: newMessage.id,
+          conversationId: conversation.id,
+          senderId: 'ADMIN',
+          senderRole: 'OWNER_ADMIN',
+          senderName: 'Ban Quản Trị',
+          content: text,
+          createdAt: newMessage.createdAt.toISOString(),
+        },
+      });
+      console.log('[SOCKET] new-message sent to conversation room:', conversation.id);
+    } catch (socketError) {
+      console.error('[SOCKET] Failed to send message to conversation room:', socketError);
+    }
 
     console.log('[SOCKET] new-message emitted');
 

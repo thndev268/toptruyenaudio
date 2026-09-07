@@ -62,9 +62,13 @@ export class TelegramService {
   async sendMessage(message: TelegramMessage): Promise<any> {
     try {
       const response = await axios.post(`${this.apiUrl}/sendMessage`, message);
+      this.logger.log(`[Telegram] Message sent to chat ${message.chat_id}`);
       return response.data;
     } catch (error) {
       this.logger.error('Failed to send Telegram message:', error);
+      if (axios.isAxiosError(error)) {
+        this.logger.error(`[Telegram] API Error: ${error.response?.data?.description || error.message}`);
+      }
       throw error;
     }
   }
