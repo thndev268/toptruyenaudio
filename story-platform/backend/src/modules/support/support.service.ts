@@ -11,12 +11,16 @@ import {
   UpdateSupportStatusDto,
 } from './dto/support.dto';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { TelegramService } from '../telegram/telegram.service';
+import { ChatGateway } from '../chat/chat.gateway';
 
 @Injectable()
 export class SupportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly telegramService: TelegramService,
+    private readonly chatGateway: ChatGateway,
   ) {}
 
   async createConversation(
@@ -48,6 +52,14 @@ export class SupportService {
         messages: true
       }
     });
+
+    // Send notification to Telegram admin
+    try {
+      await this.telegramService.sendReplyButtons(conv.id, userName);
+    } catch (error) {
+      console.error('[SupportService] Failed to send Telegram notification:', error);
+      // Don't fail the conversation creation if Telegram fails
+    }
 
     return this.formatConversation(conv, conv.messages);
   }
@@ -143,6 +155,21 @@ export class SupportService {
         }
       },
       include: { messages: { where: { hiddenAt: null }, orderBy: { createdAt: 'asc' } } }
+    });
+
+    // Send Socket.IO event to conversation room
+    const newMessage = updatedConv.messages[updatedConv.messages.length - 1];
+    await this.chatGateway.sendToConversation(conversationId, 'new-message', {
+      conversationId,
+      message: {
+        id: newMessage.id,
+        conversationId: newMessage.conversationId,
+        senderId: newMessage.senderId,
+        senderRole: newMessage.senderRole,
+        senderName: newMessage.senderName,
+        content: newMessage.content,
+        createdAt: newMessage.createdAt.toISOString(),
+      },
     });
 
     return this.formatConversation(updatedConv, updatedConv.messages);
@@ -262,6 +289,35 @@ export class SupportService {
         }
       },
       include: { messages: { where: { hiddenAt: null }, orderBy: { createdAt: 'asc' } } }
+    });
+
+    // Send Socket.IO event to user
+    const newMessage = updatedConv.messages[updatedConv.messages.length - 1];
+    await this.chatGateway.sendToUser(conv.userId, 'new-message', {
+      conversationId,
+      message: {
+        id: newMessage.id,
+        conversationId: newMessage.conversationId,
+        senderId: newMessage.senderId,
+        senderRole: newMessage.senderRole,
+        senderName: newMessage.senderName,
+        content: newMessage.content,
+        createdAt: newMessage.createdAt.toISOString(),
+      },
+    });
+
+    // Also send to conversation room
+    await this.chatGateway.sendToConversation(conversationId, 'new-message', {
+      conversationId,
+      message: {
+        id: newMessage.id,
+        conversationId: newMessage.conversationId,
+        senderId: newMessage.senderId,
+        senderRole: newMessage.senderRole,
+        senderName: newMessage.senderName,
+        content: newMessage.content,
+        createdAt: newMessage.createdAt.toISOString(),
+      },
     });
 
     return this.formatConversation(updatedConv, updatedConv.messages);

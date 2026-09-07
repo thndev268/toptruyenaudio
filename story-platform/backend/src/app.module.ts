@@ -23,6 +23,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { BannersModule } from './modules/banners/banners.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { StorageModule } from './modules/storage/storage.module';
+import { TelegramModule } from './modules/telegram/telegram.module';
+import { ChatModule } from './modules/chat/chat.module';
 
 @Module({
   imports: [
@@ -70,6 +72,8 @@ import { StorageModule } from './modules/storage/storage.module';
     BannersModule,
     PrismaModule,
     StorageModule,
+    TelegramModule,
+    ChatModule,
   ],
   providers: [
     // Tắt rate limiting trong development
