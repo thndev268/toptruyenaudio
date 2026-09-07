@@ -182,21 +182,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const initializeAuth = async () => {
       setIsLoading(true);
+      
+      // Clear cache on app load to ensure fresh data from backend
+      // This ensures admin-granted premium is reflected immediately
+      saveProfileToCache(null);
+      
       try {
-        // First, try to load from cache for immediate UX
-        const cachedProfile = loadProfileFromCache();
-        if (cachedProfile) {
-          console.log('[AuthContext] Loading profile from cache');
-          setAuthData({ role: cachedProfile.role, user: cachedProfile });
-          checkBannedStatus(cachedProfile);
-        }
-
-        // Then fetch fresh session from Supabase
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session } } = await supabase.auth.getSession();
         
-        console.log('[AuthContext] getSession result:', { session: !!session, error: error?.message });
-        
-        if (session && session.user && isMounted) {
+        if (session && session.user) {
           console.log('[AuthContext] Found Supabase session, fetching profile');
           const profile = await fetchProfile(session.user.id, session.user.email || '');
           if (profile) {
@@ -206,19 +200,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           } else {
             setAuthData({ role: 'GUEST', user: null });
           }
-        } else if (!cachedProfile) {
-          // Only set to GUEST if no cache either
-          console.log('[AuthContext] No session and no cache, setting to GUEST');
-          setAuthData({ role: 'GUEST', user: null });
         } else {
-          console.log('[AuthContext] No session but using cached profile');
+          // Only set to GUEST if no session
+          console.log('[AuthContext] No session, setting to GUEST');
+          setAuthData({ role: 'GUEST', user: null });
         }
       } catch (err) {
         console.error('[AuthContext] Failed to initialize auth:', err);
-        // If initialization fails but we have cache, keep using cache
-        if (!authData.user) {
-          setAuthData({ role: 'GUEST', user: null });
-        }
+        // If initialization fails, set to GUEST
+        setAuthData({ role: 'GUEST', user: null });
       } finally {
         if (isMounted) {
           console.log('[AuthContext] Auth initialization complete, isLoading = false');
@@ -354,6 +344,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const refreshUser = async () => {
     // Reset the session ref to force a fresh fetch
     lastFetchedSessionRef.current = null;
+    
+    // Clear cache to force fresh data from backend
+    saveProfileToCache(null);
     
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
