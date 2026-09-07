@@ -30,14 +30,16 @@ const getUserColor = (userId: string): string => {
 const getStatusColor = (status: string): string => {
   switch (status) {
     case 'CLOSED':
+      return 'from-gray-500 to-gray-600'; // Xám
     case 'RESOLVED':
       return 'from-green-500 to-emerald-500'; // Xanh lá
     case 'WAITING_FOR_ADMIN':
-    case 'WAITING_FOR_USER':
       return 'from-yellow-500 to-amber-500'; // Vàng
+    case 'WAITING_FOR_USER':
+      return 'from-orange-500 to-amber-600'; // Cam
     case 'ACTIVE':
     default:
-      return 'from-cyan-500 to-blue-500'; // Cyan mặc định
+      return 'from-cyan-500 to-blue-500'; // Cyan / xanh dương
   }
 };
 
@@ -257,10 +259,14 @@ export const SupportChat: React.FC = () => {
             <h3 className="text-white font-semibold text-xs sm:text-sm">Hỗ trợ trực tuyến</h3>
             {conversation && (
               <span className="text-[10px] sm:text-xs text-white/80">
-                {conversation.status === 'CLOSED' || conversation.status === 'RESOLVED'
+                {conversation.status === 'CLOSED'
+                  ? 'Đã đóng'
+                  : conversation.status === 'RESOLVED'
                   ? 'Đã giải quyết'
-                  : conversation.status === 'WAITING_FOR_ADMIN' || conversation.status === 'WAITING_FOR_USER'
-                  ? 'Đang chờ'
+                  : conversation.status === 'WAITING_FOR_ADMIN'
+                  ? 'Đang chờ admin'
+                  : conversation.status === 'WAITING_FOR_USER'
+                  ? 'Đang chờ bạn'
                   : 'Đang hoạt động'}
               </span>
             )}

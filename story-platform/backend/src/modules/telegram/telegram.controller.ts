@@ -37,8 +37,23 @@ export class TelegramController {
       return { ok: true };
     }
 
-    // Handle text messages from admin
+    // Handle text messages
     if (update.message && update.message.text) {
+      const text = update.message.text.trim();
+      
+      // Handle /start command
+      if (text === '/start') {
+        await this.handleStartCommand(update.message);
+        return { ok: true };
+      }
+      
+      // Handle /help command
+      if (text === '/help') {
+        await this.handleHelpCommand(update.message);
+        return { ok: true };
+      }
+      
+      // Handle admin messages
       await this.handleAdminMessage(update.message);
       return { ok: true };
     }
@@ -116,9 +131,14 @@ export class TelegramController {
         },
       });
 
-      // Send confirmation with simpler instructions
+      console.log(`[Telegram] Reply mode activated for conversation ${conversationId}, user: ${conversation.userName}`);
+
+      // Send confirmation with detailed context
       await this.telegramService.sendToAdmin(
-        `📝 <b>Đang trả lời cho ${conversation.userName}:</b>\n\nGửi tin nhắn của bạn ngay bây giờ. Không cần reply.`
+        `📝 <b>Đang trả lời cho:</b>\n\n` +
+        `👤 <b>${conversation.userName}</b>\n` +
+        `📌 <b>Chủ đề:</b> ${conversation.subject}\n\n` +
+        `💬 Hãy gửi tin nhắn của bạn.`
       );
     } else if (data.startsWith('close_')) {
       // Admin clicked "Close conversation"
@@ -150,6 +170,47 @@ export class TelegramController {
     }
   }
 
+  private async handleStartCommand(message: any) {
+    const userName = message.from?.first_name || message.from?.username || 'Người dùng';
+    const chatId = message.chat.id;
+    
+    // Send response to user (not admin)
+    await this.telegramService.sendMessage({
+      chat_id: chatId,
+      text: `🎧 <b>TOP TRUYỆN AUDIO</b>\n\n` +
+        `Xin chào ${userName}! 👋\n\n` +
+        `Bạn đang cần hỗ trợ vấn đề gì?\n\n` +
+        `💬 Hãy gửi tin nhắn của bạn.\n` +
+        `Đội ngũ CSKH sẽ tiếp nhận và phản hồi sớm nhất.\n\n` +
+        `⏰ Thời gian hỗ trợ:\n` +
+        `08:00 - 22:00`,
+      parse_mode: 'HTML',
+    });
+    
+    console.log(`[Telegram] /start command handled for user: ${userName}, chat: ${chatId}`);
+  }
+
+  private async handleHelpCommand(message: any) {
+    const chatId = message.chat.id;
+    
+    // Send response to user (not admin)
+    await this.telegramService.sendMessage({
+      chat_id: chatId,
+      text: `📚 <b>HƯỚNG DẪN HỖ TRỢ</b>\n\n` +
+        `Bạn có thể gửi:\n` +
+        `• Báo lỗi website\n` +
+        `• Báo lỗi nghe truyện\n` +
+        `• Vấn đề tài khoản\n` +
+        `• Vấn đề gói Premium\n` +
+        `• Góp ý / phản hồi\n\n` +
+        `💬 Chỉ cần gửi nội dung cần hỗ trợ,\n` +
+        `CSKH sẽ tiếp nhận.`,
+      parse_mode: 'HTML',
+    });
+    
+    console.log(`[Telegram] /help command handled for chat: ${chatId}`);
+  }
+
   private async handleAdminMessage(message: any) {
     const { chat, text, reply_to_message } = message;
 
@@ -160,13 +221,15 @@ export class TelegramController {
       return;
     }
 
-    console.log('[Telegram] Received admin message:', { text, chatId: chat.id, hasReply: !!reply_to_message });
+    console.log('[TELEGRAM] Admin reply received');
+    console.log('[TELEGRAM] reply_to_message.message_id =', reply_to_message?.message_id);
+    console.log('[TELEGRAM] Message text =', text);
 
     let conversation: any = null;
 
     // If this is a reply to a conversation message, find the conversation by telegramMessageId
     if (reply_to_message) {
-      console.log('[Telegram] Looking for conversation by reply_to_message_id:', reply_to_message.message_id);
+      console.log('[TELEGRAM] Looking for conversation by telegramMessageId:', reply_to_message.message_id);
       conversation = await this.prisma.supportConversation.findFirst({
         where: {
           telegramMessageId: reply_to_message.message_id,
@@ -174,17 +237,21 @@ export class TelegramController {
       });
       
       if (conversation) {
-        console.log('[Telegram] Found conversation by telegramMessageId:', conversation.id);
+        console.log('[TELEGRAM] Conversation found =', conversation.id);
+        console.log('[TELEGRAM] User ID =', conversation.userId);
       } else {
-        console.log('[Telegram] Conversation not found by telegramMessageId, trying to parse from text');
+        console.log('[TELEGRAM] Conversation not found by telegramMessageId, trying to parse from text');
         // Fallback: try to extract conversation ID from the replied message text
         if (reply_to_message.text) {
           const match = reply_to_message.text.match(/Conversation ID: <code>([a-z0-9]+)<\/code>/i);
           if (match && match[1]) {
-            console.log('[Telegram] Extracted conversation ID from text:', match[1]);
+            console.log('[TELEGRAM] Extracted conversation ID from text:', match[1]);
             conversation = await this.prisma.supportConversation.findUnique({
               where: { id: match[1] },
             });
+            if (conversation) {
+              console.log('[TELEGRAM] Conversation found by parsed ID =', conversation.id);
+            }
           }
         }
       }
@@ -193,7 +260,7 @@ export class TelegramController {
       // Active conversation is one with telegramMessageId set (from the "Reply" button click)
       // Get the most recently updated one within last 5 minutes
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-      console.log('[Telegram] Looking for active conversation updated after:', fiveMinutesAgo);
+      console.log('[TELEGRAM] Looking for active conversation updated after:', fiveMinutesAgo);
       
       conversation = await this.prisma.supportConversation.findFirst({
         where: {
@@ -206,69 +273,73 @@ export class TelegramController {
       });
     }
 
-    console.log('[Telegram] Found conversation:', conversation ? conversation.id : 'none');
-
-    if (conversation) {
-      // Save admin message to database
-      const newMessage = await this.prisma.supportMessage.create({
-        data: {
-          conversationId: conversation.id,
-          senderId: 'ADMIN',
-          senderRole: 'OWNER_ADMIN',
-          senderName: 'Ban Quản Trị',
-          content: text,
-        },
-      });
-
-      // Update conversation and clear the active state
-      const updatedConv = await this.prisma.supportConversation.update({
-        where: { id: conversation.id },
-        data: {
-          lastMessageAt: new Date(),
-          userUnreadCount: { increment: 1 },
-          status: 'WAITING_FOR_USER',
-          telegramMessageId: null, // Clear active state
-          telegramChatId: null, // Clear active chat ID
-        },
-      });
-
-      console.log(`[Telegram] Admin reply saved for conversation ${conversation.id}, user: ${conversation.userId}`);
-
-      // Emit Socket.IO event to user
-      await this.chatGateway.sendToUser(conversation.userId, 'new-message', {
-        conversationId: conversation.id,
-        message: {
-          id: newMessage.id,
-          conversationId: conversation.id,
-          senderId: 'ADMIN',
-          senderRole: 'OWNER_ADMIN',
-          senderName: 'Ban Quản Trị',
-          content: text,
-          createdAt: newMessage.createdAt.toISOString(),
-        },
-      });
-
-      // Also send to conversation room
-      await this.chatGateway.sendToConversation(conversation.id, 'new-message', {
-        conversationId: conversation.id,
-        message: {
-          id: newMessage.id,
-          conversationId: conversation.id,
-          senderId: 'ADMIN',
-          senderRole: 'OWNER_ADMIN',
-          senderName: 'Ban Quản Trị',
-          content: text,
-          createdAt: newMessage.createdAt.toISOString(),
-        },
-      });
-
-      // Send confirmation to admin
-      await this.telegramService.sendToAdmin(`✅ Tin nhắn đã gửi đến người dùng ${conversation.userName}`);
-
+    if (!conversation) {
+      console.log('[TELEGRAM] Conversation not found, message not delivered');
+      console.log('[TELEGRAM] Unhandled message from admin:', text);
       return;
     }
 
-    // If not a reply and no active conversation, log it
-    console.log('[Telegram] Unhandled message from admin:', text);
+    // Save admin message to database
+    const newMessage = await this.prisma.supportMessage.create({
+      data: {
+        conversationId: conversation.id,
+        senderId: 'ADMIN',
+        senderRole: 'OWNER_ADMIN',
+        senderName: 'Ban Quản Trị',
+        content: text,
+      },
+    });
+
+    console.log('[PRISMA] Admin message saved, ID:', newMessage.id);
+
+    // Update conversation and clear the active state
+    const updatedConv = await this.prisma.supportConversation.update({
+      where: { id: conversation.id },
+      data: {
+        lastMessageAt: new Date(),
+        userUnreadCount: { increment: 1 },
+        status: 'WAITING_FOR_USER',
+        telegramMessageId: null, // Clear active state
+        telegramChatId: null, // Clear active chat ID
+      },
+    });
+
+    console.log('[PRISMA] Conversation updated, status = WAITING_FOR_USER');
+
+    // Emit Socket.IO event to user
+    console.log('[SOCKET] Room = user:', conversation.userId);
+    console.log('[SOCKET] Event = new-message');
+    await this.chatGateway.sendToUser(conversation.userId, 'new-message', {
+      conversationId: conversation.id,
+      message: {
+        id: newMessage.id,
+        conversationId: conversation.id,
+        senderId: 'ADMIN',
+        senderRole: 'OWNER_ADMIN',
+        senderName: 'Ban Quản Trị',
+        content: text,
+        createdAt: newMessage.createdAt.toISOString(),
+      },
+    });
+
+    // Also send to conversation room
+    console.log('[SOCKET] Room = conversation:', conversation.id);
+    await this.chatGateway.sendToConversation(conversation.id, 'new-message', {
+      conversationId: conversation.id,
+      message: {
+        id: newMessage.id,
+        conversationId: conversation.id,
+        senderId: 'ADMIN',
+        senderRole: 'OWNER_ADMIN',
+        senderName: 'Ban Quản Trị',
+        content: text,
+        createdAt: newMessage.createdAt.toISOString(),
+      },
+    });
+
+    console.log('[SOCKET] new-message emitted');
+
+    // Send confirmation to admin
+    await this.telegramService.sendToAdmin(`✅ Tin nhắn đã gửi đến người dùng ${conversation.userName}`);
   }
 }

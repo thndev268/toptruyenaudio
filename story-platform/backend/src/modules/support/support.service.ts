@@ -56,6 +56,36 @@ export class SupportService {
       }
     });
 
+    console.log(`[SupportService] New conversation created: ${conv.id} for user: ${userId}`);
+
+    // Check if outside support hours (08:00 - 22:00)
+    const now = new Date();
+    const hour = now.getHours();
+    const isOutsideHours = hour < 8 || hour >= 22;
+
+    // Send automatic confirmation message to user
+    try {
+      let autoMessage = `🎧 TOP TRUYỆN AUDIO\n\n✅ Đã tiếp nhận yêu cầu hỗ trợ của bạn.\n\n📌 Chủ đề:\n${dto.subject}\n\n💬 Nội dung:\n${dto.message}\n\n⏳ Nhân viên CSKH sẽ phản hồi sớm nhất.`;
+      
+      if (isOutsideHours) {
+        autoMessage = `🌙 TOP TRUYỆN AUDIO\n\nHiện tại đội ngũ CSKH đã hết giờ hỗ trợ.\n\n⏰ Thời gian hỗ trợ:\n08:00 - 22:00\n\n✅ Yêu cầu của bạn vẫn đã được ghi nhận.\n\nChúng tôi sẽ phản hồi khi đội ngũ CSKH hoạt động trở lại.`;
+        console.log(`[SupportService] Outside support hours, sending after-hours message`);
+      }
+      
+      await this.prisma.supportMessage.create({
+        data: {
+          conversationId: conv.id,
+          senderId: 'SYSTEM',
+          senderRole: 'SYSTEM',
+          senderName: 'Hệ thống',
+          content: autoMessage,
+        },
+      });
+      console.log(`[SupportService] Automatic confirmation message sent for conversation ${conv.id}`);
+    } catch (error) {
+      console.error('[SupportService] Failed to send automatic message:', error);
+    }
+
     // Send notification to Telegram admin
     try {
       const telegramResult = await this.telegramService.sendReplyButtons(conv.id, userName, dto.subject, dto.message);
@@ -68,7 +98,9 @@ export class SupportService {
             telegramMessageId: telegramResult.result.message_id,
           },
         });
-        console.log(`[SupportService] Telegram message ID ${telegramResult.result.message_id} stored for conversation ${conv.id}`);
+        console.log(`[TELEGRAM] Notification sent`);
+        console.log(`[TELEGRAM] message_id =`, telegramResult.result.message_id);
+        console.log(`[PRISMA] telegramMessageId saved for conversation ${conv.id}`);
       }
     } catch (error) {
       console.error('[SupportService] Failed to send Telegram notification:', error);
@@ -139,6 +171,13 @@ export class SupportService {
       throw new BadRequestException('Cuộc hội thoại đã đóng, không thể gửi thêm tin nhắn');
     }
 
+    // Update status if user replies after admin response
+    let statusUpdate: any = {};
+    if (conv.status === 'WAITING_FOR_USER') {
+      statusUpdate.status = 'WAITING_FOR_ADMIN';
+      console.log(`[SupportService] User replied, changing status from WAITING_FOR_USER to WAITING_FOR_ADMIN`);
+    }
+
     if (dto.clientMessageId) {
       const existing = await this.prisma.supportMessage.findFirst({
         where: { conversationId, clientMessageId: dto.clientMessageId }
@@ -156,7 +195,7 @@ export class SupportService {
       where: { id: conversationId },
       data: {
         lastMessageAt: new Date(),
-        status: 'WAITING_FOR_ADMIN',
+        ...statusUpdate,
         adminUnreadCount: { increment: 1 },
         messages: {
           create: {
