@@ -5,6 +5,42 @@ import { apiRequest } from '../../services/apiClient';
 import { io, Socket } from 'socket.io-client';
 import './SupportChat.css';
 
+// Generate a consistent color based on user ID
+const getUserColor = (userId: string): string => {
+  const colors = [
+    'from-pink-500 to-rose-500',
+    'from-purple-500 to-indigo-500',
+    'from-blue-500 to-cyan-500',
+    'from-teal-500 to-emerald-500',
+    'from-green-500 to-lime-500',
+    'from-yellow-500 to-amber-500',
+    'from-orange-500 to-red-500',
+    'from-red-500 to-pink-500',
+  ];
+  
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+};
+
+// Get status color
+const getStatusColor = (status: string): string => {
+  switch (status) {
+    case 'CLOSED':
+    case 'RESOLVED':
+      return 'from-green-500 to-emerald-500'; // Xanh lá
+    case 'WAITING_FOR_ADMIN':
+    case 'WAITING_FOR_USER':
+      return 'from-yellow-500 to-amber-500'; // Vàng
+    case 'ACTIVE':
+    default:
+      return 'from-cyan-500 to-blue-500'; // Cyan mặc định
+  }
+};
+
 interface Message {
   id: string;
   senderId: string;
@@ -75,7 +111,20 @@ export const SupportChat: React.FC = () => {
           if (!prev) return prev;
           return {
             ...prev,
-            status: 'CLOSED',
+            status: data.status || 'CLOSED',
+          };
+        });
+      }
+    });
+
+    socket.on('conversation-status-changed', (data) => {
+      console.log('[SupportChat] Conversation status changed:', data);
+      if (conversation && data.conversationId === conversation.id) {
+        setConversation((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            status: data.status,
           };
         });
       }
@@ -200,21 +249,19 @@ export const SupportChat: React.FC = () => {
     <div className="fixed bottom-4 right-4 z-50 w-[calc(100vw-2rem)] max-w-sm sm:max-w-md sm:w-96 sm:bottom-6 sm:right-6 md:bottom-8 md:right-8 lg:w-[450px] lg:max-w-lg bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden">
       {/* Header */}
       <div className={`bg-gradient-to-r p-3 sm:p-4 flex items-center justify-between ${
-        conversation?.status === 'CLOSED' 
-          ? 'from-slate-600 to-slate-700' 
-          : 'from-cyan-500 to-blue-500'
+        conversation ? getStatusColor(conversation.status) : getUserColor(user?.id || 'default')
       }`}>
         <div className="flex items-center gap-2">
           <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
           <div className="flex flex-col">
             <h3 className="text-white font-semibold text-xs sm:text-sm">Hỗ trợ trực tuyến</h3>
             {conversation && (
-              <span className={`text-[10px] sm:text-xs ${
-                conversation.status === 'CLOSED' 
-                  ? 'text-slate-300' 
-                  : 'text-white/80'
-              }`}>
-                {conversation.status === 'CLOSED' ? 'Đã đóng' : 'Đang hoạt động'}
+              <span className="text-[10px] sm:text-xs text-white/80">
+                {conversation.status === 'CLOSED' || conversation.status === 'RESOLVED'
+                  ? 'Đã giải quyết'
+                  : conversation.status === 'WAITING_FOR_ADMIN' || conversation.status === 'WAITING_FOR_USER'
+                  ? 'Đang chờ'
+                  : 'Đang hoạt động'}
               </span>
             )}
           </div>

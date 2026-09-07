@@ -358,6 +358,20 @@ export class SupportService {
       reason: dto.reason || `Chuyển trạng thái từ ${oldStatus} sang ${dto.status}`,
     });
 
+    // Notify user via Socket.IO about status change
+    await this.chatGateway.sendToUser(conv.userId, 'conversation-status-changed', {
+      conversationId: updatedConv.id,
+      status: updatedConv.status,
+      oldStatus: oldStatus,
+    });
+
+    // Also send to conversation room
+    await this.chatGateway.sendToConversation(updatedConv.id, 'conversation-status-changed', {
+      conversationId: updatedConv.id,
+      status: updatedConv.status,
+      oldStatus: oldStatus,
+    });
+
     const messages = await this.prisma.supportMessage.findMany({
       where: { conversationId, hiddenAt: null },
       orderBy: { createdAt: 'asc' }

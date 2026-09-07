@@ -161,7 +161,7 @@ export class StoriesController {
   }
 
   @Get(':slug/chapters/:chapterSlug/access')
-  @Public()
+  @UseGuards(OptionalJwtAuthGuard)
   @SkipThrottle()
   @ApiOperation({ summary: 'Lấy quyền truy cập và URL audio của chương' })
   async getChapterAccess(
