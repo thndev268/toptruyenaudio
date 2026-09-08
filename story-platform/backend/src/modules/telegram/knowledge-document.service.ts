@@ -356,17 +356,31 @@ export class KnowledgeDocumentService {
 
   async syncWebsiteContext(): Promise<{ chunksCreated: number; message: string }> {
     const fileName = 'website-context.txt';
-    const filePath = process.cwd() + '/website-context.txt';
+    const fs = require('fs');
+    const path = require('path');
+
+    // Try multiple possible paths for the file
+    const possiblePaths = [
+      process.cwd() + '/website-context.txt', // Same level as backend
+      process.cwd() + '/../website-context.txt', // One level up
+      path.join(__dirname, '../../../website-context.txt'), // From backend/src/modules/telegram
+    ];
+
+    let filePath = '';
+    for (const possiblePath of possiblePaths) {
+      if (fs.existsSync(possiblePath)) {
+        filePath = possiblePath;
+        break;
+      }
+    }
+
+    if (!filePath) {
+      throw new Error(`File not found. Tried paths: ${possiblePaths.join(', ')}`);
+    }
 
     this.logger.log(`[KnowledgeDocument] Syncing website-context.txt from: ${filePath}`);
 
     try {
-      // Read file from source code
-      const fs = require('fs');
-      if (!fs.existsSync(filePath)) {
-        throw new Error(`File not found: ${filePath}`);
-      }
-
       const buffer = fs.readFileSync(filePath);
       const text = buffer.toString('utf-8');
 
