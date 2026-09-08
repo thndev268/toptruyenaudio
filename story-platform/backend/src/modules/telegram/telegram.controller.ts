@@ -91,13 +91,35 @@ export class TelegramController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Set Telegram webhook (Admin only)' })
   async setWebhook(@Body() body: { url?: string }) {
-    const appUrl = this.configService.get<string>('appUrl') || process.env.APP_URL;
-    if (!appUrl) {
-      return { success: false, error: 'APP_URL not configured' };
+    const configuredWebhookUrl =
+      this.configService.get<string>('telegram.webhookUrl') ||
+      process.env.TELEGRAM_WEBHOOK_URL;
+
+    let webhookUrl: string;
+
+    if (configuredWebhookUrl) {
+      webhookUrl = body.url || configuredWebhookUrl;
+    } else {
+      const appUrl =
+        this.configService.get<string>('appUrl') ||
+        process.env.APP_URL;
+
+      if (!appUrl) {
+        return {
+          success: false,
+          error: 'APP_URL not configured',
+        };
+      }
+
+      const apiPrefix =
+        this.configService.get<string>('apiPrefix') ||
+        process.env.API_PREFIX ||
+        '/api/v1';
+
+      webhookUrl =
+        body.url || `${appUrl}${apiPrefix}/telegram/webhook`;
     }
 
-    const apiPrefix = this.configService.get<string>('apiPrefix') || process.env.API_PREFIX || '/api/v1';
-    const webhookUrl = body.url || `${appUrl}${apiPrefix}/telegram/webhook`;
     const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
 
     console.log('[Telegram] Setting webhook:', webhookUrl);

@@ -29,6 +29,7 @@ export default () => {
       botToken: process.env.TELEGRAM_BOT_TOKEN || '',
       adminChatId: process.env.TELEGRAM_ADMIN_CHAT_ID || '',
       webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || '',
+      webhookUrl: process.env.TELEGRAM_WEBHOOK_URL || '',
     },
     rateLimit: {
       global: {
