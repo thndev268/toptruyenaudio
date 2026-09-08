@@ -3,6 +3,7 @@ import { Send, X, Minimize2, Maximize2, Trash2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../services/apiClient';
 import { io, Socket } from 'socket.io-client';
+import { supabase } from '../../lib/supabase';
 import './SupportChat.css';
 
 // Custom chat icon from Uiverse.io
@@ -84,6 +85,8 @@ export const SupportChat: React.FC = () => {
   useEffect(() => {
     if (!user) return;
 
+    let socket: Socket | null = null;
+
     // Initialize Socket.IO connection
     // Socket.IO uses default namespace (/) and path (/socket.io)
     // REST API uses /api/v1 prefix, but Socket.IO does NOT
@@ -94,102 +97,126 @@ export const SupportChat: React.FC = () => {
     console.log('[SOCKET] Connecting to:', socketUrl);
     console.log('[SOCKET] API URL was:', apiUrl);
 
-    const socket = io(socketUrl, {
-      auth: {
-        token: localStorage.getItem('accessToken'),
-      },
-      transports: ['websocket', 'polling'], // Add polling as fallback
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    });
+    // Get Supabase session for authentication (same as REST API)
+    const initSocket = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
 
-    socketRef.current = socket;
+      if (error) {
+        console.error('[SOCKET AUTH] Failed to get session:', error);
+        return;
+      }
 
-    socket.on('connect', () => {
-      console.log('[SOCKET] connected');
-      console.log('[SOCKET] socket id:', socket.id);
-    });
+      if (!session || !session.access_token) {
+        console.error('[SOCKET AUTH] No session or token found');
+        return;
+      }
 
-    socket.on('connected', (data) => {
-      console.log('[SOCKET] connected event received:', data);
-      console.log('[SOCKET] joined user room:', `user:${data.userId}`);
-      // Auto-load conversation when socket connects to ensure we receive messages
-      loadConversation();
-    });
+      console.log('[SOCKET AUTH] token exists:', true);
+      console.log('[SOCKET AUTH] token length:', session.access_token.length);
 
-    socket.on('new-message', (data) => {
-      console.log('[FRONTEND] new-message received:', data);
-      console.log('[FRONTEND] Current conversation ID:', conversation?.id);
-      console.log('[FRONTEND] Received conversation ID:', data.conversationId);
-      console.log('[FRONTEND] Conversation state:', conversation ? 'loaded' : 'not loaded');
+      socket = io(socketUrl, {
+        auth: {
+          token: session.access_token,
+        },
+        transports: ['websocket', 'polling'], // Add polling as fallback
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
 
-      // If conversation is loaded and matches, append the message
-      if (conversation && data.conversationId === conversation.id) {
-        console.log('[FRONTEND] Appending message to current conversation');
-        setConversation((prev) => {
-          if (!prev) return prev;
-          // Prevent duplicate messages
-          if (prev.messages.some(m => m.id === data.message.id)) {
-            console.log('[FRONTEND] Duplicate message detected, skipping');
-            return prev;
+      socketRef.current = socket;
+
+      if (socket) {
+        socket.on('connect', () => {
+          console.log('[SOCKET] connected');
+          console.log('[SOCKET] socket id:', socket!.id);
+        });
+
+        socket.on('connected', (data) => {
+          console.log('[SOCKET] connected event received:', data);
+          console.log('[SOCKET] joined user room:', `user:${data.userId}`);
+          // Auto-load conversation when socket connects to ensure we receive messages
+          loadConversation();
+        });
+
+        socket.on('new-message', (data) => {
+          console.log('[FRONTEND] new-message received:', data);
+          console.log('[FRONTEND] Current conversation ID:', conversation?.id);
+          console.log('[FRONTEND] Received conversation ID:', data.conversationId);
+          console.log('[FRONTEND] Conversation state:', conversation ? 'loaded' : 'not loaded');
+
+          // If conversation is loaded and matches, append the message
+          if (conversation && data.conversationId === conversation.id) {
+            console.log('[FRONTEND] Appending message to current conversation');
+            setConversation((prev) => {
+              if (!prev) return prev;
+              // Prevent duplicate messages
+              if (prev.messages.some(m => m.id === data.message.id)) {
+                console.log('[FRONTEND] Duplicate message detected, skipping');
+                return prev;
+              }
+              const updated = {
+                ...prev,
+                messages: [...prev.messages, data.message],
+              };
+              // Auto-scroll to newest message
+              setTimeout(() => {
+                const messagesContainer = document.getElementById('support-chat-messages');
+                if (messagesContainer) {
+                  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+              }, 100);
+              return updated;
+            });
+          } else {
+            // If chat is not open or different conversation, increment unread count
+            console.log('[FRONTEND] Incrementing unread count');
+            setUnreadCount(prev => prev + 1);
           }
-          const updated = {
-            ...prev,
-            messages: [...prev.messages, data.message],
-          };
-          // Auto-scroll to newest message
-          setTimeout(() => {
-            const messagesContainer = document.getElementById('support-chat-messages');
-            if (messagesContainer) {
-              messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-          }, 100);
-          return updated;
         });
-      } else {
-        // If chat is not open or different conversation, increment unread count
-        console.log('[FRONTEND] Incrementing unread count');
-        setUnreadCount(prev => prev + 1);
-      }
-    });
 
-    socket.on('conversation-closed', (data) => {
-      console.log('[SupportChat] Conversation closed:', data);
-      if (conversation && data.conversationId === conversation.id) {
-        setConversation((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            status: data.status || 'CLOSED',
-          };
+        socket.on('conversation-closed', (data) => {
+          console.log('[SupportChat] Conversation closed:', data);
+          if (conversation && data.conversationId === conversation.id) {
+            setConversation((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                status: data.status || 'CLOSED',
+              };
+            });
+          }
         });
-      }
-    });
 
-    socket.on('conversation-status-changed', (data) => {
-      console.log('[SupportChat] Conversation status changed:', data);
-      if (conversation && data.conversationId === conversation.id) {
-        setConversation((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            status: data.status,
-          };
+        socket.on('conversation-status-changed', (data) => {
+          console.log('[SupportChat] Conversation status changed:', data);
+          if (conversation && data.conversationId === conversation.id) {
+            setConversation((prev) => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                status: data.status,
+              };
+            });
+          }
+        });
+
+        socket.on('connect_error', (error) => {
+          console.error('[SupportChat] Socket connection error:', error);
+        });
+
+        socket.on('error', (error) => {
+          console.error('[SupportChat] Socket error:', error);
         });
       }
-    });
+    };
 
-    socket.on('connect_error', (error) => {
-      console.error('[SupportChat] Socket connection error:', error);
-    });
-
-    socket.on('error', (error) => {
-      console.error('[SupportChat] Socket error:', error);
-    });
+    initSocket();
 
     return () => {
-      socket.disconnect();
+      if (socket) {
+        socket.disconnect();
+      }
     };
   }, [user]);
 

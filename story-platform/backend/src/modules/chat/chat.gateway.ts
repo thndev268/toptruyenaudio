@@ -33,7 +33,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleConnection(client: Socket) {
     try {
       const token = client.handshake.auth.token || client.handshake.headers.authorization?.replace('Bearer ', '');
-      
+
+      console.log('[SOCKET AUTH] handshake auth exists:', !!client.handshake.auth);
+      console.log('[SOCKET AUTH] token exists:', !!token);
+      console.log('[SOCKET AUTH] token length:', token ? token.length : 0);
+
       if (!token) {
         this.logger.warn(`Connection rejected: No token provided`);
         client.disconnect();
@@ -42,6 +46,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       const decoded = this.jwtService.verify(token);
       const userId = decoded.sub;
+
+      console.log('[SOCKET AUTH] authenticated userId:', userId);
 
       if (!userId) {
         this.logger.warn(`Connection rejected: Invalid token`);
@@ -61,7 +67,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Send connection success
       client.emit('connected', { userId, socketId: client.id });
     } catch (error) {
-      this.logger.error(`Connection error: ${error.message}`);
+      this.logger.error(`Connection error: ${error instanceof Error ? error.message : String(error)}`);
       client.disconnect();
     }
   }
@@ -97,7 +103,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await client.join(`conversation:${data.conversationId}`);
       this.logger.log(`User ${userId} joined conversation ${data.conversationId}`);
     } catch (error) {
-      this.logger.error(`Error joining conversation: ${error.message}`);
+      this.logger.error(`Error joining conversation: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
