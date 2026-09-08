@@ -22,7 +22,7 @@ export const TelegramSettingsScreen: React.FC = () => {
 
   const loadSettings = async () => {
     try {
-      const response = await apiRequest('/admin/telegram/settings');
+      const response = await apiRequest('/telegram/admin/settings');
       if (response) {
         setSettings({
           isEnabled: response.isEnabled || false,
@@ -53,7 +53,7 @@ export const TelegramSettingsScreen: React.FC = () => {
     }
 
     try {
-      await apiRequest('/admin/telegram/settings', {
+      await apiRequest('/telegram/admin/settings', {
         method: 'PUT',
         body: JSON.stringify(settings),
       });
@@ -77,7 +77,7 @@ export const TelegramSettingsScreen: React.FC = () => {
     setError(null);
 
     try {
-      const response = await apiRequest('/admin/telegram/test', {
+      const response = await apiRequest('/telegram/admin/test', {
         method: 'POST',
         body: JSON.stringify({
           botToken: settings.botToken,
