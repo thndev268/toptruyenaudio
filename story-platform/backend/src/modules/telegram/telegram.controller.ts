@@ -339,7 +339,7 @@ export class TelegramController {
     // Emit Socket.IO event to user
     console.log('[SOCKET] Room = user:', conversation.userId);
     console.log('[SOCKET] Event = new-message');
-    
+
     try {
       await this.chatGateway.sendToUser(conversation.userId, 'new-message', {
         conversationId: conversation.id,

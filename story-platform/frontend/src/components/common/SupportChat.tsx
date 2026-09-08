@@ -107,8 +107,12 @@ export const SupportChat: React.FC = () => {
 
     socket.on('new-message', (data) => {
       console.log('[FRONTEND] new-message received:', data);
+      console.log('[FRONTEND] Current conversation ID:', conversation?.id);
+      console.log('[FRONTEND] Received conversation ID:', data.conversationId);
+      console.log('[FRONTEND] Conversation state:', conversation ? 'loaded' : 'not loaded');
       // If conversation is loaded and matches, append the message
       if (conversation && data.conversationId === conversation.id) {
+        console.log('[FRONTEND] Appending message to current conversation');
         setConversation((prev) => {
           if (!prev) return prev;
           return {
