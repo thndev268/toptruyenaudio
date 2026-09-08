@@ -1,9 +1,10 @@
-import { Controller, Post, Body, Headers, Get, Inject, forwardRef } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Controller, Post, Body, Headers, Get, Put, Inject, forwardRef, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TelegramService } from './telegram.service';
 import { SupportService } from '../support/support.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ChatGateway } from '../chat/chat.gateway';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @ApiTags('Telegram Bot')
 @Controller('telegram')
@@ -97,6 +98,94 @@ export class TelegramController {
       return { success: true, info };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  @Get('admin/settings')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get Telegram settings (Admin only)' })
+  async getSettings() {
+    return {
+      isEnabled: !!process.env.TELEGRAM_BOT_TOKEN,
+      botToken: process.env.TELEGRAM_BOT_TOKEN || '',
+      adminChatId: process.env.TELEGRAM_ADMIN_CHAT_ID || '',
+      webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || '',
+    };
+  }
+
+  @Put('admin/settings')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update Telegram settings (Admin only)' })
+  async updateSettings(@Body() body: {
+    isEnabled: boolean;
+    botToken: string;
+    adminChatId: string;
+    webhookSecret: string;
+  }) {
+    // In production, these should be stored in database or secure config
+    // For now, we'll just return success (actual implementation would update env/config)
+    console.log('[Telegram] Settings update requested:', {
+      isEnabled: body.isEnabled,
+      hasBotToken: !!body.botToken,
+      hasAdminChatId: !!body.adminChatId,
+      hasWebhookSecret: !!body.webhookSecret,
+    });
+
+    // Note: In a real implementation, you would update environment variables or database
+    // This is a placeholder that logs the settings
+    return {
+      success: true,
+      message: 'Settings updated (Note: In production, this would update config/database)',
+    };
+  }
+
+  @Post('admin/test')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Test Telegram connection (Admin only)' })
+  async testConnection(@Body() body: { botToken: string; adminChatId: string }) {
+    try {
+      const apiUrl = `https://api.telegram.org/bot${body.botToken}/getMe`;
+      const response = await fetch(apiUrl);
+      const data = await response.json();
+
+      if (data.ok) {
+        // Try to send a test message
+        const testMessageUrl = `https://api.telegram.org/bot${body.botToken}/sendMessage`;
+        const testResponse = await fetch(testMessageUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: body.adminChatId,
+            text: '✅ Test connection successful! Telegram Bot is working.',
+          }),
+        });
+        const testData = await testResponse.json();
+
+        if (testData.ok) {
+          return {
+            success: true,
+            message: 'Kết nối thành công! Đã gửi tin nhắn test đến admin.',
+          };
+        } else {
+          return {
+            success: false,
+            message: `Bot hoạt động nhưng không thể gửi tin nhắn: ${testData.description}`,
+          };
+        }
+      } else {
+        return {
+          success: false,
+          message: `Bot Token không hợp lệ: ${data.description}`,
+        };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: `Lỗi kết nối: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
     }
   }
 

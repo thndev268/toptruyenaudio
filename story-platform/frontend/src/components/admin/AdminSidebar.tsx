@@ -21,6 +21,7 @@ import {
   User,
   X,
   Radio,
+  Send,
 } from 'lucide-react';
 import { AdminScreenId } from '../../types/admin';
 
@@ -122,6 +123,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       title: 'HỆ THỐNG & CÀI ĐẶT',
       items: [
         { id: 'feature-flags' as AdminScreenId, label: 'Quản lý tính năng', icon: Sliders },
+        { id: 'telegram-settings' as AdminScreenId, label: 'Cấu hình Telegram', icon: Send },
         { id: 'audit-logs' as AdminScreenId, label: 'Nhật ký hoạt động', icon: History },
         { id: 'admin-profile' as AdminScreenId, label: 'Hồ sơ quản trị viên', icon: User },
       ],

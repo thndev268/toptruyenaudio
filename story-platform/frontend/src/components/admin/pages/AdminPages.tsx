@@ -26,6 +26,7 @@ import { ServiceHealthScreen } from '../screens/ServiceHealthScreen';
 import { SecurityAlertsScreen } from '../screens/SecurityAlertsScreen';
 import { FeatureFlagsScreen } from '../screens/FeatureFlagsScreen';
 import { ZaloSettingsScreen } from '../screens/ZaloSettingsScreen';
+import { TelegramSettingsScreen } from '../screens/TelegramSettingsScreen';
 import { PayOSScreen } from '../screens/PayOSScreen';
 import { AuditLogsScreen } from '../screens/AuditLogsScreen';
 import { AdminProfileScreen } from '../screens/AdminProfileScreen';
@@ -373,6 +374,7 @@ export const AdminSettingsPage: React.FC = () => {
     <AdminPageContainer>
       <div className="space-y-6">
         <ZaloSettingsScreen />
+        <TelegramSettingsScreen />
         <FeatureFlagsScreen
           flags={ctx.featureFlags}
           onToggleFlag={ctx.handleToggleFeatureFlag}

@@ -5,8 +5,16 @@ export interface ZaloSettings {
   position: 'left' | 'right';
 }
 
+export interface TelegramSettings {
+  isEnabled: boolean;
+  botToken: string;
+  adminChatId: string;
+  webhookSecret: string;
+}
+
 export interface SiteSettings {
   zalo: ZaloSettings;
+  telegram: TelegramSettings;
 }
 
 const DEFAULT_SETTINGS: SiteSettings = {
@@ -15,6 +23,12 @@ const DEFAULT_SETTINGS: SiteSettings = {
     link: 'https://zalo.me/g/mockgroup',
     displayName: 'Cộng đồng Zalo',
     position: 'right',
+  },
+  telegram: {
+    isEnabled: false,
+    botToken: '',
+    adminChatId: '',
+    webhookSecret: '',
   },
 };
 
@@ -35,7 +49,7 @@ export const siteSettingsService = {
 
   saveSettings(settings: SiteSettings): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-    
+
     // Dispatch an event so other tabs/components can re-render if needed
     window.dispatchEvent(new Event('siteSettingsChanged'));
   },
@@ -47,6 +61,16 @@ export const siteSettingsService = {
   updateZaloSettings(zaloSettings: ZaloSettings): void {
     const settings = this.getSettings();
     settings.zalo = zaloSettings;
+    this.saveSettings(settings);
+  },
+
+  getTelegramSettings(): TelegramSettings {
+    return this.getSettings().telegram;
+  },
+
+  updateTelegramSettings(telegramSettings: TelegramSettings): void {
+    const settings = this.getSettings();
+    settings.telegram = telegramSettings;
     this.saveSettings(settings);
   },
 };

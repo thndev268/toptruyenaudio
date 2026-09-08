@@ -38,6 +38,7 @@ export type AdminScreenId =
   | 'alert-detail'
   | 'audit-logs'
   | 'feature-flags'
+  | 'telegram-settings'
   | 'admin-profile';
 
 export interface AdminUser {
