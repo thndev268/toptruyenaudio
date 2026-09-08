@@ -1,5 +1,5 @@
-import { Controller, Post, Body, Headers, Get, Put, Inject, forwardRef, UseGuards, Patch } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Post, Body, Headers, Get, Put, Inject, forwardRef, UseGuards, Patch, UseInterceptors, UploadedFile, Delete, Param } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { TelegramService } from './telegram.service';
 import { SupportService } from '../support/support.service';
@@ -7,6 +7,9 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ChatGateway } from '../chat/chat.gateway';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { BotSettingsService, UpdateBotSettingsDto } from './bot-settings.service';
+import { KnowledgeDocumentService } from './knowledge-document.service';
+import { AiService } from './ai.service';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 interface ReplySession {
   adminChatId: string;
@@ -30,6 +33,8 @@ export class TelegramController {
     private readonly prisma: PrismaService,
     private readonly chatGateway: ChatGateway,
     private readonly botSettingsService: BotSettingsService,
+    private readonly knowledgeDocumentService: KnowledgeDocumentService,
+    private readonly aiService: AiService,
   ) {}
 
   @Post('webhook')
@@ -80,8 +85,15 @@ export class TelegramController {
         return { ok: true };
       }
       
-      // Handle admin messages
-      await this.handleAdminMessage(update.message);
+      // Check if message is from admin
+      const adminChatId = process.env.TELEGRAM_ADMIN_CHAT_ID;
+      if (adminChatId && String(update.message.chat.id) === adminChatId) {
+        // Handle admin messages
+        await this.handleAdminMessage(update.message);
+      } else {
+        // Handle user messages with AI
+        await this.handleUserMessage(update.message);
+      }
       return { ok: true };
     }
 
@@ -439,6 +451,299 @@ export class TelegramController {
     console.log(`[Telegram] /help command handled for chat: ${chatId}`);
   }
 
+  private async handleUserMessage(message: any) {
+    const { chat, text, from } = message;
+    const chatId = chat.id;
+    const userName = from?.first_name || from?.username || 'Người dùng';
+    const userId = String(chat.id); // Use chat ID as user ID for Telegram users
+
+    console.log(`[Telegram] User message from ${userName} (${userId}):`, text);
+
+    // Get bot settings
+    const botSettings = await this.botSettingsService.getSettings();
+    console.log('[Telegram] Bot settings:', JSON.stringify(botSettings));
+
+    // Check if bot is enabled
+    if (!botSettings.botEnabled) {
+      console.log('[Telegram] Bot is disabled, skipping auto-reply');
+      // Still create support conversation
+      await this.handoffToSupport(userId, userName, text, 'Bot disabled');
+      return;
+    }
+
+    // Check support hours
+    const isWithinSupportHours = await this.botSettingsService.isWithinSupportHours();
+    if (!isWithinSupportHours) {
+      console.log('[Telegram] Outside support hours');
+      await this.telegramService.sendMessage({
+        chat_id: chatId,
+        text: botSettings.outsideHoursMessage || '🌙 Hiện tại đội ngũ CSKH đã hết giờ hỗ trợ.',
+        parse_mode: 'HTML',
+      });
+      return;
+    }
+
+    // Check if AI is enabled
+    if (!botSettings.aiEnabled) {
+      console.log('[Telegram] AI is disabled, handoff to support');
+      await this.handoffToSupport(userId, userName, text, 'AI disabled');
+      return;
+    }
+
+    // Check if user is requesting human support
+    const humanRequestKeywords = ['gặp nhân viên', 'gặp cskh', 'nhân viên hỗ trợ', 'người thật', 'admin hỗ trợ', 'cần người hỗ trợ'];
+    const lowerText = text.toLowerCase();
+    if (humanRequestKeywords.some(keyword => lowerText.includes(keyword))) {
+      console.log('[Telegram] User requested human support');
+      await this.handoffToSupport(userId, userName, text, 'User requested human');
+      return;
+    }
+
+    // Get knowledge chunks
+    const knowledgeChunks = await this.knowledgeDocumentService.getReadyChunks();
+    console.log(`[Telegram] Retrieved ${knowledgeChunks.length} knowledge chunks`);
+
+    if (knowledgeChunks.length === 0) {
+      console.log('[Telegram] No knowledge chunks available, handoff to support');
+      await this.handoffToSupport(userId, userName, text, 'No knowledge base');
+      return;
+    }
+
+    // Get conversation context
+    const conversationContext = await this.getConversationContext(userId);
+    console.log(`[Telegram] Retrieved ${conversationContext.length} context messages`);
+
+    // Call AI with timeout
+    const timeoutMs = (botSettings.aiTimeoutSeconds || 5) * 1000;
+    console.log(`[Telegram] Calling AI with ${timeoutMs}ms timeout`);
+
+    const aiResponse = await this.aiService.generateAnswer(
+      {
+        userMessage: text,
+        knowledgeChunks,
+        conversationContext,
+      },
+      timeoutMs,
+    );
+
+    console.log('[Telegram] AI response:', JSON.stringify(aiResponse));
+
+    // Check if AI wants to handoff
+    if (aiResponse.shouldHandoff || !aiResponse.answer) {
+      console.log('[Telegram] AI requested handoff or no answer');
+      await this.handoffToSupport(userId, userName, text, aiResponse.answer || 'AI handoff');
+      return;
+    }
+
+    // Send AI response to user
+    await this.telegramService.sendMessage({
+      chat_id: chatId,
+      text: aiResponse.answer,
+      parse_mode: 'HTML',
+    });
+
+    // Save AI message to support conversation if exists
+    await this.saveMessageToConversation(userId, userName, text, aiResponse.answer, 'AI');
+
+    console.log('[Telegram] AI response sent successfully');
+  }
+
+  private async handoffToSupport(userId: string, userName: string, userMessage: string, reason: string) {
+    console.log(`[Telegram] Handoff to support for user ${userId}. Reason: ${reason}`);
+
+    // Find or create conversation
+    let conversation = await this.prisma.supportConversation.findFirst({
+      where: {
+        userId,
+        status: {
+          in: ['ACTIVE', 'WAITING_FOR_ADMIN', 'WAITING_FOR_USER'],
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!conversation) {
+      // Create new conversation
+      conversation = await this.prisma.supportConversation.create({
+        data: {
+          userId,
+          userName,
+          subject: 'Hỗ trợ từ Telegram Bot',
+          category: 'OTHER',
+          status: 'WAITING_FOR_ADMIN',
+          priority: 'NORMAL',
+          lastMessageAt: new Date(),
+          userUnreadCount: 0,
+          adminUnreadCount: 1,
+          telegramChatId: userId,
+          isTelegramLinked: true,
+          messages: {
+            create: {
+              senderId: userId,
+              senderRole: 'USER',
+              senderName: userName,
+              content: userMessage,
+            },
+          },
+        },
+      });
+      console.log(`[Telegram] Created new conversation ${conversation.id}`);
+    } else {
+      // Add message to existing conversation
+      await this.prisma.supportMessage.create({
+        data: {
+          conversationId: conversation.id,
+          senderId: userId,
+          senderRole: 'USER',
+          senderName: userName,
+          content: userMessage,
+        },
+      });
+      
+      await this.prisma.supportConversation.update({
+        where: { id: conversation.id },
+        data: {
+          status: 'WAITING_FOR_ADMIN',
+          lastMessageAt: new Date(),
+          adminUnreadCount: { increment: 1 },
+          telegramChatId: userId,
+          isTelegramLinked: true,
+        },
+      });
+      console.log(`[Telegram] Added message to existing conversation ${conversation.id}`);
+    }
+
+    // Get bot settings for handoff message
+    const botSettings = await this.botSettingsService.getSettings();
+
+    // Send handoff message to user
+    await this.telegramService.sendMessage({
+      chat_id: userId,
+      text: botSettings.handoffMessage || '👨‍💼 Yêu cầu của bạn đang được chuyển đến nhân viên CSKH.',
+      parse_mode: 'HTML',
+    });
+
+    // Notify admin via Telegram
+    await this.telegramService.sendToAdmin(
+      `📨 <b>YÊU CẦU HỖ TRỢ</b>\n\n` +
+      `👤 <b>Người dùng:</b> ${userName}\n` +
+      `📌 <b>Chủ đề:</b> ${conversation.subject}\n` +
+      `💬 <b>Nội dung:</b>\n${userMessage}\n\n` +
+      `🆔 <b>Conversation:</b> <code>${conversation.id}</code>\n` +
+      `🤖 <b>Bot:</b> ${reason}`,
+      [
+        [
+          { text: '💬 Trả lời', callback_data: `reply_${conversation.id}` },
+          { text: '❌ Đóng hội thoại', callback_data: `close_${conversation.id}` },
+        ],
+      ],
+    );
+
+    console.log(`[Telegram] Handoff completed for conversation ${conversation.id}`);
+  }
+
+  private async getConversationContext(userId: string): Promise<string[]> {
+    const conversation = await this.prisma.supportConversation.findFirst({
+      where: {
+        userId,
+        status: {
+          in: ['ACTIVE', 'WAITING_FOR_ADMIN', 'WAITING_FOR_USER'],
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+      },
+    });
+
+    if (!conversation || !conversation.messages) {
+      return [];
+    }
+
+    return conversation.messages
+      .reverse()
+      .map((msg) => `${msg.senderRole}: ${msg.content}`);
+  }
+
+  private async saveMessageToConversation(userId: string, userName: string, userMessage: string, aiResponse: string, senderRole: string) {
+    // Find active conversation
+    const conversation = await this.prisma.supportConversation.findFirst({
+      where: {
+        userId,
+        status: {
+          in: ['ACTIVE', 'WAITING_FOR_ADMIN', 'WAITING_FOR_USER'],
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!conversation) {
+      // Create new conversation
+      const newConv = await this.prisma.supportConversation.create({
+        data: {
+          userId,
+          userName,
+          subject: 'Hỗ trợ từ Telegram Bot',
+          category: 'OTHER',
+          status: 'ACTIVE',
+          priority: 'NORMAL',
+          lastMessageAt: new Date(),
+          userUnreadCount: 0,
+          adminUnreadCount: 0,
+          messages: {
+            createMany: {
+              data: [
+                {
+                  senderId: userId,
+                  senderRole: 'USER',
+                  senderName: userName,
+                  content: userMessage,
+                },
+                {
+                  senderId: 'AI',
+                  senderRole: 'AI',
+                  senderName: 'AI Bot',
+                  content: aiResponse,
+                },
+              ],
+            },
+          },
+        },
+      });
+      console.log(`[Telegram] Created new conversation for AI messages: ${newConv.id}`);
+    } else {
+      // Add messages to existing conversation
+      await this.prisma.supportMessage.createMany({
+        data: [
+          {
+            conversationId: conversation.id,
+            senderId: userId,
+            senderRole: 'USER',
+            senderName: userName,
+            content: userMessage,
+          },
+          {
+            conversationId: conversation.id,
+            senderId: 'AI',
+            senderRole: 'AI',
+            senderName: 'AI Bot',
+            content: aiResponse,
+          },
+        ],
+      });
+
+      await this.prisma.supportConversation.update({
+        where: { id: conversation.id },
+        data: {
+          lastMessageAt: new Date(),
+        },
+      });
+    }
+  }
+
   private async handleAdminMessage(message: any) {
     const { chat, text } = message;
 
@@ -589,5 +894,44 @@ export class TelegramController {
       `🆔 <b>Conversation:</b> <code>${conversation.id}</code>\n\n` +
       `💬 <b>Nội dung:</b>\n${text}`
     );
+  }
+
+  // ==================== KNOWLEDGE DOCUMENT ENDPOINTS ====================
+
+  @Get('knowledge/documents')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all knowledge documents' })
+  async getKnowledgeDocuments() {
+    return this.knowledgeDocumentService.getDocuments();
+  }
+
+  @Get('knowledge/documents/:id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get knowledge document by ID' })
+  async getKnowledgeDocumentById(@Param('id') id: string) {
+    return this.knowledgeDocumentService.getDocumentById(id);
+  }
+
+  @Post('knowledge/upload')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload knowledge document' })
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadKnowledgeDocument(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new Error('No file uploaded');
+    }
+    return this.knowledgeDocumentService.uploadDocument(file);
+  }
+
+  @Delete('knowledge/documents/:id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete knowledge document' })
+  async deleteKnowledgeDocument(@Param('id') id: string) {
+    return this.knowledgeDocumentService.deleteDocument(id);
   }
 }

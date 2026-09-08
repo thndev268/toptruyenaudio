@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Save, CheckCircle, XCircle, Loader2, Bot } from 'lucide-react';
+import { Send, Save, CheckCircle, XCircle, Loader2, Bot, Upload, Trash2, FileText, Clock, AlertCircle } from 'lucide-react';
 import { siteSettingsService, TelegramSettings } from '../../../services/siteSettings';
 import { apiRequest } from '../../../services/apiClient';
 import { useToast } from '../../../context/ToastContext';
@@ -16,6 +16,18 @@ interface BotSettings {
   unknownMessage: string;
   outsideHoursMessage: string;
   closedMessage: string;
+}
+
+interface KnowledgeDocument {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  status: string;
+  errorMessage?: string;
+  chunkCount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export const TelegramSettingsScreen: React.FC = () => {
@@ -43,11 +55,15 @@ export const TelegramSettingsScreen: React.FC = () => {
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [isSavingBotSettings, setIsSavingBotSettings] = useState(false);
   const [isLoadingBotSettings, setIsLoadingBotSettings] = useState(false);
+  const [knowledgeDocuments, setKnowledgeDocuments] = useState<KnowledgeDocument[]>([]);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const { showToast } = useToast();
 
   useEffect(() => {
     loadSettings();
     loadBotSettings();
+    loadKnowledgeDocuments();
   }, []);
 
   const loadSettings = async () => {
@@ -91,6 +107,90 @@ export const TelegramSettingsScreen: React.FC = () => {
       console.error('Failed to load Bot settings:', error);
     } finally {
       setIsLoadingBotSettings(false);
+    }
+  };
+
+  const loadKnowledgeDocuments = async () => {
+    setIsLoadingDocuments(true);
+    try {
+      const response = await apiRequest('/telegram/knowledge/documents');
+      if (response) {
+        setKnowledgeDocuments(response);
+      }
+    } catch (error) {
+      console.error('Failed to load knowledge documents:', error);
+    } finally {
+      setIsLoadingDocuments(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      showToast('error', 'Lỗi', 'File quá lớn (tối đa 10MB)');
+      return;
+    }
+
+    // Validate file type
+    const allowedTypes = ['text/plain', 'application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'];
+    if (!allowedTypes.includes(file.type)) {
+      showToast('error', 'Lỗi', 'Loại file không được hỗ trợ (chỉ chấp nhận TXT, PDF, DOCX)');
+      return;
+    }
+
+    setIsUploadingDocument(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      await apiRequest('/telegram/knowledge/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      showToast('success', 'Thành công', 'Upload file thành công');
+      await loadKnowledgeDocuments();
+    } catch (error) {
+      console.error('Failed to upload file:', error);
+      showToast('error', 'Lỗi', 'Upload file thất bại');
+    } finally {
+      setIsUploadingDocument(false);
+    }
+  };
+
+  const handleDeleteDocument = async (id: string) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa file này?')) return;
+
+    try {
+      await apiRequest(`/telegram/knowledge/documents/${id}`, {
+        method: 'DELETE',
+      });
+      showToast('success', 'Thành công', 'Xóa file thành công');
+      await loadKnowledgeDocuments();
+    } catch (error) {
+      console.error('Failed to delete document:', error);
+      showToast('error', 'Lỗi', 'Xóa file thất bại');
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'READY':
+        return <span className="px-2 py-1 bg-green-500/20 text-green-400 text-xs rounded-full">READY</span>;
+      case 'PROCESSING':
+        return <span className="px-2 py-1 bg-yellow-500/20 text-yellow-400 text-xs rounded-full">PROCESSING</span>;
+      case 'FAILED':
+        return <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full">FAILED</span>;
+      default:
+        return <span className="px-2 py-1 bg-slate-500/20 text-slate-400 text-xs rounded-full">{status}</span>;
     }
   };
 
@@ -458,6 +558,98 @@ export const TelegramSettingsScreen: React.FC = () => {
                 </>
               )}
             </button>
+          </div>
+        )}
+      </div>
+
+      {/* KNOWLEDGE BASE SECTION */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+        <div className="flex items-center gap-2 text-green-400 mb-2">
+          <FileText className="w-5 h-5" />
+          <h3 className="text-lg font-bold text-white">📚 KNOWLEDGE BASE</h3>
+        </div>
+
+        <p className="text-xs sm:text-sm text-slate-400">
+          Upload tài liệu để AI đọc và trả lời câu hỏi của người dùng.
+        </p>
+
+        {/* Upload Section */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <input
+              type="file"
+              id="knowledge-file"
+              accept=".txt,.pdf,.docx,.doc"
+              onChange={handleFileUpload}
+              disabled={isUploadingDocument}
+              className="hidden"
+            />
+            <label
+              htmlFor="knowledge-file"
+              className={`flex-1 py-2.5 bg-green-600 hover:bg-green-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer`}
+            >
+              {isUploadingDocument ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Đang upload...</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4" />
+                  <span>Upload File</span>
+                </>
+              )}
+            </label>
+          </div>
+          <p className="text-[10px] text-slate-500">
+            Chấp nhận: TXT, PDF, DOCX (tối đa 10MB)
+          </p>
+        </div>
+
+        {/* Documents List */}
+        {isLoadingDocuments ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+          </div>
+        ) : knowledgeDocuments.length === 0 ? (
+          <div className="text-center py-8 text-slate-500 text-sm">
+            Chưa có tài liệu nào được upload
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {knowledgeDocuments.map((doc) => (
+              <div
+                key={doc.id}
+                className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex items-center justify-between gap-3"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <FileText className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    <span className="text-sm font-medium text-white truncate">{doc.fileName}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <span>{formatFileSize(doc.fileSize)}</span>
+                    <span>•</span>
+                    <span>{doc.chunkCount} chunks</span>
+                    <span>•</span>
+                    {getStatusBadge(doc.status)}
+                  </div>
+                  {doc.errorMessage && (
+                    <div className="mt-1 text-xs text-red-400 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      <span className="truncate">{doc.errorMessage}</span>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleDeleteDocument(doc.id)}
+                  className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors flex-shrink-0"
+                  title="Xóa file"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>

@@ -100,6 +100,7 @@ model Story {
   genres        GenreToStory[]
   contentRights ContentRights[]
   comments      Comment[]
+  knowledgeItems BotKnowledgeItem[] @relation("KnowledgeToStory")
 
   @@map("stories")
 }
@@ -268,6 +269,7 @@ model SubscriptionPlan {
 
   userSubscriptions UserSubscription[]
   payments          Payment[]
+  knowledgeItems    BotKnowledgeItem[] @relation("KnowledgeToPlan")
 
   @@map("subscription_plans")
 }
@@ -712,4 +714,89 @@ model BotSettings {
   updatedAt              DateTime @updatedAt
 
   @@map("bot_settings")
+}
+
+// -----------------------------------------------------------------------------
+// BOT KNOWLEDGE BASE
+// -----------------------------------------------------------------------------
+
+model BotKnowledgeCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  knowledgeItems BotKnowledgeItem[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("bot_knowledge_categories")
+}
+
+model BotKnowledgeItem {
+  id          String   @id @default(cuid())
+  categoryId  String
+  category    BotKnowledgeCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  question    String
+  answer      String   @db.Text
+  keywords    String[]
+  priority    Int      @default(0)
+  viewCount   Int      @default(0)
+  helpfulCount Int     @default(0)
+  isActive    Boolean  @default(true)
+  
+  relatedStoryId     String?
+  relatedStory       Story?   @relation("KnowledgeToStory", fields: [relatedStoryId], references: [id], onDelete: SetNull)
+  relatedPlanId      String?
+  relatedPlan        SubscriptionPlan? @relation("KnowledgeToPlan", fields: [relatedPlanId], references: [id], onDelete: SetNull)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?
+
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([keywords])
+  @@index([relatedStoryId])
+  @@index([relatedPlanId])
+  @@map("bot_knowledge_items")
+}
+
+model BotKnowledgeDocument {
+  id          String   @id @default(cuid())
+  fileName    String
+  mimeType    String
+  fileSize    Int
+  storagePath String
+  status      String   @default("PROCESSING") // PROCESSING, READY, FAILED
+  errorMessage String?
+  content     String?  @db.Text // Extracted text content
+  chunkCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  uploadedBy  String?
+
+  chunks      BotKnowledgeChunk[]
+
+  @@index([status])
+  @@map("bot_knowledge_documents")
+}
+
+model BotKnowledgeChunk {
+  id          String   @id @default(cuid())
+  documentId  String
+  document    BotKnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  content     String   @db.Text
+  chunkIndex  Int
+  embedding   String?  // Vector embedding (future use)
+  createdAt   DateTime @default(now())
+
+  @@index([documentId])
+  @@map("bot_knowledge_chunks")
 }
