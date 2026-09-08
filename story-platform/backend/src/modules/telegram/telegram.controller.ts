@@ -934,4 +934,12 @@ export class TelegramController {
   async deleteKnowledgeDocument(@Param('id') id: string) {
     return this.knowledgeDocumentService.deleteDocument(id);
   }
+
+  @Post('knowledge/sync-website-context')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Sync website-context.txt from source code (Admin only)' })
+  async syncWebsiteContext() {
+    return this.knowledgeDocumentService.syncWebsiteContext();
+  }
 }

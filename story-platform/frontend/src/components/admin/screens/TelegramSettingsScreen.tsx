@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Send, Save, CheckCircle, XCircle, Loader2, Bot, Upload, Trash2, FileText, Clock, AlertCircle } from 'lucide-react';
+import { Send, Save, CheckCircle, XCircle, Loader2, Bot, Upload, Trash2, FileText, Clock, AlertCircle, RefreshCw } from 'lucide-react';
 import { siteSettingsService, TelegramSettings } from '../../../services/siteSettings';
 import { apiRequest } from '../../../services/apiClient';
 import { useToast } from '../../../context/ToastContext';
@@ -58,6 +58,7 @@ export const TelegramSettingsScreen: React.FC = () => {
   const [knowledgeDocuments, setKnowledgeDocuments] = useState<KnowledgeDocument[]>([]);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+  const [isSyncingKnowledge, setIsSyncingKnowledge] = useState(false);
   const { showToast } = useToast();
 
   useEffect(() => {
@@ -191,6 +192,22 @@ export const TelegramSettingsScreen: React.FC = () => {
         return <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full">FAILED</span>;
       default:
         return <span className="px-2 py-1 bg-slate-500/20 text-slate-400 text-xs rounded-full">{status}</span>;
+    }
+  };
+
+  const handleSyncKnowledge = async () => {
+    setIsSyncingKnowledge(true);
+    try {
+      const response = await apiRequest('/telegram/knowledge/sync-website-context', {
+        method: 'POST',
+      });
+      showToast('success', 'Thành công', response.message || 'Đã sync Knowledge Base thành công!');
+      await loadKnowledgeDocuments();
+    } catch (error: any) {
+      console.error('Failed to sync Knowledge Base:', error);
+      showToast('error', 'Lỗi', error?.message || 'Sync Knowledge Base thất bại');
+    } finally {
+      setIsSyncingKnowledge(false);
     }
   };
 
@@ -604,6 +621,30 @@ export const TelegramSettingsScreen: React.FC = () => {
           <p className="text-[10px] text-slate-500">
             Chấp nhận: TXT, PDF, DOCX (tối đa 10MB)
           </p>
+
+          {/* Sync Website Context Button */}
+          <div className="pt-2 border-t border-slate-800">
+            <button
+              onClick={handleSyncKnowledge}
+              disabled={isSyncingKnowledge}
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm transition-colors flex items-center justify-center gap-2"
+            >
+              {isSyncingKnowledge ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Đang sync...</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Sync Knowledge Base</span>
+                </>
+              )}
+            </button>
+            <p className="text-[10px] text-slate-500 mt-2">
+              Đọc website-context.txt từ source code và tạo chunks
+            </p>
+          </div>
         </div>
 
         {/* Documents List */}

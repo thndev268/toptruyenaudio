@@ -353,4 +353,93 @@ export class KnowledgeDocumentService {
 
     return score;
   }
+
+  async syncWebsiteContext(): Promise<{ chunksCreated: number; message: string }> {
+    const fileName = 'website-context.txt';
+    const filePath = process.cwd() + '/website-context.txt';
+
+    this.logger.log(`[KnowledgeDocument] Syncing website-context.txt from: ${filePath}`);
+
+    try {
+      // Read file from source code
+      const fs = require('fs');
+      if (!fs.existsSync(filePath)) {
+        throw new Error(`File not found: ${filePath}`);
+      }
+
+      const buffer = fs.readFileSync(filePath);
+      const text = buffer.toString('utf-8');
+
+      if (!text || text.length < 10) {
+        throw new Error('File content is too short or empty');
+      }
+
+      this.logger.log(`[KnowledgeDocument] Read ${text.length} characters from website-context.txt`);
+
+      // Find existing website-context document
+      const existingDoc = await this.prisma.botKnowledgeDocument.findFirst({
+        where: { fileName },
+      });
+
+      // Delete existing document and its chunks
+      if (existingDoc) {
+        this.logger.log(`[KnowledgeDocument] Deleting existing document: ${existingDoc.id}`);
+        await this.prisma.botKnowledgeChunk.deleteMany({
+          where: { documentId: existingDoc.id },
+        });
+        await this.prisma.botKnowledgeDocument.delete({
+          where: { id: existingDoc.id },
+        });
+      }
+
+      // Disable other documents
+      await this.prisma.botKnowledgeDocument.updateMany({
+        where: { status: 'READY' },
+        data: { status: 'DISABLED' },
+      });
+
+      // Clean text
+      const cleanedText = this.cleanText(text);
+
+      // Chunk text
+      const chunks = this.chunkText(cleanedText);
+
+      this.logger.log(`[KnowledgeDocument] Created ${chunks.length} chunks from website-context.txt`);
+
+      // Create document record
+      const document = await this.prisma.botKnowledgeDocument.create({
+        data: {
+          fileName,
+          mimeType: 'text/plain',
+          fileSize: buffer.length,
+          storagePath: '', // No storage needed for source file
+          status: 'READY',
+          uploadedBy: 'SYSTEM',
+          content: cleanedText,
+          chunkCount: chunks.length,
+        },
+      });
+
+      // Save chunks
+      await this.prisma.botKnowledgeChunk.createMany({
+        data: chunks.map((chunk, index) => ({
+          documentId: document.id,
+          content: chunk,
+          chunkIndex: index,
+        })),
+      });
+
+      this.logger.log(`[KnowledgeDocument] website-context.txt synced successfully with ${chunks.length} chunks`);
+
+      return {
+        chunksCreated: chunks.length,
+        message: `Đã sync website-context.txt thành công với ${chunks.length} chunks.`,
+      };
+    } catch (error) {
+      this.logger.error('[KnowledgeDocument] Failed to sync website-context.txt:', error);
+      throw new Error(
+        `Failed to sync website-context.txt: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+  }
 }
