@@ -1,5 +1,6 @@
 import { Controller, Post, Body, Headers, Get, Put, Inject, forwardRef, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { TelegramService } from './telegram.service';
 import { SupportService } from '../support/support.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -11,6 +12,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 export class TelegramController {
   constructor(
     private readonly telegramService: TelegramService,
+    private readonly configService: ConfigService,
     @Inject(forwardRef(() => SupportService))
     private readonly supportService: SupportService,
     private readonly prisma: PrismaService,
@@ -63,9 +65,11 @@ export class TelegramController {
   }
 
   @Post('set-webhook')
-  @ApiOperation({ summary: 'Set Telegram webhook' })
-  async setWebhook(@Body() body: { url: string }) {
-    const appUrl = process.env.APP_URL;
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Set Telegram webhook (Admin only)' })
+  async setWebhook(@Body() body: { url?: string }) {
+    const appUrl = this.configService.get<string>('appUrl') || process.env.APP_URL;
     if (!appUrl) {
       return { success: false, error: 'APP_URL not configured' };
     }
@@ -73,8 +77,11 @@ export class TelegramController {
     const webhookUrl = body.url || `${appUrl}/telegram/webhook`;
     const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
 
+    console.log('[Telegram] Setting webhook:', webhookUrl);
+    console.log('[Telegram] Has secret:', !!secret);
+
     try {
-      const result = await this.telegramService.setWebhook(webhookUrl);
+      const result = await this.telegramService.setWebhook(webhookUrl, secret);
       return { 
         success: true, 
         webhookUrl, 
@@ -82,6 +89,7 @@ export class TelegramController {
         result 
       };
     } catch (error) {
+      console.error('[Telegram] Failed to set webhook:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',

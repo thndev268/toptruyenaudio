@@ -16,6 +16,7 @@ export default () => {
   return {
     port: parseInt(process.env.PORT || '3001', 10),
     apiPrefix: process.env.API_PREFIX || '/api/v1',
+    appUrl: process.env.APP_URL || 'http://localhost:3001',
     mongodbUri: mongodbUri || 'mongodb://localhost:27017/story_platform_db',
     jwt: {
       accessSecret: accessSecret || 'dev_access_secret_key_change_in_prod',

@@ -238,12 +238,23 @@ export class SupportService {
         ],
       };
 
-      await this.telegramService.sendToAdmin(
+      const telegramResult = await this.telegramService.sendToAdmin(
         `💬 <b>Tin nhắn mới từ ${conv.userName}:</b>\n\n` +
         `${dto.content}\n\n` +
         `🆔 Conversation: <code>${conversationId}</code>`,
         replyMarkup
       );
+
+      // Store the Telegram message ID for reply tracking
+      if (telegramResult && telegramResult.ok && telegramResult.result) {
+        await this.prisma.supportConversation.update({
+          where: { id: conversationId },
+          data: {
+            telegramMessageId: telegramResult.result.message_id,
+          },
+        });
+        console.log(`[SupportService] Telegram notification sent, message_id = ${telegramResult.result.message_id} saved for conversation ${conversationId}`);
+      }
       console.log(`[SupportService] Telegram notification with buttons sent for follow-up message`);
     } catch (error) {
       console.error('[SupportService] Failed to send Telegram notification for follow-up:', error);

@@ -128,11 +128,13 @@ export class TelegramService {
     }
   }
 
-  async setWebhook(webhookUrl: string): Promise<any> {
+  async setWebhook(webhookUrl: string, secret?: string): Promise<any> {
     try {
-      const response = await axios.post(`${this.apiUrl}/setWebhook`, {
-        url: webhookUrl,
-      });
+      const payload: any = { url: webhookUrl };
+      if (secret) {
+        payload.secret_token = secret;
+      }
+      const response = await axios.post(`${this.apiUrl}/setWebhook`, payload);
       this.logger.log(`Webhook set to: ${webhookUrl}`);
       return response.data;
     } catch (error) {
