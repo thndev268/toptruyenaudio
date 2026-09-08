@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Headers, Get, Put, Inject, forwardRef, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Headers, Get, Put, Inject, forwardRef, UseGuards, Patch } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { TelegramService } from './telegram.service';
@@ -6,6 +6,7 @@ import { SupportService } from '../support/support.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ChatGateway } from '../chat/chat.gateway';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { BotSettingsService, UpdateBotSettingsDto } from './bot-settings.service';
 
 interface ReplySession {
   adminChatId: string;
@@ -28,6 +29,7 @@ export class TelegramController {
     private readonly supportService: SupportService,
     private readonly prisma: PrismaService,
     private readonly chatGateway: ChatGateway,
+    private readonly botSettingsService: BotSettingsService,
   ) {}
 
   @Post('webhook')
@@ -193,6 +195,22 @@ export class TelegramController {
       success: true,
       message: 'Settings updated (Note: In production, this would update config/database)',
     };
+  }
+
+  @Get('admin/bot-settings')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get Bot settings (Admin only)' })
+  async getBotSettings() {
+    return this.botSettingsService.getSettings();
+  }
+
+  @Patch('admin/bot-settings')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update Bot settings (Admin only)' })
+  async updateBotSettings(@Body() dto: UpdateBotSettingsDto) {
+    return this.botSettingsService.updateSettings(dto);
   }
 
   @Post('admin/test')

@@ -694,3 +694,22 @@ model UserBannerDismissal {
   @@index([bannerId])
   @@map("user_banner_dismissals")
 }
+
+model BotSettings {
+  id                     String   @id @default(cuid())
+  botEnabled             Boolean  @default(true)
+  aiEnabled              Boolean  @default(true)
+  aiTimeoutSeconds       Int      @default(5)
+  autoHandoffEnabled     Boolean  @default(true)
+  supportStartTime       String   @default("08:00")
+  supportEndTime         String   @default("22:00")
+  greetingMessage        String?
+  handoffMessage         String?
+  unknownMessage         String?
+  outsideHoursMessage    String?
+  closedMessage          String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@map("bot_settings")
+}
