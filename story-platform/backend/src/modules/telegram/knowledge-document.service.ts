@@ -83,7 +83,7 @@ export class KnowledgeDocumentService {
       const storagePath = `knowledge/${fileName}`;
       
       const publicUrl = await this.storageService.uploadFile(
-        'knowledge-documents',
+        'media',
         storagePath,
         file.buffer,
         file.mimetype,
