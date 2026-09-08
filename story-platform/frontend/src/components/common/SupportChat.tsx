@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, X, Minimize2, Maximize2 } from 'lucide-react';
+import { Send, X, Minimize2, Maximize2, Trash2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../services/apiClient';
 import { io, Socket } from 'socket.io-client';
@@ -76,6 +76,8 @@ export const SupportChat: React.FC = () => {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<Socket | null>(null);
 
@@ -110,20 +112,25 @@ export const SupportChat: React.FC = () => {
       console.log('[FRONTEND] Current conversation ID:', conversation?.id);
       console.log('[FRONTEND] Received conversation ID:', data.conversationId);
       console.log('[FRONTEND] Conversation state:', conversation ? 'loaded' : 'not loaded');
+      
       // If conversation is loaded and matches, append the message
       if (conversation && data.conversationId === conversation.id) {
         console.log('[FRONTEND] Appending message to current conversation');
         setConversation((prev) => {
           if (!prev) return prev;
+          // Prevent duplicate messages
+          if (prev.messages.some(m => m.id === data.message.id)) {
+            return prev;
+          }
           return {
             ...prev,
             messages: [...prev.messages, data.message],
           };
         });
       } else {
-        // If chat is not open or different conversation, reload to get the correct one
-        console.log('[FRONTEND] Reloading conversation for new message');
-        loadConversation();
+        // If chat is not open or different conversation, increment unread count
+        console.log('[FRONTEND] Incrementing unread count');
+        setUnreadCount(prev => prev + 1);
       }
     });
 
@@ -227,6 +234,7 @@ export const SupportChat: React.FC = () => {
   const handleOpen = async () => {
     setIsOpen(true);
     setIsMinimized(false);
+    setUnreadCount(0); // Reset unread count when opening chat
     if (!conversation) {
       await loadConversation();
     }
@@ -238,6 +246,26 @@ export const SupportChat: React.FC = () => {
 
   const handleToggleMinimize = () => {
     setIsMinimized(!isMinimized);
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!conversation) return;
+
+    try {
+      await apiRequest(`/support/conversations/${conversation.id}/close`, {
+        method: 'POST',
+      });
+
+      // Reset all conversation state
+      setConversation(null);
+      setUnreadCount(0);
+      setShowDeleteConfirm(false);
+      setIsOpen(false);
+
+      console.log('[SupportChat] Conversation closed successfully');
+    } catch (error) {
+      console.error('[SupportChat] Failed to close conversation:', error);
+    }
   };
 
   const handleSendMessage = async () => {
@@ -279,6 +307,17 @@ export const SupportChat: React.FC = () => {
       >
         <ChatIcon />
         <span className="tooltip">Chat</span>
+        {unreadCount > 0 && (
+          <span
+            className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center"
+            style={{
+              minWidth: '20px',
+              minHeight: '20px',
+            }}
+          >
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
       </button>
     );
   }
@@ -322,6 +361,15 @@ export const SupportChat: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-1 sm:gap-2">
+          {conversation && conversation.status !== 'CLOSED' && (
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="text-white hover:bg-white/20 p-1.5 sm:p-1 rounded transition-colors"
+              title="Xóa cuộc trò chuyện"
+            >
+              <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
+          )}
           <button
             onClick={handleToggleMinimize}
             className="text-white hover:bg-white/20 p-1.5 sm:p-1 rounded transition-colors"
@@ -426,6 +474,32 @@ export const SupportChat: React.FC = () => {
             </button>
           </div>
         </>
+      )}
+
+      {/* Delete confirmation dialog */}
+      {showDeleteConfirm && (
+        <div className="absolute inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-800 rounded-xl p-6 max-w-sm w-full border border-slate-700">
+            <h3 className="text-white font-semibold text-lg mb-2">Xóa cuộc trò chuyện?</h3>
+            <p className="text-slate-300 text-sm mb-4">
+              Bạn có chắc muốn xóa nội dung cuộc trò chuyện này? Lịch sử hỗ trợ vẫn được lưu lại cho Admin.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleDeleteConversation}
+                className="flex-1 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                Xóa
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       </div>
     </>

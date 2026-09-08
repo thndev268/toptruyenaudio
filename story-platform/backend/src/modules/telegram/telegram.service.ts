@@ -54,9 +54,11 @@ export class TelegramService {
   private readonly apiUrl: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.botToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN') || '';
-    this.adminChatId = this.configService.get<string>('TELEGRAM_ADMIN_CHAT_ID') || '';
+    const telegramConfig = this.configService.get<any>('telegram');
+    this.botToken = telegramConfig?.botToken || this.configService.get<string>('TELEGRAM_BOT_TOKEN') || '';
+    this.adminChatId = telegramConfig?.adminChatId || this.configService.get<string>('TELEGRAM_ADMIN_CHAT_ID') || '';
     this.apiUrl = `https://api.telegram.org/bot${this.botToken}`;
+    console.log('[TelegramService] Initialized with botToken:', !!this.botToken, 'adminChatId:', this.adminChatId);
   }
 
   async sendMessage(message: TelegramMessage): Promise<any> {
@@ -74,17 +76,26 @@ export class TelegramService {
   }
 
   async sendToAdmin(text: string, replyMarkup?: any): Promise<any> {
+    console.log('[TelegramService] sendToAdmin called');
+    console.log('[TelegramService] botToken exists:', !!this.botToken);
+    console.log('[TelegramService] adminChatId exists:', !!this.adminChatId);
+    console.log('[TelegramService] adminChatId value:', this.adminChatId);
+
     if (!this.botToken || !this.adminChatId) {
       this.logger.warn('Telegram bot token or admin chat ID not configured');
+      console.log('[TelegramService] Missing configuration - botToken or adminChatId is empty');
       return null;
     }
 
-    return this.sendMessage({
+    console.log('[TelegramService] Sending message to Telegram admin');
+    const result = await this.sendMessage({
       chat_id: this.adminChatId,
       text,
       parse_mode: 'HTML',
       reply_markup: replyMarkup,
     });
+    console.log('[TelegramService] Message sent result:', result);
+    return result;
   }
 
   async sendReplyButtons(conversationId: string, userName: string, subject?: string, message?: string): Promise<any> {
@@ -117,11 +128,13 @@ export class TelegramService {
     }
   }
 
-  async setWebhook(webhookUrl: string): Promise<any> {
+  async setWebhook(webhookUrl: string, secret?: string): Promise<any> {
     try {
-      const response = await axios.post(`${this.apiUrl}/setWebhook`, {
-        url: webhookUrl,
-      });
+      const payload: any = { url: webhookUrl };
+      if (secret) {
+        payload.secret_token = secret;
+      }
+      const response = await axios.post(`${this.apiUrl}/setWebhook`, payload);
       this.logger.log(`Webhook set to: ${webhookUrl}`);
       return response.data;
     } catch (error) {

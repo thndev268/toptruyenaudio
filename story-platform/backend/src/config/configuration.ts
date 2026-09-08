@@ -16,6 +16,7 @@ export default () => {
   return {
     port: parseInt(process.env.PORT || '3001', 10),
     apiPrefix: process.env.API_PREFIX || '/api/v1',
+    appUrl: process.env.APP_URL || 'http://localhost:3001',
     mongodbUri: mongodbUri || 'mongodb://localhost:27017/story_platform_db',
     jwt: {
       accessSecret: accessSecret || 'dev_access_secret_key_change_in_prod',
@@ -24,6 +25,12 @@ export default () => {
       refreshExpiration: process.env.JWT_REFRESH_EXPIRATION || '7d',
     },
     corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:3000').split(','),
+    telegram: {
+      botToken: process.env.TELEGRAM_BOT_TOKEN || '',
+      adminChatId: process.env.TELEGRAM_ADMIN_CHAT_ID || '',
+      webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || '',
+      webhookUrl: process.env.TELEGRAM_WEBHOOK_URL || '',
+    },
     rateLimit: {
       global: {
         ttl: parseInt(process.env.RATE_LIMIT_TTL_GLOBAL || '60000', 10),

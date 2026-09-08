@@ -1,16 +1,29 @@
 import { Controller, Post, Body, Headers, Get, Put, Inject, forwardRef, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { TelegramService } from './telegram.service';
 import { SupportService } from '../support/support.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ChatGateway } from '../chat/chat.gateway';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
+interface ReplySession {
+  adminChatId: string;
+  conversationId: string;
+  userName: string;
+  subject: string;
+  expiresAt: Date;
+}
+
 @ApiTags('Telegram Bot')
 @Controller('telegram')
 export class TelegramController {
+  private replySessions = new Map<string, ReplySession>(); // adminChatId -> ReplySession
+  private readonly SESSION_EXPIRY_MINUTES = 30; // Session expires after 30 minutes
+
   constructor(
     private readonly telegramService: TelegramService,
+    private readonly configService: ConfigService,
     @Inject(forwardRef(() => SupportService))
     private readonly supportService: SupportService,
     private readonly prisma: PrismaService,
@@ -20,8 +33,13 @@ export class TelegramController {
   @Post('webhook')
   @ApiOperation({ summary: 'Telegram webhook endpoint' })
   async handleWebhook(@Body() body: any, @Headers('x-telegram-bot-api-secret-token') secret: string) {
+    console.log('[TELEGRAM WEBHOOK] UPDATE RECEIVED');
+    console.log('[TELEGRAM WEBHOOK] update:', JSON.stringify(body));
+    
     // Verify webhook secret if configured
     const configuredSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+    console.log('[TELEGRAM WEBHOOK] configuredSecret exists:', !!configuredSecret);
+    console.log('[TELEGRAM WEBHOOK] received secret:', !!secret);
     if (configuredSecret && secret !== configuredSecret) {
       console.error('[Telegram] Invalid webhook secret');
       return { ok: false };
@@ -29,11 +47,16 @@ export class TelegramController {
 
     const update = this.telegramService.parseWebhookUpdate(body);
     if (!update) {
+      console.error('[TELEGRAM WEBHOOK] Failed to parse update');
       return { ok: false };
     }
 
+    console.log('[TELEGRAM WEBHOOK] Parsed update has callback_query:', !!update.callback_query);
+    console.log('[TELEGRAM WEBHOOK] Parsed update has message:', !!update.message);
+
     // Handle callback queries (button clicks)
     if (update.callback_query) {
+      console.log('[TELEGRAM WEBHOOK] Routing to handleCallbackQuery');
       await this.handleCallbackQuery(update.callback_query);
       return { ok: true };
     }
@@ -41,6 +64,7 @@ export class TelegramController {
     // Handle text messages
     if (update.message && update.message.text) {
       const text = update.message.text.trim();
+      console.log('[TELEGRAM WEBHOOK] Message text:', text);
       
       // Handle /start command
       if (text === '/start') {
@@ -63,18 +87,46 @@ export class TelegramController {
   }
 
   @Post('set-webhook')
-  @ApiOperation({ summary: 'Set Telegram webhook' })
-  async setWebhook(@Body() body: { url: string }) {
-    const appUrl = process.env.APP_URL;
-    if (!appUrl) {
-      return { success: false, error: 'APP_URL not configured' };
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Set Telegram webhook (Admin only)' })
+  async setWebhook(@Body() body: { url?: string }) {
+    const configuredWebhookUrl =
+      this.configService.get<string>('telegram.webhookUrl') ||
+      process.env.TELEGRAM_WEBHOOK_URL;
+
+    let webhookUrl: string;
+
+    if (configuredWebhookUrl) {
+      webhookUrl = body.url || configuredWebhookUrl;
+    } else {
+      const appUrl =
+        this.configService.get<string>('appUrl') ||
+        process.env.APP_URL;
+
+      if (!appUrl) {
+        return {
+          success: false,
+          error: 'APP_URL not configured',
+        };
+      }
+
+      const apiPrefix =
+        this.configService.get<string>('apiPrefix') ||
+        process.env.API_PREFIX ||
+        '/api/v1';
+
+      webhookUrl =
+        body.url || `${appUrl}${apiPrefix}/telegram/webhook`;
     }
 
-    const webhookUrl = body.url || `${appUrl}/telegram/webhook`;
     const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
 
+    console.log('[Telegram] Setting webhook:', webhookUrl);
+    console.log('[Telegram] Has secret:', !!secret);
+
     try {
-      const result = await this.telegramService.setWebhook(webhookUrl);
+      const result = await this.telegramService.setWebhook(webhookUrl, secret);
       return { 
         success: true, 
         webhookUrl, 
@@ -82,6 +134,7 @@ export class TelegramController {
         result 
       };
     } catch (error) {
+      console.error('[Telegram] Failed to set webhook:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -111,6 +164,7 @@ export class TelegramController {
       botToken: process.env.TELEGRAM_BOT_TOKEN || '',
       adminChatId: process.env.TELEGRAM_ADMIN_CHAT_ID || '',
       webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || '',
+      webhookUrl: process.env.TELEGRAM_WEBHOOK_URL || '',
     };
   }
 
@@ -190,8 +244,13 @@ export class TelegramController {
   }
 
   private async handleCallbackQuery(callbackQuery: any) {
+    console.log('[TELEGRAM CALLBACK] RECEIVED');
+    console.log('[TELEGRAM CALLBACK] callbackQuery:', JSON.stringify(callbackQuery));
+    
     const { id, from, data, message } = callbackQuery;
-    console.log('[Telegram] Callback query received:', { id, from, data, messageId: message?.message_id });
+    console.log('[TELEGRAM CALLBACK] data:', callbackQuery.data);
+    console.log('[TELEGRAM CALLBACK] from:', callbackQuery.from?.id);
+    console.log('[TELEGRAM CALLBACK] messageId:', callbackQuery.message?.message_id);
     
     const conversationId = this.telegramService.extractConversationId(data);
     console.log('[Telegram] Extracted conversation ID:', conversationId);
@@ -216,30 +275,75 @@ export class TelegramController {
     console.log('[Telegram] Conversation found:', conversation.id, 'Status:', conversation.status);
 
     if (data.startsWith('reply_')) {
-      // Admin clicked "Reply" - set conversation as active for next message
-      console.log('[Telegram] Admin clicked Reply button');
-      await this.telegramService.answerCallbackQuery(id, '💬 Nhập tin nhắn trả lời của bạn...');
+      // Admin clicked "Reply" - create reply session
+      console.log('[Telegram CALLBACK] Admin clicked Reply button');
+      
+      // Verify admin is authorized
+      const adminChatId = process.env.TELEGRAM_ADMIN_CHAT_ID;
+      console.log('[Telegram CALLBACK] TELEGRAM_ADMIN_CHAT_ID:', adminChatId);
+      console.log('[Telegram CALLBACK] from.id:', from.id);
+      console.log('[Telegram CALLBACK] String(from.id):', String(from.id));
+      
+      if (!adminChatId) {
+        console.log('[Telegram] TELEGRAM_ADMIN_CHAT_ID not configured');
+        await this.telegramService.answerCallbackQuery(id, 'Admin chat ID not configured');
+        return;
+      }
 
-      // Store the trigger message ID to mark this conversation as active
-      await this.prisma.supportConversation.update({
-        where: { id: conversationId },
-        data: {
-          telegramMessageId: message.message_id, // Store the trigger message ID
-        },
-      });
+      if (String(from.id) !== adminChatId) {
+        console.log('[Telegram] Unauthorized user tried to reply:', from.id);
+        await this.telegramService.answerCallbackQuery(id, '⚠️ Bạn không có quyền trả lời');
+        return;
+      }
 
-      console.log(`[Telegram] Reply mode activated for conversation ${conversationId}, user: ${conversation.userName}, telegramMessageId: ${message.message_id}`);
+      // Create reply session
+      const replySession: ReplySession = {
+        adminChatId: String(from.id),
+        conversationId: conversationId,
+        userName: conversation.userName,
+        subject: conversation.subject,
+        expiresAt: new Date(Date.now() + this.SESSION_EXPIRY_MINUTES * 60 * 1000),
+      };
 
+      this.replySessions.set(String(from.id), replySession);
+      console.log('[Telegram CALLBACK] Creating reply session');
+      console.log('[Telegram CALLBACK] conversationId =', conversationId);
+      console.log('[Telegram CALLBACK] adminChatId =', String(from.id));
+      console.log('[Telegram CALLBACK] session created:', replySession);
+
+      console.log('[Telegram CALLBACK] Calling answerCallbackQuery');
+      await this.telegramService.answerCallbackQuery(id, '💬 Đang chuyển sang chế độ trả lời...');
+      console.log('[Telegram CALLBACK] answerCallbackQuery completed');
+
+      console.log('[Telegram CALLBACK] Sending confirmation to admin');
       // Send confirmation with detailed context
       await this.telegramService.sendToAdmin(
-        `📝 <b>Đang trả lời cho:</b>\n\n` +
-        `👤 <b>${conversation.userName}</b>\n` +
-        `📌 <b>Chủ đề:</b> ${conversation.subject}\n\n` +
-        `💬 Hãy gửi tin nhắn của bạn.`
+        `💬 <b>ĐANG TRẢ LỜI</b>\n\n` +
+        `👤 <b>Người dùng:</b> ${conversation.userName}\n` +
+        `📌 <b>Chủ đề:</b> ${conversation.subject}\n` +
+        `🆔 <b>Conversation:</b> <code>${conversationId}</code>\n\n` +
+        `✏️ <b>Hãy nhập nội dung phản hồi.</b>\n\n` +
+        `⏰ Phiên trả lời hết hạn sau ${this.SESSION_EXPIRY_MINUTES} phút.`
       );
+      console.log('[Telegram CALLBACK] Confirmation sent');
     } else if (data.startsWith('close_')) {
       // Admin clicked "Close conversation"
       console.log('[Telegram] Admin clicked Close button');
+      
+      // Verify admin is authorized
+      const adminChatId = process.env.TELEGRAM_ADMIN_CHAT_ID;
+      if (!adminChatId) {
+        console.log('[Telegram] TELEGRAM_ADMIN_CHAT_ID not configured');
+        await this.telegramService.answerCallbackQuery(id, 'Admin chat ID not configured');
+        return;
+      }
+
+      if (String(from.id) !== adminChatId) {
+        console.log('[Telegram] Unauthorized user tried to close:', from.id);
+        await this.telegramService.answerCallbackQuery(id, '⚠️ Bạn không có quyền đóng hội thoại');
+        return;
+      }
+
       const updatedConv = await this.prisma.supportConversation.update({
         where: { id: conversationId },
         data: {
@@ -249,6 +353,14 @@ export class TelegramController {
       });
 
       await this.telegramService.answerCallbackQuery(id, '✅ Hội thoại đã đóng');
+      
+      // Send confirmation to admin
+      await this.telegramService.sendToAdmin(
+        `✅ <b>Đã đóng hội thoại</b>\n\n` +
+        `🆔 Conversation: <code>${conversationId}</code>\n` +
+        `👤 Người dùng: ${conversation.userName}\n` +
+        `📌 Chủ đề: ${conversation.subject}`
+      );
       
       // Notify user via Socket.IO
       await this.chatGateway.sendToUser(conversation.userId, 'conversation-closed', {
@@ -310,7 +422,7 @@ export class TelegramController {
   }
 
   private async handleAdminMessage(message: any) {
-    const { chat, text, reply_to_message } = message;
+    const { chat, text } = message;
 
     // Only process messages from admin chat
     const adminChatId = process.env.TELEGRAM_ADMIN_CHAT_ID;
@@ -324,66 +436,45 @@ export class TelegramController {
       return;
     }
 
-    console.log('[TELEGRAM] Admin reply received');
-    console.log('[TELEGRAM] reply_to_message.message_id =', reply_to_message?.message_id);
-    console.log('[TELEGRAM] Message text =', text);
+    console.log('[TELEGRAM] Admin message received:', text);
+    const adminChatIdStr = String(chat.id);
 
-    let conversation: any = null;
-
-    // If this is a reply to a conversation message, find the conversation by telegramMessageId
-    if (reply_to_message) {
-      console.log('[TELEGRAM] Looking for conversation by telegramMessageId:', reply_to_message.message_id);
-      conversation = await this.prisma.supportConversation.findFirst({
-        where: {
-          telegramMessageId: reply_to_message.message_id,
-        } as any,
-      });
-      
-      if (conversation) {
-        console.log('[TELEGRAM] Conversation found =', conversation.id);
-        console.log('[TELEGRAM] User ID =', conversation.userId);
-      } else {
-        console.log('[TELEGRAM] Conversation not found by telegramMessageId, trying to parse from text');
-        // Fallback: try to extract conversation ID from the replied message text
-        if (reply_to_message.text) {
-          const match = reply_to_message.text.match(/Conversation ID: <code>([a-z0-9]+)<\/code>/i);
-          if (match && match[1]) {
-            console.log('[TELEGRAM] Extracted conversation ID from text:', match[1]);
-            conversation = await this.prisma.supportConversation.findUnique({
-              where: { id: match[1] },
-            });
-            if (conversation) {
-              console.log('[TELEGRAM] Conversation found by parsed ID =', conversation.id);
-            }
-          }
-        }
-      }
-    } else {
-      // If not a reply, check if there's an active conversation waiting for reply
-      // Active conversation is one with telegramMessageId set (from the "Reply" button click)
-      // Get the most recently updated one within last 5 minutes
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-      console.log('[TELEGRAM] Looking for active conversation updated after:', fiveMinutesAgo);
-      
-      conversation = await this.prisma.supportConversation.findFirst({
-        where: {
-          telegramMessageId: { not: null },
-          updatedAt: { gte: fiveMinutesAgo },
-        } as any,
-        orderBy: {
-          updatedAt: 'desc',
-        },
-      });
+    // Check if admin has an active reply session
+    const replySession = this.replySessions.get(adminChatIdStr);
+    
+    if (!replySession) {
+      console.log('[TELEGRAM] No active reply session for admin');
+      await this.telegramService.sendToAdmin(
+        `⚠️ <b>Bạn chưa chọn hội thoại để trả lời.</b>\n\n` +
+        `💬 Vui lòng bấm nút "Trả lời" trên tin nhắn thông báo của hội thoại cần phản hồi.`
+      );
+      return;
     }
 
-    if (!conversation) {
-      console.log('[TELEGRAM] Conversation not found, message not delivered');
-      console.log('[TELEGRAM] Unhandled message from admin:', text);
-      
-      // Send error message to admin
+    // Check if session has expired
+    if (new Date() > replySession.expiresAt) {
+      console.log('[TELEGRAM] Reply session expired');
+      this.replySessions.delete(adminChatIdStr);
       await this.telegramService.sendToAdmin(
-        `❌ Không tìm thấy cuộc hội thoại để trả lời.\n\n` +
-        `💬 Hãy nhấn nút "Trả lời" trên tin nhắn thông báo trước.`
+        `⚠️ <b>Phiên trả lời đã hết hạn.</b>\n\n` +
+        `💬 Vui lòng bấm nút "Trả lời" lại trên tin nhắn thông báo.`
+      );
+      return;
+    }
+
+    console.log('[TELEGRAM] Using reply session:', replySession);
+
+    // Find conversation from session
+    const conversation = await this.prisma.supportConversation.findUnique({
+      where: { id: replySession.conversationId },
+    });
+
+    if (!conversation) {
+      console.log('[TELEGRAM] Conversation not found:', replySession.conversationId);
+      this.replySessions.delete(adminChatIdStr);
+      await this.telegramService.sendToAdmin(
+        `❌ <b>Không tìm thấy hội thoại.</b>\n\n` +
+        `🆔 ID: ${replySession.conversationId}`
       );
       return;
     }
@@ -391,9 +482,11 @@ export class TelegramController {
     // Check if conversation is closed
     if (conversation.status === 'CLOSED') {
       console.log('[TELEGRAM] Conversation is closed, cannot send message');
+      this.replySessions.delete(adminChatIdStr);
       await this.telegramService.sendToAdmin(
-        `❌ Cuộc hội thoại này đã đóng.\n\n` +
-        `💬 ID: ${conversation.id}`
+        `❌ <b>Cuộc hội thoại này đã đóng.</b>\n\n` +
+        `🆔 ID: ${conversation.id}\n` +
+        `👤 Người dùng: ${conversation.userName}`
       );
       return;
     }
@@ -411,22 +504,20 @@ export class TelegramController {
 
     console.log('[PRISMA] Admin message saved, ID:', newMessage.id);
 
-    // Update conversation and clear the active state
+    // Update conversation
     const updatedConv = await this.prisma.supportConversation.update({
       where: { id: conversation.id },
       data: {
         lastMessageAt: new Date(),
         userUnreadCount: { increment: 1 },
         status: 'WAITING_FOR_USER',
-        telegramMessageId: null, // Clear active state
-        telegramChatId: null, // Clear active chat ID
       },
     });
 
     console.log('[PRISMA] Conversation updated, status = WAITING_FOR_USER');
 
     // Emit Socket.IO event to user
-    console.log('[SOCKET] Room = user:', conversation.userId);
+    console.log('[SOCKET] Sending to user:', conversation.userId);
     console.log('[SOCKET] Event = new-message');
 
     try {
@@ -448,7 +539,7 @@ export class TelegramController {
     }
 
     // Also send to conversation room
-    console.log('[SOCKET] Room = conversation:', conversation.id);
+    console.log('[SOCKET] Sending to conversation room:', conversation.id);
     try {
       await this.chatGateway.sendToConversation(conversation.id, 'new-message', {
         conversationId: conversation.id,
@@ -469,7 +560,16 @@ export class TelegramController {
 
     console.log('[SOCKET] new-message emitted');
 
+    // Clear the reply session after successful send
+    this.replySessions.delete(adminChatIdStr);
+    console.log('[TELEGRAM] Reply session cleared for admin:', adminChatIdStr);
+
     // Send confirmation to admin
-    await this.telegramService.sendToAdmin(`✅ Tin nhắn đã gửi đến người dùng ${conversation.userName}`);
+    await this.telegramService.sendToAdmin(
+      `✅ <b>Đã gửi phản hồi</b>\n\n` +
+      `👤 <b>Người dùng:</b> ${conversation.userName}\n` +
+      `🆔 <b>Conversation:</b> <code>${conversation.id}</code>\n\n` +
+      `💬 <b>Nội dung:</b>\n${text}`
+    );
   }
 }

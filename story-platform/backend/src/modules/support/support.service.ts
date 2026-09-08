@@ -152,6 +152,46 @@ export class SupportService {
     return this.formatConversation(conv, messages);
   }
 
+  async closeConversationForUser(userId: string, conversationId: string) {
+    const conv = await this.prisma.supportConversation.findUnique({ where: { id: conversationId } });
+    if (!conv) {
+      throw new NotFoundException('Không tìm thấy cuộc hội thoại');
+    }
+
+    if (conv.userId !== userId) {
+      throw new ForbiddenException('Bạn không có quyền đóng cuộc hội thoại này');
+    }
+
+    const updatedConv = await this.prisma.supportConversation.update({
+      where: { id: conversationId },
+      data: {
+        status: 'CLOSED',
+        closedAt: new Date(),
+      },
+    });
+
+    // Notify user via Socket.IO
+    await this.chatGateway.sendToUser(userId, 'conversation-closed', {
+      conversationId: updatedConv.id,
+      status: 'CLOSED',
+      closedAt: updatedConv.closedAt?.toISOString(),
+    });
+
+    // Also send to conversation room
+    await this.chatGateway.sendToConversation(conversationId, 'conversation-closed', {
+      conversationId: updatedConv.id,
+      status: 'CLOSED',
+      closedAt: updatedConv.closedAt?.toISOString(),
+    });
+
+    const messages = await this.prisma.supportMessage.findMany({
+      where: { conversationId, hiddenAt: null },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    return this.formatConversation(updatedConv, messages);
+  }
+
   async addMessage(
     userId: string,
     userName: string,
@@ -238,12 +278,23 @@ export class SupportService {
         ],
       };
 
-      await this.telegramService.sendToAdmin(
+      const telegramResult = await this.telegramService.sendToAdmin(
         `💬 <b>Tin nhắn mới từ ${conv.userName}:</b>\n\n` +
         `${dto.content}\n\n` +
         `🆔 Conversation: <code>${conversationId}</code>`,
         replyMarkup
       );
+
+      // Store the Telegram message ID for reply tracking
+      if (telegramResult && telegramResult.ok && telegramResult.result) {
+        await this.prisma.supportConversation.update({
+          where: { id: conversationId },
+          data: {
+            telegramMessageId: telegramResult.result.message_id,
+          },
+        });
+        console.log(`[SupportService] Telegram notification sent, message_id = ${telegramResult.result.message_id} saved for conversation ${conversationId}`);
+      }
       console.log(`[SupportService] Telegram notification with buttons sent for follow-up message`);
     } catch (error) {
       console.error('[SupportService] Failed to send Telegram notification for follow-up:', error);
