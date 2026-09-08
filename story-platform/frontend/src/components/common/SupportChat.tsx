@@ -282,14 +282,15 @@ export const SupportChat: React.FC = () => {
   return (
     <>
       {/* Mobile overlay to close chat when clicking outside */}
-      <div 
-        className="fixed inset-0 bg-black/50 z-40 md:hidden"
+      <div
+        className="fixed inset-0 bg-black/50 z-40"
         onClick={handleClose}
       />
-      
+
       <div className="fixed z-50 w-[calc(100vw-2rem)] max-w-sm sm:max-w-md sm:w-96 lg:w-[450px] lg:max-w-lg bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden" style={{
-        right: '32px',
-        bottom: 'calc(var(--mini-player-height, 72px) + env(safe-area-inset-bottom) + 160px)',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
       }}>
       {/* Header */}
       <div className={`bg-gradient-to-r p-3 sm:p-4 flex items-center justify-between ${
