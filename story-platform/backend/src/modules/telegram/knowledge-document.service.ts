@@ -233,8 +233,10 @@ export class KnowledgeDocumentService {
   private chunkText(text: string): string[] {
     const chunks: string[] = [];
     let currentIndex = 0;
+    const MAX_CHUNKS = 1000; // Safety limit to prevent infinite loops
+    let chunkCount = 0;
 
-    while (currentIndex < text.length) {
+    while (currentIndex < text.length && chunkCount < MAX_CHUNKS) {
       const endIndex = Math.min(
         currentIndex + this.CHUNK_SIZE,
         text.length,
@@ -268,10 +270,24 @@ export class KnowledgeDocumentService {
       const chunk = text.substring(currentIndex, breakIndex).trim();
       if (chunk) {
         chunks.push(chunk);
+        chunkCount++;
       }
 
-      currentIndex = breakIndex - this.CHUNK_OVERLAP;
+      // Ensure we always move forward
+      const nextIndex = breakIndex - this.CHUNK_OVERLAP;
+      if (nextIndex <= currentIndex) {
+        // If we're not moving forward, move to breakIndex + 1
+        currentIndex = breakIndex + 1;
+      } else {
+        currentIndex = nextIndex;
+      }
+
+      // Safety: ensure we don't go backwards
       if (currentIndex < 0) currentIndex = 0;
+    }
+
+    if (chunkCount >= MAX_CHUNKS) {
+      this.logger.warn(`[KB] Reached MAX_CHUNKS limit (${MAX_CHUNKS}), stopping chunking`);
     }
 
     return chunks;
@@ -354,16 +370,19 @@ export class KnowledgeDocumentService {
     return score;
   }
 
-  async syncWebsiteContext(): Promise<{ chunksCreated: number; message: string }> {
+  async syncWebsiteContext(): Promise<{ chunksCreated: number; message: string; documentId?: string }> {
     const fileName = 'website-context.txt';
     const fs = require('fs');
     const path = require('path');
+
+    this.logger.log('[KB] Starting sync of website-context.txt');
 
     // Try multiple possible paths for the file
     const possiblePaths = [
       process.cwd() + '/website-context.txt', // Same level as backend
       process.cwd() + '/../website-context.txt', // One level up
       path.join(__dirname, '../../../website-context.txt'), // From backend/src/modules/telegram
+      path.join(__dirname, '../../../../website-context.txt'), // From backend/src/modules/telegram (if nested deeper)
     ];
 
     let filePath = '';
@@ -375,20 +394,23 @@ export class KnowledgeDocumentService {
     }
 
     if (!filePath) {
+      this.logger.error(`[KB] File not found. Tried paths: ${possiblePaths.join(', ')}`);
       throw new Error(`File not found. Tried paths: ${possiblePaths.join(', ')}`);
     }
 
-    this.logger.log(`[KnowledgeDocument] Syncing website-context.txt from: ${filePath}`);
+    this.logger.log(`[KB] Reading file from: ${filePath}`);
+
+    let documentId = '';
 
     try {
       const buffer = fs.readFileSync(filePath);
       const text = buffer.toString('utf-8');
 
+      this.logger.log(`[KB] Content length: ${text.length} characters`);
+
       if (!text || text.length < 10) {
         throw new Error('File content is too short or empty');
       }
-
-      this.logger.log(`[KnowledgeDocument] Read ${text.length} characters from website-context.txt`);
 
       // Find existing website-context document
       const existingDoc = await this.prisma.botKnowledgeDocument.findFirst({
@@ -397,7 +419,7 @@ export class KnowledgeDocumentService {
 
       // Delete existing document and its chunks
       if (existingDoc) {
-        this.logger.log(`[KnowledgeDocument] Deleting existing document: ${existingDoc.id}`);
+        this.logger.log(`[KB] Deleting existing document: ${existingDoc.id}`);
         await this.prisma.botKnowledgeChunk.deleteMany({
           where: { documentId: existingDoc.id },
         });
@@ -414,11 +436,13 @@ export class KnowledgeDocumentService {
 
       // Clean text
       const cleanedText = this.cleanText(text);
+      this.logger.log(`[KB] Cleaned text length: ${cleanedText.length} characters`);
 
       // Chunk text
+      this.logger.log(`[KB] Creating chunks... (CHUNK_SIZE: ${this.CHUNK_SIZE}, OVERLAP: ${this.CHUNK_OVERLAP})`);
       const chunks = this.chunkText(cleanedText);
 
-      this.logger.log(`[KnowledgeDocument] Created ${chunks.length} chunks from website-context.txt`);
+      this.logger.log(`[KB] Chunks created: ${chunks.length}`);
 
       // Create document record
       const document = await this.prisma.botKnowledgeDocument.create({
@@ -434,6 +458,8 @@ export class KnowledgeDocumentService {
         },
       });
 
+      documentId = document.id;
+
       // Save chunks
       await this.prisma.botKnowledgeChunk.createMany({
         data: chunks.map((chunk, index) => ({
@@ -443,14 +469,31 @@ export class KnowledgeDocumentService {
         })),
       });
 
-      this.logger.log(`[KnowledgeDocument] website-context.txt synced successfully with ${chunks.length} chunks`);
+      this.logger.log(`[KB] READY - Document ID: ${document.id}, Chunks: ${chunks.length}`);
 
       return {
         chunksCreated: chunks.length,
         message: `Đã sync website-context.txt thành công với ${chunks.length} chunks.`,
+        documentId: document.id,
       };
     } catch (error) {
-      this.logger.error('[KnowledgeDocument] Failed to sync website-context.txt:', error);
+      this.logger.error('[KB] ERROR - Failed to sync:', error);
+
+      // Try to update document with ERROR status if we have a documentId
+      if (documentId) {
+        try {
+          await this.prisma.botKnowledgeDocument.update({
+            where: { id: documentId },
+            data: {
+              status: 'FAILED',
+              errorMessage: error instanceof Error ? error.message : 'Unknown error',
+            },
+          });
+        } catch (updateError) {
+          this.logger.error('[KB] Failed to update document status to ERROR:', updateError);
+        }
+      }
+
       throw new Error(
         `Failed to sync website-context.txt: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
