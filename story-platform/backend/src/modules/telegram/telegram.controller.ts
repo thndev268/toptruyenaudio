@@ -33,8 +33,13 @@ export class TelegramController {
   @Post('webhook')
   @ApiOperation({ summary: 'Telegram webhook endpoint' })
   async handleWebhook(@Body() body: any, @Headers('x-telegram-bot-api-secret-token') secret: string) {
+    console.log('[TELEGRAM WEBHOOK] UPDATE RECEIVED');
+    console.log('[TELEGRAM WEBHOOK] update:', JSON.stringify(body));
+    
     // Verify webhook secret if configured
     const configuredSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
+    console.log('[TELEGRAM WEBHOOK] configuredSecret exists:', !!configuredSecret);
+    console.log('[TELEGRAM WEBHOOK] received secret:', !!secret);
     if (configuredSecret && secret !== configuredSecret) {
       console.error('[Telegram] Invalid webhook secret');
       return { ok: false };
@@ -42,11 +47,16 @@ export class TelegramController {
 
     const update = this.telegramService.parseWebhookUpdate(body);
     if (!update) {
+      console.error('[TELEGRAM WEBHOOK] Failed to parse update');
       return { ok: false };
     }
 
+    console.log('[TELEGRAM WEBHOOK] Parsed update has callback_query:', !!update.callback_query);
+    console.log('[TELEGRAM WEBHOOK] Parsed update has message:', !!update.message);
+
     // Handle callback queries (button clicks)
     if (update.callback_query) {
+      console.log('[TELEGRAM WEBHOOK] Routing to handleCallbackQuery');
       await this.handleCallbackQuery(update.callback_query);
       return { ok: true };
     }
@@ -54,6 +64,7 @@ export class TelegramController {
     // Handle text messages
     if (update.message && update.message.text) {
       const text = update.message.text.trim();
+      console.log('[TELEGRAM WEBHOOK] Message text:', text);
       
       // Handle /start command
       if (text === '/start') {
@@ -209,8 +220,13 @@ export class TelegramController {
   }
 
   private async handleCallbackQuery(callbackQuery: any) {
+    console.log('[TELEGRAM CALLBACK] RECEIVED');
+    console.log('[TELEGRAM CALLBACK] callbackQuery:', JSON.stringify(callbackQuery));
+    
     const { id, from, data, message } = callbackQuery;
-    console.log('[Telegram] Callback query received:', { id, from, data, messageId: message?.message_id });
+    console.log('[TELEGRAM CALLBACK] data:', callbackQuery.data);
+    console.log('[TELEGRAM CALLBACK] from:', callbackQuery.from?.id);
+    console.log('[TELEGRAM CALLBACK] messageId:', callbackQuery.message?.message_id);
     
     const conversationId = this.telegramService.extractConversationId(data);
     console.log('[Telegram] Extracted conversation ID:', conversationId);
@@ -236,10 +252,14 @@ export class TelegramController {
 
     if (data.startsWith('reply_')) {
       // Admin clicked "Reply" - create reply session
-      console.log('[Telegram] Admin clicked Reply button');
+      console.log('[Telegram CALLBACK] Admin clicked Reply button');
       
       // Verify admin is authorized
       const adminChatId = process.env.TELEGRAM_ADMIN_CHAT_ID;
+      console.log('[Telegram CALLBACK] TELEGRAM_ADMIN_CHAT_ID:', adminChatId);
+      console.log('[Telegram CALLBACK] from.id:', from.id);
+      console.log('[Telegram CALLBACK] String(from.id):', String(from.id));
+      
       if (!adminChatId) {
         console.log('[Telegram] TELEGRAM_ADMIN_CHAT_ID not configured');
         await this.telegramService.answerCallbackQuery(id, 'Admin chat ID not configured');
@@ -262,10 +282,16 @@ export class TelegramController {
       };
 
       this.replySessions.set(String(from.id), replySession);
-      console.log('[Telegram] Reply session created:', replySession);
+      console.log('[Telegram CALLBACK] Creating reply session');
+      console.log('[Telegram CALLBACK] conversationId =', conversationId);
+      console.log('[Telegram CALLBACK] adminChatId =', String(from.id));
+      console.log('[Telegram CALLBACK] session created:', replySession);
 
+      console.log('[Telegram CALLBACK] Calling answerCallbackQuery');
       await this.telegramService.answerCallbackQuery(id, '💬 Đang chuyển sang chế độ trả lời...');
+      console.log('[Telegram CALLBACK] answerCallbackQuery completed');
 
+      console.log('[Telegram CALLBACK] Sending confirmation to admin');
       // Send confirmation with detailed context
       await this.telegramService.sendToAdmin(
         `💬 <b>ĐANG TRẢ LỜI</b>\n\n` +
@@ -275,6 +301,7 @@ export class TelegramController {
         `✏️ <b>Hãy nhập nội dung phản hồi.</b>\n\n` +
         `⏰ Phiên trả lời hết hạn sau ${this.SESSION_EXPIRY_MINUTES} phút.`
       );
+      console.log('[Telegram CALLBACK] Confirmation sent');
     } else if (data.startsWith('close_')) {
       // Admin clicked "Close conversation"
       console.log('[Telegram] Admin clicked Close button');
