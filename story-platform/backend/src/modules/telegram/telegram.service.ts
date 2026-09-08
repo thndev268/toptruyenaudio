@@ -74,17 +74,26 @@ export class TelegramService {
   }
 
   async sendToAdmin(text: string, replyMarkup?: any): Promise<any> {
+    console.log('[TelegramService] sendToAdmin called');
+    console.log('[TelegramService] botToken exists:', !!this.botToken);
+    console.log('[TelegramService] adminChatId exists:', !!this.adminChatId);
+    console.log('[TelegramService] adminChatId value:', this.adminChatId);
+
     if (!this.botToken || !this.adminChatId) {
       this.logger.warn('Telegram bot token or admin chat ID not configured');
+      console.log('[TelegramService] Missing configuration - botToken or adminChatId is empty');
       return null;
     }
 
-    return this.sendMessage({
+    console.log('[TelegramService] Sending message to Telegram admin');
+    const result = await this.sendMessage({
       chat_id: this.adminChatId,
       text,
       parse_mode: 'HTML',
       reply_markup: replyMarkup,
     });
+    console.log('[TelegramService] Message sent result:', result);
+    return result;
   }
 
   async sendReplyButtons(conversationId: string, userName: string, subject?: string, message?: string): Promise<any> {
