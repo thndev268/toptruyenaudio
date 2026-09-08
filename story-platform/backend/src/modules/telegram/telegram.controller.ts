@@ -599,7 +599,7 @@ export class TelegramController {
           content: userMessage,
         },
       });
-      
+
       await this.prisma.supportConversation.update({
         where: { id: conversation.id },
         data: {
@@ -616,12 +616,23 @@ export class TelegramController {
     // Get bot settings for handoff message
     const botSettings = await this.botSettingsService.getSettings();
 
-    // Send handoff message to user
+    const handoffMessage = botSettings.handoffMessage || '👨‍💼 Yêu cầu của bạn đang được chuyển đến nhân viên CSKH.';
+
+    // Send handoff message to Telegram
     await this.telegramService.sendMessage({
       chat_id: userId,
-      text: botSettings.handoffMessage || '👨‍💼 Yêu cầu của bạn đang được chuyển đến nhân viên CSKH.',
+      text: handoffMessage,
       parse_mode: 'HTML',
     });
+
+    // Save and emit handoff message via Socket.IO
+    await this.emitSupportMessage(
+      conversation.id,
+      'BOT',
+      'BOT',
+      'AI Assistant',
+      handoffMessage,
+    );
 
     // Notify admin via Telegram
     await this.telegramService.sendToAdmin(
@@ -693,47 +704,45 @@ export class TelegramController {
           lastMessageAt: new Date(),
           userUnreadCount: 0,
           adminUnreadCount: 0,
-          messages: {
-            createMany: {
-              data: [
-                {
-                  senderId: userId,
-                  senderRole: 'USER',
-                  senderName: userName,
-                  content: userMessage,
-                },
-                {
-                  senderId: 'AI',
-                  senderRole: 'AI',
-                  senderName: 'AI Bot',
-                  content: aiResponse,
-                },
-              ],
-            },
-          },
         },
       });
       console.log(`[Telegram] Created new conversation for AI messages: ${newConv.id}`);
+
+      // Add user message and emit via Socket.IO
+      await this.emitSupportMessage(
+        newConv.id,
+        userId,
+        'USER',
+        userName,
+        userMessage,
+      );
+
+      // Add AI response and emit via Socket.IO
+      await this.emitSupportMessage(
+        newConv.id,
+        'AI',
+        'AI',
+        'AI Bot',
+        aiResponse,
+      );
     } else {
-      // Add messages to existing conversation
-      await this.prisma.supportMessage.createMany({
-        data: [
-          {
-            conversationId: conversation.id,
-            senderId: userId,
-            senderRole: 'USER',
-            senderName: userName,
-            content: userMessage,
-          },
-          {
-            conversationId: conversation.id,
-            senderId: 'AI',
-            senderRole: 'AI',
-            senderName: 'AI Bot',
-            content: aiResponse,
-          },
-        ],
-      });
+      // Add user message and emit via Socket.IO
+      await this.emitSupportMessage(
+        conversation.id,
+        userId,
+        'USER',
+        userName,
+        userMessage,
+      );
+
+      // Add AI response and emit via Socket.IO
+      await this.emitSupportMessage(
+        conversation.id,
+        'AI',
+        'AI',
+        'AI Bot',
+        aiResponse,
+      );
 
       await this.prisma.supportConversation.update({
         where: { id: conversation.id },
@@ -814,74 +823,24 @@ export class TelegramController {
       return;
     }
 
-    // Save admin message to database
-    const newMessage = await this.prisma.supportMessage.create({
-      data: {
-        conversationId: conversation.id,
-        senderId: 'ADMIN',
-        senderRole: 'OWNER_ADMIN',
-        senderName: 'Ban Quản Trị',
-        content: text,
-      },
-    });
+    // Use centralized helper to save and emit message
+    await this.emitSupportMessage(
+      conversation.id,
+      'ADMIN',
+      'OWNER_ADMIN',
+      'Ban Quản Trị',
+      text,
+    );
 
-    console.log('[PRISMA] Admin message saved, ID:', newMessage.id);
-
-    // Update conversation
-    const updatedConv = await this.prisma.supportConversation.update({
+    // Update conversation status
+    await this.prisma.supportConversation.update({
       where: { id: conversation.id },
       data: {
-        lastMessageAt: new Date(),
-        userUnreadCount: { increment: 1 },
         status: 'WAITING_FOR_USER',
       },
     });
 
     console.log('[PRISMA] Conversation updated, status = WAITING_FOR_USER');
-
-    // Emit Socket.IO event to user
-    console.log('[SOCKET] Sending to user:', conversation.userId);
-    console.log('[SOCKET] Event = new-message');
-
-    try {
-      await this.chatGateway.sendToUser(conversation.userId, 'new-message', {
-        conversationId: conversation.id,
-        message: {
-          id: newMessage.id,
-          conversationId: conversation.id,
-          senderId: 'ADMIN',
-          senderRole: 'OWNER_ADMIN',
-          senderName: 'Ban Quản Trị',
-          content: text,
-          createdAt: newMessage.createdAt.toISOString(),
-        },
-      });
-      console.log('[SOCKET] new-message sent to user:', conversation.userId);
-    } catch (socketError) {
-      console.error('[SOCKET] Failed to send message to user:', socketError);
-    }
-
-    // Also send to conversation room
-    console.log('[SOCKET] Sending to conversation room:', conversation.id);
-    try {
-      await this.chatGateway.sendToConversation(conversation.id, 'new-message', {
-        conversationId: conversation.id,
-        message: {
-          id: newMessage.id,
-          conversationId: conversation.id,
-          senderId: 'ADMIN',
-          senderRole: 'OWNER_ADMIN',
-          senderName: 'Ban Quản Trị',
-          content: text,
-          createdAt: newMessage.createdAt.toISOString(),
-        },
-      });
-      console.log('[SOCKET] new-message sent to conversation room:', conversation.id);
-    } catch (socketError) {
-      console.error('[SOCKET] Failed to send message to conversation room:', socketError);
-    }
-
-    console.log('[SOCKET] new-message emitted');
 
     // Clear the reply session after successful send
     this.replySessions.delete(adminChatIdStr);
@@ -894,6 +853,100 @@ export class TelegramController {
       `🆔 <b>Conversation:</b> <code>${conversation.id}</code>\n\n` +
       `💬 <b>Nội dung:</b>\n${text}`
     );
+  }
+
+  // ==================== HELPER METHODS ====================
+
+  /**
+   * Centralized helper to save a support message and emit it via Socket.IO
+   * This ensures all messages (admin, bot, AI) are delivered in real-time
+   */
+  private async emitSupportMessage(
+    conversationId: string,
+    senderId: string,
+    senderRole: string,
+    senderName: string,
+    content: string,
+  ): Promise<void> {
+    try {
+      // Save message to database
+      const newMessage = await this.prisma.supportMessage.create({
+        data: {
+          conversationId,
+          senderId,
+          senderRole,
+          senderName,
+          content,
+        },
+      });
+
+      console.log('[SOCKET] emitSupportMessage - saved message id:', newMessage.id);
+
+      // Get conversation to find userId
+      const conversation = await this.prisma.supportConversation.findUnique({
+        where: { id: conversationId },
+      });
+
+      if (!conversation) {
+        console.error('[SOCKET] Conversation not found:', conversationId);
+        return;
+      }
+
+      // Update conversation
+      await this.prisma.supportConversation.update({
+        where: { id: conversationId },
+        data: {
+          lastMessageAt: new Date(),
+          userUnreadCount: { increment: 1 },
+        },
+      });
+
+      // Emit Socket.IO event to user
+      console.log('[SOCKET] user room:', `user:${conversation.userId}`);
+      console.log('[SOCKET] emitting new-message');
+      console.log('[SOCKET] message id:', newMessage.id);
+      console.log('[SOCKET] conversation id:', conversation.id);
+
+      try {
+        await this.chatGateway.sendToUser(conversation.userId, 'new-message', {
+          conversationId: conversation.id,
+          message: {
+            id: newMessage.id,
+            conversationId: conversation.id,
+            senderId,
+            senderRole,
+            senderName,
+            content,
+            createdAt: newMessage.createdAt.toISOString(),
+          },
+        });
+        console.log('[SOCKET] new-message sent successfully');
+      } catch (socketError) {
+        console.error('[SOCKET] Failed to send message to user:', socketError);
+      }
+
+      // Also send to conversation room
+      console.log('[SOCKET] Sending to conversation room:', conversation.id);
+      try {
+        await this.chatGateway.sendToConversation(conversation.id, 'new-message', {
+          conversationId: conversation.id,
+          message: {
+            id: newMessage.id,
+            conversationId: conversation.id,
+            senderId,
+            senderRole,
+            senderName,
+            content,
+            createdAt: newMessage.createdAt.toISOString(),
+          },
+        });
+        console.log('[SOCKET] new-message sent to conversation room');
+      } catch (socketError) {
+        console.error('[SOCKET] Failed to send to conversation room:', socketError);
+      }
+    } catch (error) {
+      console.error('[SOCKET] emitSupportMessage error:', error);
+    }
   }
 
   // ==================== KNOWLEDGE DOCUMENT ENDPOINTS ====================

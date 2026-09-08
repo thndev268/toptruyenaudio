@@ -98,11 +98,13 @@ export const SupportChat: React.FC = () => {
     socketRef.current = socket;
 
     socket.on('connect', () => {
-      console.log('[SupportChat] Connected to Socket.IO');
+      console.log('[SOCKET] connected');
+      console.log('[SOCKET] socket id:', socket.id);
     });
 
     socket.on('connected', (data) => {
-      console.log('[SupportChat] Socket connected:', data);
+      console.log('[SOCKET] connected event received:', data);
+      console.log('[SOCKET] joined user room:', `user:${data.userId}`);
       // Auto-load conversation when socket connects to ensure we receive messages
       loadConversation();
     });
@@ -112,7 +114,7 @@ export const SupportChat: React.FC = () => {
       console.log('[FRONTEND] Current conversation ID:', conversation?.id);
       console.log('[FRONTEND] Received conversation ID:', data.conversationId);
       console.log('[FRONTEND] Conversation state:', conversation ? 'loaded' : 'not loaded');
-      
+
       // If conversation is loaded and matches, append the message
       if (conversation && data.conversationId === conversation.id) {
         console.log('[FRONTEND] Appending message to current conversation');
@@ -120,12 +122,21 @@ export const SupportChat: React.FC = () => {
           if (!prev) return prev;
           // Prevent duplicate messages
           if (prev.messages.some(m => m.id === data.message.id)) {
+            console.log('[FRONTEND] Duplicate message detected, skipping');
             return prev;
           }
-          return {
+          const updated = {
             ...prev,
             messages: [...prev.messages, data.message],
           };
+          // Auto-scroll to newest message
+          setTimeout(() => {
+            const messagesContainer = document.getElementById('support-chat-messages');
+            if (messagesContainer) {
+              messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+          }, 100);
+          return updated;
         });
       } else {
         // If chat is not open or different conversation, increment unread count
