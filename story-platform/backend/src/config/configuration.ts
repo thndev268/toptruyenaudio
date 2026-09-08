@@ -24,6 +24,11 @@ export default () => {
       refreshExpiration: process.env.JWT_REFRESH_EXPIRATION || '7d',
     },
     corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:3000').split(','),
+    telegram: {
+      botToken: process.env.TELEGRAM_BOT_TOKEN || '',
+      adminChatId: process.env.TELEGRAM_ADMIN_CHAT_ID || '',
+      webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || '',
+    },
     rateLimit: {
       global: {
         ttl: parseInt(process.env.RATE_LIMIT_TTL_GLOBAL || '60000', 10),

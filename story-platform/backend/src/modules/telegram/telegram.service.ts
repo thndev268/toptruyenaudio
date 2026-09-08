@@ -54,9 +54,11 @@ export class TelegramService {
   private readonly apiUrl: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.botToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN') || '';
-    this.adminChatId = this.configService.get<string>('TELEGRAM_ADMIN_CHAT_ID') || '';
+    const telegramConfig = this.configService.get<any>('telegram');
+    this.botToken = telegramConfig?.botToken || this.configService.get<string>('TELEGRAM_BOT_TOKEN') || '';
+    this.adminChatId = telegramConfig?.adminChatId || this.configService.get<string>('TELEGRAM_ADMIN_CHAT_ID') || '';
     this.apiUrl = `https://api.telegram.org/bot${this.botToken}`;
+    console.log('[TelegramService] Initialized with botToken:', !!this.botToken, 'adminChatId:', this.adminChatId);
   }
 
   async sendMessage(message: TelegramMessage): Promise<any> {
