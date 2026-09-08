@@ -85,7 +85,16 @@ export const SupportChat: React.FC = () => {
     if (!user) return;
 
     // Initialize Socket.IO connection
-    const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3000', {
+    // Socket.IO uses default namespace (/) and path (/socket.io)
+    // REST API uses /api/v1 prefix, but Socket.IO does NOT
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    // Remove /api/v1 prefix if present for Socket.IO connection
+    const socketUrl = apiUrl.replace(/\/api\/v1$/, '');
+
+    console.log('[SOCKET] Connecting to:', socketUrl);
+    console.log('[SOCKET] API URL was:', apiUrl);
+
+    const socket = io(socketUrl, {
       auth: {
         token: localStorage.getItem('accessToken'),
       },
