@@ -96,7 +96,8 @@ export class TelegramController {
       return { success: false, error: 'APP_URL not configured' };
     }
 
-    const webhookUrl = body.url || `${appUrl}/telegram/webhook`;
+    const apiPrefix = this.configService.get<string>('apiPrefix') || process.env.API_PREFIX || '/api/v1';
+    const webhookUrl = body.url || `${appUrl}${apiPrefix}/telegram/webhook`;
     const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
 
     console.log('[Telegram] Setting webhook:', webhookUrl);
