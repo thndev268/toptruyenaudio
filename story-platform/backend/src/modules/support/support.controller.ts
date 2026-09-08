@@ -79,6 +79,17 @@ export class SupportController {
     );
   }
 
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Post('support/conversations/:conversationId/close')
+  @ApiOperation({ summary: 'Đóng cuộc hội thoại hỗ trợ (User)' })
+  async closeMyConversation(
+    @CurrentUser('id') userId: string,
+    @Param('conversationId') conversationId: string,
+  ) {
+    return this.supportService.closeConversationForUser(userId, conversationId);
+  }
+
   // --- ADMIN ENDPOINTS (OWNER_ADMIN ONLY) ---
 
   @UseGuards(JwtAuthGuard, RolesGuard)
