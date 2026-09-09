@@ -149,39 +149,46 @@ export const SupportChat: React.FC = () => {
 
         if (socket) {
           socket.on('connect', () => {
-            console.log('[SOCKET] connected');
-            console.log('[SOCKET] socket id:', socket!.id);
+            console.log('[SOCKET FRONTEND] connected');
+            console.log('[SOCKET FRONTEND] socket id:', socket!.id);
           });
 
           socket.on('connected', (data) => {
-            console.log('[SOCKET] connected event received:', data);
-            console.log('[SOCKET] joined user room:', `user:${data.userId}`);
-            console.log('[SOCKET] joining/listening for user room:', `user:${data.userId}`);
-            // Auto-load conversation when socket connects to ensure we receive messages
-            loadConversation();
+            console.log('[SOCKET FRONTEND] connected event received:', data);
+            console.log('[SOCKET FRONTEND] joined user room:', `user:${data.userId}`);
+            console.log('[SOCKET FRONTEND] joining/listening for user room:', `user:${data.userId}`);
+            console.log('[SOCKET FRONTEND] Current conversation state:', conversation ? 'loaded' : 'not loaded');
+            // NOT calling loadConversation here to avoid race condition with socket messages
+            // loadConversation will be called when user opens chat
           });
 
           socket.on('new-message', (data) => {
-            console.log('[SOCKET] received new-message');
-            console.log('[FRONTEND] new-message received:', data);
-            console.log('[FRONTEND] Current conversation ID:', conversation?.id);
-            console.log('[FRONTEND] Received conversation ID:', data.conversationId);
-            console.log('[FRONTEND] Conversation state:', conversation ? 'loaded' : 'not loaded');
+            console.log('[SOCKET FRONTEND] new-message received');
+            console.log('[SOCKET FRONTEND] payload:', JSON.stringify(data));
+            console.log('[SOCKET FRONTEND] Current conversation ID:', conversation?.id);
+            console.log('[SOCKET FRONTEND] Received conversation ID:', data.conversationId);
+            console.log('[SOCKET FRONTEND] Conversation state:', conversation ? 'loaded' : 'not loaded');
+            console.log('[SOCKET FRONTEND] Message ID:', data.message?.id);
+            console.log('[SOCKET FRONTEND] Message content:', data.message?.content);
 
             // If conversation is loaded and matches, append the message
             if (conversation && data.conversationId === conversation.id) {
-              console.log('[FRONTEND] Appending message to current conversation');
+              console.log('[SOCKET FRONTEND] Appending message to current conversation');
               setConversation((prev) => {
-                if (!prev) return prev;
+                if (!prev) {
+                  console.log('[SOCKET FRONTEND] No previous conversation, skipping');
+                  return prev;
+                }
                 // Prevent duplicate messages
                 if (prev.messages.some(m => m.id === data.message.id)) {
-                  console.log('[FRONTEND] Duplicate message detected, skipping');
+                  console.log('[SOCKET FRONTEND] Duplicate message detected, skipping');
                   return prev;
                 }
                 const updated = {
                   ...prev,
                   messages: [...prev.messages, data.message],
                 };
+                console.log('[SOCKET FRONTEND] messages state updated, new count:', updated.messages.length);
                 // Auto-scroll to newest message
                 setTimeout(() => {
                   const messagesContainer = document.getElementById('support-chat-messages');
@@ -193,7 +200,7 @@ export const SupportChat: React.FC = () => {
               });
             } else {
               // If chat is not open or different conversation, increment unread count
-              console.log('[FRONTEND] Incrementing unread count');
+              console.log('[SOCKET FRONTEND] Conversation not loaded or ID mismatch, incrementing unread count');
               setUnreadCount(prev => prev + 1);
             }
           });
