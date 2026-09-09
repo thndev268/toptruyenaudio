@@ -1732,16 +1732,20 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const isFavorite = (storyId: string) => favorites.includes(storyId);
 
   const toggleFavorite = (storyId: string) => {
+    console.log('[AudioPlayerContext] toggleFavorite called', { storyId, isAuthenticated, authLoading, currentFavorites: favorites });
     if (authLoading) {
+      console.log('[AudioPlayerContext] Auth loading, skipping');
       // Wait for auth to load before checking
       return;
     }
     if (!isAuthenticated) {
+      console.log('[AudioPlayerContext] Not authenticated, opening auth modal');
       setIsAuthModalOpen(true);
       return;
     }
     setFavorites((prev) => {
       const next = prev.includes(storyId) ? prev.filter((id) => id !== storyId) : [...prev, storyId];
+      console.log('[AudioPlayerContext] Favorites updated', { prev, next, storyId });
       storage.saveFavorites(next, user?.id);
       return next;
     });

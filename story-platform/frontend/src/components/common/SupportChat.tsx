@@ -1,10 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, X, Minimize2, Maximize2, Trash2 } from 'lucide-react';
+import { Send, X, Minimize2, Maximize2, Trash2, Bot } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { apiRequest } from '../../services/apiClient';
 import { io, Socket } from 'socket.io-client';
 import { supabase } from '../../lib/supabase';
 import './SupportChat.css';
+
+// Typing Indicator Component
+const TypingIndicator = () => (
+  <div className="flex items-start gap-2 mb-3">
+    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center shrink-0">
+      <Bot className="w-4 h-4 text-white" />
+    </div>
+    <div className="bg-purple-500/20 border border-purple-500/30 rounded-2xl rounded-bl-none px-4 py-3">
+      <div className="flex items-center gap-1">
+        <span className="text-purple-100 text-sm font-medium">AI đang chat</span>
+        <div className="flex gap-1 ml-2">
+          <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+          <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+          <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 // Custom chat icon from Uiverse.io
 const ChatIcon = () => (
@@ -77,8 +96,10 @@ export const SupportChat: React.FC = () => {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isBotTyping, setIsBotTyping] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<Socket | null>(null);
 
@@ -170,6 +191,13 @@ export const SupportChat: React.FC = () => {
             console.log('[SUPPORT CHAT] Conversation state:', conversation ? 'loaded' : 'not loaded');
             console.log('[SUPPORT CHAT] Message ID:', data.message?.id);
             console.log('[SUPPORT CHAT] Message content:', data.message?.content);
+            console.log('[SUPPORT CHAT] Message senderRole:', data.message?.senderRole);
+
+            // Turn off typing indicator when receiving BOT message
+            if (data.message?.senderRole === 'AI') {
+              console.log('[AI CHAT] bot message received, stopping typing');
+              setIsBotTyping(false);
+            }
 
             // If conversation is not loaded, load it first
             if (!conversation) {
@@ -388,8 +416,11 @@ export const SupportChat: React.FC = () => {
   };
 
   const handleSendMessage = async () => {
-    if (!message.trim() || !conversation || !user) return;
+    if (!message.trim() || !conversation || !user || isSending) return;
 
+    setIsSending(true);
+    setIsBotTyping(true);
+    console.log('[AI CHAT] typing started');
     try {
       const response = await apiRequest(`/support/conversations/${conversation.id}/messages`, {
         method: 'POST',
@@ -402,6 +433,9 @@ export const SupportChat: React.FC = () => {
       setMessage('');
     } catch (error) {
       console.error('[SupportChat] Failed to send message:', error);
+      setIsBotTyping(false);
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -554,6 +588,7 @@ export const SupportChat: React.FC = () => {
                 Chưa có tin nhắn nào. Hãy bắt đầu cuộc trò chuyện!
               </div>
             )}
+            {isBotTyping && <TypingIndicator />}
             <div ref={messagesEndRef} />
           </div>
 
@@ -576,10 +611,14 @@ export const SupportChat: React.FC = () => {
                 />
                 <button
                   onClick={handleSendMessage}
-                  disabled={!message.trim() || !conversation}
-                  className="bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white p-2 sm:p-2 rounded-lg transition-colors"
+                  disabled={!message.trim() || !conversation || isSending}
+                  className="bg-cyan-500 hover:bg-cyan-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white p-2 sm:p-2 rounded-lg transition-colors flex items-center justify-center min-w-[40px]"
                 >
-                  <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+                  {isSending ? (
+                    <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+                  )}
                 </button>
               </div>
             )}

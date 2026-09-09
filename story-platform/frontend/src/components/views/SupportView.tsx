@@ -12,6 +12,7 @@ import {
   PlusCircle,
   AlertCircle,
   Loader2,
+  Bot,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -21,6 +22,25 @@ import {
 } from '../../services/repositories/SupportRepository';
 import { io, Socket } from 'socket.io-client';
 import { supabase } from '../../lib/supabase';
+
+// Typing Indicator Component
+const TypingIndicator = () => (
+  <div className="flex items-start gap-2 mb-3">
+    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center shrink-0">
+      <Bot className="w-4 h-4 text-white" />
+    </div>
+    <div className="bg-purple-500/20 border border-purple-500/30 rounded-2xl rounded-bl-none px-4 py-3">
+      <div className="flex items-center gap-1">
+        <span className="text-purple-100 text-sm font-medium">AI đang chat</span>
+        <div className="flex gap-1 ml-2">
+          <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+          <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+          <span className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+        </div>
+      </div>
+    </div>
+  </div>
+);
 
 export const SupportView: React.FC = () => {
   const { user } = useAuth();
@@ -48,6 +68,7 @@ export const SupportView: React.FC = () => {
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [replyMessage, setReplyMessage] = useState('');
   const [isSendingReply, setIsSendingReply] = useState(false);
+  const [isBotTyping, setIsBotTyping] = useState(false);
 
   // Socket.IO connection
   const socketRef = useRef<Socket | null>(null);
@@ -123,6 +144,13 @@ export const SupportView: React.FC = () => {
           socket.on('new-message', (data) => {
             console.log('[SUPPORT VIEW] new-message received');
             console.log('[SUPPORT VIEW] payload:', JSON.stringify(data));
+            console.log('[SUPPORT VIEW] Message senderRole:', data.message?.senderRole);
+
+            // Turn off typing indicator when receiving BOT message
+            if (data.message?.senderRole === 'AI') {
+              console.log('[AI CHAT] bot message received, stopping typing (SupportView)');
+              setIsBotTyping(false);
+            }
             console.log('[SUPPORT VIEW] Received conversation ID:', data.conversationId);
             console.log('[SUPPORT VIEW] Message ID:', data.message?.id);
             console.log('[SUPPORT VIEW] Message senderRole:', data.message?.senderRole);
@@ -225,6 +253,8 @@ export const SupportView: React.FC = () => {
     if (!replyMessage.trim() || !selectedConvId || !user) return;
 
     setIsSendingReply(true);
+    setIsBotTyping(true);
+    console.log('[AI CHAT] typing started (SupportView)');
     try {
       await supportRepository.sendMessage(
         selectedConvId,
@@ -237,6 +267,7 @@ export const SupportView: React.FC = () => {
       showToast('success', 'Đã gửi tin nhắn', 'Tin nhắn của bạn đã được lưu.');
     } catch {
       showToast('error', 'Lỗi', 'Không thể gửi tin nhắn.');
+      setIsBotTyping(false);
     } finally {
       setIsSendingReply(false);
     }
@@ -483,6 +514,7 @@ export const SupportView: React.FC = () => {
                           </div>
                         );
                       })}
+                      {isBotTyping && <TypingIndicator />}
                     </div>
 
                     {/* Reply Input Form */}

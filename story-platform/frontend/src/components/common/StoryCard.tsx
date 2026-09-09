@@ -75,7 +75,9 @@ export const StoryCard: React.FC<StoryCardProps> = ({
   };
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
+    console.log('[StoryCard] Favorite button clicked', { storyId: story.id, favorited });
     e.stopPropagation();
+    e.preventDefault();
     toggleFavorite(story.id);
   };
 
