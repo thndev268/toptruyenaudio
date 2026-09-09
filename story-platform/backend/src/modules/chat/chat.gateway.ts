@@ -20,7 +20,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   private readonly logger = new Logger(ChatGateway.name);
   private readonly userSocketMap = new Map<string, string>(); // userId -> socketId
@@ -59,10 +59,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.userSocketMap.set(userId, client.id);
       client.data.userId = userId;
 
+      console.log('[SOCKET] userSocketMap set:', userId, '->', client.id);
+      console.log('[SOCKET] userSocketMap size:', this.userSocketMap.size);
+
       this.logger.log(`User ${userId} connected with socket ${client.id}`);
 
       // Join user's personal room
       await client.join(`user:${userId}`);
+      console.log('[SOCKET] User joined room:', `user:${userId}`);
 
       // Send connection success
       client.emit('connected', { userId, socketId: client.id });
@@ -119,10 +123,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // Method to send message to specific user
   async sendToUser(userId: string, event: string, data: any) {
     const socketId = this.userSocketMap.get(userId);
+    console.log('[SOCKET] sendToUser - userId:', userId);
+    console.log('[SOCKET] sendToUser - socketId from map:', socketId);
+    console.log('[SOCKET] sendToUser - event:', event);
+
     if (socketId) {
+      console.log('[SOCKET] sendToUser - emitting to socketId:', socketId);
       this.server.to(socketId).emit(event, data);
     } else {
       // If user is not connected, try to emit to their room
+      console.log('[SOCKET] sendToUser - socketId not found, emitting to room:', `user:${userId}`);
       this.server.to(`user:${userId}`).emit(event, data);
     }
   }

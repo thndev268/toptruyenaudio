@@ -342,6 +342,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     saveProfileToCache(null);
     await supabase.auth.signOut();
     setAuthData({ role: 'GUEST', user: null });
+    console.log('[AuthContext] User logged out');
   };
 
   const refreshUser = async () => {

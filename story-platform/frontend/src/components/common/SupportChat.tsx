@@ -83,9 +83,14 @@ export const SupportChat: React.FC = () => {
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      console.log('[SOCKET] No user, skipping socket connection');
+      return;
+    }
 
+    console.log('[SOCKET] User present, preparing socket connection');
     let socket: Socket | null = null;
+    let isMounted = true;
 
     // Initialize Socket.IO connection
     // Socket.IO uses default namespace (/) and path (/socket.io)
@@ -99,123 +104,153 @@ export const SupportChat: React.FC = () => {
 
     // Get Supabase session for authentication (same as REST API)
     const initSocket = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
+      try {
+        console.log('[SOCKET] Getting Supabase session...');
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-      if (error) {
-        console.error('[SOCKET AUTH] Failed to get session:', error);
-        return;
-      }
+        if (!isMounted) {
+          console.log('[SOCKET] Component unmounted, aborting connection');
+          return;
+        }
 
-      if (!session || !session.access_token) {
-        console.error('[SOCKET AUTH] No session or token found');
-        return;
-      }
+        if (error) {
+          console.error('[SOCKET AUTH] Failed to get session:', error);
+          return;
+        }
 
-      console.log('[SOCKET AUTH] token exists:', true);
-      console.log('[SOCKET AUTH] token length:', session.access_token.length);
+        if (!session || !session.access_token) {
+          console.error('[SOCKET AUTH] No session or token found');
+          console.error('[SOCKET AUTH] session exists:', !!session);
+          console.error('[SOCKET AUTH] access_token exists:', !!session?.access_token);
+          return;
+        }
 
-      socket = io(socketUrl, {
-        auth: {
-          token: session.access_token,
-        },
-        transports: ['websocket', 'polling'], // Add polling as fallback
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-      });
+        console.log('[SOCKET] creating authenticated connection');
+        console.log('[SOCKET AUTH] token exists:', true);
+        console.log('[SOCKET AUTH] token length:', session.access_token.length);
 
-      socketRef.current = socket;
-
-      if (socket) {
-        socket.on('connect', () => {
-          console.log('[SOCKET] connected');
-          console.log('[SOCKET] socket id:', socket!.id);
+        socket = io(socketUrl, {
+          auth: {
+            token: session.access_token,
+          },
+          transports: ['websocket', 'polling'], // Add polling as fallback
+          reconnection: true,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
         });
 
-        socket.on('connected', (data) => {
-          console.log('[SOCKET] connected event received:', data);
-          console.log('[SOCKET] joined user room:', `user:${data.userId}`);
-          // Auto-load conversation when socket connects to ensure we receive messages
-          loadConversation();
-        });
+        if (!isMounted) {
+          console.log('[SOCKET] Component unmounted after socket creation, disconnecting');
+          socket.disconnect();
+          return;
+        }
 
-        socket.on('new-message', (data) => {
-          console.log('[FRONTEND] new-message received:', data);
-          console.log('[FRONTEND] Current conversation ID:', conversation?.id);
-          console.log('[FRONTEND] Received conversation ID:', data.conversationId);
-          console.log('[FRONTEND] Conversation state:', conversation ? 'loaded' : 'not loaded');
+        socketRef.current = socket;
 
-          // If conversation is loaded and matches, append the message
-          if (conversation && data.conversationId === conversation.id) {
-            console.log('[FRONTEND] Appending message to current conversation');
-            setConversation((prev) => {
-              if (!prev) return prev;
-              // Prevent duplicate messages
-              if (prev.messages.some(m => m.id === data.message.id)) {
-                console.log('[FRONTEND] Duplicate message detected, skipping');
-                return prev;
-              }
-              const updated = {
-                ...prev,
-                messages: [...prev.messages, data.message],
-              };
-              // Auto-scroll to newest message
-              setTimeout(() => {
-                const messagesContainer = document.getElementById('support-chat-messages');
-                if (messagesContainer) {
-                  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        if (socket) {
+          socket.on('connect', () => {
+            console.log('[SOCKET] connected');
+            console.log('[SOCKET] socket id:', socket!.id);
+          });
+
+          socket.on('connected', (data) => {
+            console.log('[SOCKET] connected event received:', data);
+            console.log('[SOCKET] joined user room:', `user:${data.userId}`);
+            console.log('[SOCKET] joining/listening for user room:', `user:${data.userId}`);
+            // Auto-load conversation when socket connects to ensure we receive messages
+            loadConversation();
+          });
+
+          socket.on('new-message', (data) => {
+            console.log('[SOCKET] received new-message');
+            console.log('[FRONTEND] new-message received:', data);
+            console.log('[FRONTEND] Current conversation ID:', conversation?.id);
+            console.log('[FRONTEND] Received conversation ID:', data.conversationId);
+            console.log('[FRONTEND] Conversation state:', conversation ? 'loaded' : 'not loaded');
+
+            // If conversation is loaded and matches, append the message
+            if (conversation && data.conversationId === conversation.id) {
+              console.log('[FRONTEND] Appending message to current conversation');
+              setConversation((prev) => {
+                if (!prev) return prev;
+                // Prevent duplicate messages
+                if (prev.messages.some(m => m.id === data.message.id)) {
+                  console.log('[FRONTEND] Duplicate message detected, skipping');
+                  return prev;
                 }
-              }, 100);
-              return updated;
-            });
-          } else {
-            // If chat is not open or different conversation, increment unread count
-            console.log('[FRONTEND] Incrementing unread count');
-            setUnreadCount(prev => prev + 1);
-          }
-        });
+                const updated = {
+                  ...prev,
+                  messages: [...prev.messages, data.message],
+                };
+                // Auto-scroll to newest message
+                setTimeout(() => {
+                  const messagesContainer = document.getElementById('support-chat-messages');
+                  if (messagesContainer) {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                  }
+                }, 100);
+                return updated;
+              });
+            } else {
+              // If chat is not open or different conversation, increment unread count
+              console.log('[FRONTEND] Incrementing unread count');
+              setUnreadCount(prev => prev + 1);
+            }
+          });
 
-        socket.on('conversation-closed', (data) => {
-          console.log('[SupportChat] Conversation closed:', data);
-          if (conversation && data.conversationId === conversation.id) {
-            setConversation((prev) => {
-              if (!prev) return prev;
-              return {
-                ...prev,
-                status: data.status || 'CLOSED',
-              };
-            });
-          }
-        });
+          socket.on('conversation-closed', (data) => {
+            console.log('[SupportChat] Conversation closed:', data);
+            if (conversation && data.conversationId === conversation.id) {
+              setConversation((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  status: data.status || 'CLOSED',
+                };
+              });
+            }
+          });
 
-        socket.on('conversation-status-changed', (data) => {
-          console.log('[SupportChat] Conversation status changed:', data);
-          if (conversation && data.conversationId === conversation.id) {
-            setConversation((prev) => {
-              if (!prev) return prev;
-              return {
-                ...prev,
-                status: data.status,
-              };
-            });
-          }
-        });
+          socket.on('conversation-status-changed', (data) => {
+            console.log('[SupportChat] Conversation status changed:', data);
+            if (conversation && data.conversationId === conversation.id) {
+              setConversation((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  status: data.status,
+                };
+              });
+            }
+          });
 
-        socket.on('connect_error', (error) => {
-          console.error('[SupportChat] Socket connection error:', error);
-        });
+          socket.on('connect_error', (error) => {
+            console.error('[SOCKET] connect_error:', error);
+            console.error('[SupportChat] Socket connection error:', error);
+          });
 
-        socket.on('error', (error) => {
-          console.error('[SupportChat] Socket error:', error);
-        });
+          socket.on('disconnect', (reason) => {
+            console.log('[SOCKET] disconnected:', reason);
+          });
+
+          socket.on('error', (error) => {
+            console.error('[SOCKET] error:', error);
+            console.error('[SupportChat] Socket error:', error);
+          });
+        }
+      } catch (error) {
+        console.error('[SOCKET] Error initializing socket:', error);
       }
     };
 
     initSocket();
 
     return () => {
+      console.log('[SOCKET] Cleanup: disconnecting socket');
+      isMounted = false;
       if (socket) {
         socket.disconnect();
+        socketRef.current = null;
       }
     };
   }, [user]);

@@ -892,6 +892,9 @@ export class TelegramController {
         return;
       }
 
+      console.log('[SOCKET] emitSupportMessage - conversation.userId:', conversation.userId);
+      console.log('[SOCKET] emitSupportMessage - conversation.id:', conversation.id);
+
       // Update conversation
       await this.prisma.supportConversation.update({
         where: { id: conversationId },
