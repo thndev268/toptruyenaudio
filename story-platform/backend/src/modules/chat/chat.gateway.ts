@@ -2,14 +2,15 @@ import {
   WebSocketGateway,
   WebSocketServer,
   SubscribeMessage,
-  OnGatewayConnection,
-  OnGatewayDisconnect,
   MessageBody,
   ConnectedSocket,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger, UseGuards } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { createClient } from '@supabase/supabase-js';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @WebSocketGateway({
@@ -24,11 +25,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private readonly logger = new Logger(ChatGateway.name);
   private readonly userSocketMap = new Map<string, string>(); // userId -> socketId
+  private readonly supabase;
 
   constructor(
-    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) {
+    const supabaseUrl = this.configService.get<string>('SUPABASE_URL') || process.env.SUPABASE_URL;
+    const supabaseAnonKey = this.configService.get<string>('SUPABASE_ANON_KEY') || process.env.SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY must be configured');
+    }
+
+    this.supabase = createClient(supabaseUrl, supabaseAnonKey);
+  }
 
   async handleConnection(client: Socket) {
     try {
@@ -44,8 +55,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         return;
       }
 
-      const decoded = this.jwtService.verify(token);
-      const userId = decoded.sub;
+      // Validate with Supabase (same as REST API)
+      const { data, error } = await this.supabase.auth.getUser(token);
+
+      if (error || !data.user) {
+        console.error('[SOCKET AUTH] Supabase validation failed:', error?.message);
+        this.logger.warn(`Connection rejected: Invalid token`);
+        client.disconnect();
+        return;
+      }
+
+      const userId = data.user.id;
 
       console.log('[SOCKET AUTH] authenticated userId:', userId);
 

@@ -1,15 +1,12 @@
 import { Module } from '@nestjs/common';
 import { ChatGateway } from './chat.gateway';
-import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '../../prisma/prisma.module';
 
 @Module({
   imports: [
+    ConfigModule,
     PrismaModule,
-    JwtModule.register({
-      secret: process.env.JWT_ACCESS_SECRET || 'dev_access_secret_key_change_in_prod',
-      signOptions: { expiresIn: '7d' },
-    }),
   ],
   providers: [ChatGateway],
   exports: [ChatGateway],
