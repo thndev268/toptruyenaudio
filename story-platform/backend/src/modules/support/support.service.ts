@@ -267,6 +267,59 @@ export class SupportService {
 
     console.log(`[SupportService] User message sent, conversation: ${conversationId}, notifying Telegram admin`);
 
+    // Auto bot response for user messages from popup
+    try {
+      const botResponse = await this.generateBotResponse(dto.content, conv.subject);
+      if (botResponse) {
+        console.log(`[SupportService] Generating bot response for user message`);
+        const botMessage = await this.prisma.supportMessage.create({
+          data: {
+            conversationId: conv.id,
+            senderId: 'AI_BOT',
+            senderRole: 'AI',
+            senderName: 'AI Bot',
+            content: botResponse,
+          },
+        });
+
+        await this.prisma.supportConversation.update({
+          where: { id: conversationId },
+          data: { lastMessageAt: new Date() },
+        });
+
+        // Emit bot message via Socket.IO
+        await this.chatGateway.sendToUser(userId, 'new-message', {
+          conversationId,
+          message: {
+            id: botMessage.id,
+            conversationId: botMessage.conversationId,
+            senderId: botMessage.senderId,
+            senderRole: botMessage.senderRole,
+            senderName: botMessage.senderName,
+            content: botMessage.content,
+            createdAt: botMessage.createdAt.toISOString(),
+          },
+        });
+
+        await this.chatGateway.sendToConversation(conversationId, 'new-message', {
+          conversationId,
+          message: {
+            id: botMessage.id,
+            conversationId: botMessage.conversationId,
+            senderId: botMessage.senderId,
+            senderRole: botMessage.senderRole,
+            senderName: botMessage.senderName,
+            content: botMessage.content,
+            createdAt: botMessage.createdAt.toISOString(),
+          },
+        });
+
+        console.log(`[SupportService] Bot message sent via Socket.IO`);
+      }
+    } catch (error) {
+      console.error('[SupportService] Failed to generate bot response:', error);
+    }
+
     // Send notification to Telegram admin for follow-up messages with inline keyboard
     try {
       const replyMarkup = {
@@ -534,5 +587,34 @@ export class SupportService {
         createdAt: m.createdAt.toISOString(),
       })),
     };
+  }
+
+  private async generateBotResponse(userMessage: string, subject: string): Promise<string | null> {
+    const lowerMessage = userMessage.toLowerCase();
+    const lowerSubject = subject?.toLowerCase() || '';
+
+    // Simple rule-based bot responses
+    if (lowerMessage.includes('xin chào') || lowerMessage.includes('hello') || lowerMessage.includes('hi')) {
+      return 'Xin chào! Tôi là AI Bot hỗ trợ của TOP TRUYỆN AUDIO. Tôi có thể giúp gì cho bạn hôm nay?';
+    }
+
+    if (lowerMessage.includes('premium') || lowerMessage.includes('gói') || lowerMessage.includes('thanh toán')) {
+      return 'Về gói Premium, bạn có thể truy cập vào mục "Gói Premium" trong hồ sơ cá nhân để xem các gói 1 tháng, 3 tháng hoặc 1 năm. Nếu bạn đã thanh toán nhưng chưa được kích hoạt, vui lòng cung cấp mã giao dịch để admin kiểm tra.';
+    }
+
+    if (lowerMessage.includes('tải') || lowerMessage.includes('offline') || lowerMessage.includes('download')) {
+      return 'Tính năng tải offline yêu cầu tài khoản Premium đang còn hiệu lực. Bạn có thể bật tính năng này trong phần cài đặt trình phát.';
+    }
+
+    if (lowerMessage.includes('lỗi') || lowerMessage.includes('không nghe được') || lowerMessage.includes('âm thanh')) {
+      return 'Nếu bạn gặp lỗi âm thanh, vui lòng thử: 1) Kiểm tra kết nối internet, 2) Tải lại trang, 3) Thử nghe truyện khác. Nếu vẫn không được, hãy cung cấp tên truyện và tập bị lỗi để admin kiểm tra.';
+    }
+
+    if (lowerMessage.includes('tài khoản') || lowerMessage.includes('đăng nhập') || lowerMessage.includes('mật khẩu')) {
+      return 'Nếu bạn gặp vấn đề đăng nhập, hãy thử: 1) Kiểm tra email và mật khẩu, 2) Sử dụng tính năng "Quên mật khẩu", 3) Đăng xuất và đăng nhập lại.';
+    }
+
+    // Default response
+    return 'Cảm ơn bạn đã liên hệ. Yêu cầu của bạn đã được ghi nhận. Nhân viên hỗ trợ sẽ phản hồi sớm nhất có thể. Nếu cần hỗ trợ gấp, bạn có thể mô tả chi tiết hơn về vấn đề bạn đang gặp phải.';
   }
 }
