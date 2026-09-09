@@ -4,7 +4,7 @@ export interface SupportMessage {
   id: string;
   conversationId?: string;
   senderId?: string;
-  senderRole: 'USER' | 'ADMIN' | 'OWNER_ADMIN';
+  senderRole: 'USER' | 'ADMIN' | 'OWNER_ADMIN' | 'AI';
   senderName: string;
   senderAvatar?: string;
   content: string;

@@ -709,6 +709,7 @@ export class TelegramController {
       console.log(`[Telegram] Created new conversation for AI messages: ${newConv.id}`);
 
       // Add user message and emit via Socket.IO
+      console.log('[SUPPORT] Emitting user message via Socket.IO');
       await this.emitSupportMessage(
         newConv.id,
         userId,
@@ -718,6 +719,7 @@ export class TelegramController {
       );
 
       // Add AI response and emit via Socket.IO
+      console.log('[SUPPORT] Emitting AI bot message via Socket.IO');
       await this.emitSupportMessage(
         newConv.id,
         'AI',
@@ -727,6 +729,7 @@ export class TelegramController {
       );
     } else {
       // Add user message and emit via Socket.IO
+      console.log('[SUPPORT] Emitting user message via Socket.IO (existing conversation)');
       await this.emitSupportMessage(
         conversation.id,
         userId,
@@ -736,6 +739,7 @@ export class TelegramController {
       );
 
       // Add AI response and emit via Socket.IO
+      console.log('[SUPPORT] Emitting AI bot message via Socket.IO (existing conversation)');
       await this.emitSupportMessage(
         conversation.id,
         'AI',

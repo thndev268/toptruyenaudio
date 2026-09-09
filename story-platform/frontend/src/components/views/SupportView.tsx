@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import {
   LifeBuoy,
@@ -19,6 +19,8 @@ import {
   supportRepository,
   SupportConversation,
 } from '../../services/repositories/SupportRepository';
+import { io, Socket } from 'socket.io-client';
+import { supabase } from '../../lib/supabase';
 
 export const SupportView: React.FC = () => {
   const { user } = useAuth();
@@ -46,6 +48,134 @@ export const SupportView: React.FC = () => {
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [replyMessage, setReplyMessage] = useState('');
   const [isSendingReply, setIsSendingReply] = useState(false);
+
+  // Socket.IO connection
+  const socketRef = useRef<Socket | null>(null);
+
+  // Initialize Socket.IO connection
+  useEffect(() => {
+    if (!user) {
+      console.log('[SUPPORT VIEW] No user, skipping socket connection');
+      return;
+    }
+
+    console.log('[SUPPORT VIEW] User present, preparing socket connection');
+    let socket: Socket | null = null;
+    let isMounted = true;
+
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const socketUrl = apiUrl.replace(/\/api\/v1$/, '');
+
+    console.log('[SUPPORT VIEW] Connecting to:', socketUrl);
+
+    const initSocket = async () => {
+      try {
+        console.log('[SUPPORT VIEW] Getting Supabase session...');
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (!isMounted) {
+          console.log('[SUPPORT VIEW] Component unmounted, aborting connection');
+          return;
+        }
+
+        if (error) {
+          console.error('[SUPPORT VIEW AUTH] Failed to get session:', error);
+          return;
+        }
+
+        if (!session || !session.access_token) {
+          console.error('[SUPPORT VIEW AUTH] No session or token found');
+          return;
+        }
+
+        console.log('[SUPPORT VIEW] creating authenticated connection');
+        console.log('[SUPPORT VIEW AUTH] token exists:', true);
+        console.log('[SUPPORT VIEW AUTH] token length:', session.access_token.length);
+
+        socket = io(socketUrl, {
+          auth: {
+            token: session.access_token,
+          },
+          transports: ['websocket', 'polling'],
+          reconnection: true,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
+        });
+
+        if (!isMounted) {
+          console.log('[SUPPORT VIEW] Component unmounted after socket creation, disconnecting');
+          socket.disconnect();
+          return;
+        }
+
+        socketRef.current = socket;
+
+        if (socket) {
+          socket.on('connect', () => {
+            console.log('[SUPPORT VIEW] socket connected');
+            console.log('[SUPPORT VIEW] socket id:', socket!.id);
+          });
+
+          socket.on('connected', (data) => {
+            console.log('[SUPPORT VIEW] connected event received:', data);
+          });
+
+          socket.on('new-message', (data) => {
+            console.log('[SUPPORT VIEW] new-message received');
+            console.log('[SUPPORT VIEW] payload:', JSON.stringify(data));
+            console.log('[SUPPORT VIEW] Received conversation ID:', data.conversationId);
+            console.log('[SUPPORT VIEW] Message ID:', data.message?.id);
+            console.log('[SUPPORT VIEW] Message senderRole:', data.message?.senderRole);
+
+            // Update conversations state
+            setConversations((prev) => {
+              const targetConvIndex = prev.findIndex((c) => c.id === data.conversationId);
+              if (targetConvIndex === -1) {
+                console.log('[SUPPORT VIEW] Conversation not found in state, reloading...');
+                loadConversations();
+                return prev;
+              }
+
+              const updated = [...prev];
+              const targetConv = { ...updated[targetConvIndex] };
+
+              // Check if message already exists
+              if (targetConv.messages.some((m) => m.id === data.message.id)) {
+                console.log('[SUPPORT VIEW] Duplicate message detected, skipping');
+                return prev;
+              }
+
+              targetConv.messages = [...targetConv.messages, data.message];
+              updated[targetConvIndex] = targetConv;
+              console.log('[SUPPORT VIEW] Message appended to conversation, messages count:', targetConv.messages.length);
+              return updated;
+            });
+          });
+
+          socket.on('connect_error', (error) => {
+            console.error('[SUPPORT VIEW] connect_error:', error);
+          });
+
+          socket.on('disconnect', (reason) => {
+            console.log('[SUPPORT VIEW] disconnected:', reason);
+          });
+        }
+      } catch (error) {
+        console.error('[SUPPORT VIEW] Error initializing socket:', error);
+      }
+    };
+
+    initSocket();
+
+    return () => {
+      console.log('[SUPPORT VIEW] Cleanup: disconnecting socket');
+      isMounted = false;
+      if (socket) {
+        socket.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [user]);
 
   // Load conversations
   const loadConversations = async () => {
@@ -257,7 +387,7 @@ export const SupportView: React.FC = () => {
               </p>
             </div>
 
-            {process.env.NODE_ENV !== 'production' && (
+            {import.meta.env.MODE !== 'production' && (
               <span className="px-2.5 py-1 bg-amber-500/10 border border-amber-500/30 text-amber-400 font-mono text-[10px] font-bold rounded-lg shrink-0">
                 MOCK DEV MODE
               </span>
@@ -321,19 +451,30 @@ export const SupportView: React.FC = () => {
                     <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 bg-slate-950/40 p-3 rounded-2xl border border-slate-800/60">
                       {selectedConversation.messages.map((msg) => {
                         const isUser = msg.senderRole === 'USER';
+                        const isBot = msg.senderRole === 'AI';
+                        const isAdmin = msg.senderRole === 'ADMIN';
                         return (
                           <div
                             key={msg.id}
                             className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
                           >
                             <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mb-1 px-1">
-                              {isUser ? <User className="w-3 h-3 text-cyan-400" /> : <Shield className="w-3 h-3 text-amber-400" />}
+                              {isUser ? (
+                                <User className="w-3 h-3 text-cyan-400" />
+                              ) : isBot ? (
+                                <Shield className="w-3 h-3 text-purple-400" />
+                              ) : (
+                                <Shield className="w-3 h-3 text-amber-400" />
+                              )}
                               <span className="font-bold">{msg.senderName}</span>
+                              {isBot && <span className="text-purple-400 ml-1">(Bot)</span>}
                             </div>
                             <div
                               className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed ${
                                 isUser
                                   ? 'bg-cyan-500 text-slate-950 font-medium rounded-br-none'
+                                  : isBot
+                                  ? 'bg-purple-500/20 text-purple-100 border border-purple-500/30 rounded-bl-none'
                                   : 'bg-slate-800 text-slate-100 border border-slate-700/80 rounded-bl-none'
                               }`}
                             >
