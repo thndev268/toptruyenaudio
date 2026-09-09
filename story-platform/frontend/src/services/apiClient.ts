@@ -60,7 +60,7 @@ export async function apiRequest<T = any>(
 
   // Public endpoints that don't require authentication
   const publicEndpoints = ['/stories', '/stories/genres/all', '/stories/genres/', '/admin/active-users', '/listening/rankings/users', '/banners'];
-  const isPublicEndpoint = publicEndpoints.some(publicPath => endpoint.startsWith(publicPath));
+  const isPublicEndpoint = publicEndpoints.some(publicPath => endpoint.startsWith(publicPath)) && !endpoint.includes('/access');
 
   if (!isPublicEndpoint) {
     // Only get session for protected endpoints
