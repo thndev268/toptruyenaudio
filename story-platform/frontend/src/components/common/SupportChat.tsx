@@ -162,33 +162,63 @@ export const SupportChat: React.FC = () => {
             // loadConversation will be called when user opens chat
           });
 
-          socket.on('new-message', (data) => {
-            console.log('[SOCKET FRONTEND] new-message received');
-            console.log('[SOCKET FRONTEND] payload:', JSON.stringify(data));
-            console.log('[SOCKET FRONTEND] Current conversation ID:', conversation?.id);
-            console.log('[SOCKET FRONTEND] Received conversation ID:', data.conversationId);
-            console.log('[SOCKET FRONTEND] Conversation state:', conversation ? 'loaded' : 'not loaded');
-            console.log('[SOCKET FRONTEND] Message ID:', data.message?.id);
-            console.log('[SOCKET FRONTEND] Message content:', data.message?.content);
+          socket.on('new-message', async (data) => {
+            console.log('[SUPPORT CHAT] new-message received');
+            console.log('[SUPPORT CHAT] payload:', JSON.stringify(data));
+            console.log('[SUPPORT CHAT] Current conversation ID:', conversation?.id);
+            console.log('[SUPPORT CHAT] Received conversation ID:', data.conversationId);
+            console.log('[SUPPORT CHAT] Conversation state:', conversation ? 'loaded' : 'not loaded');
+            console.log('[SUPPORT CHAT] Message ID:', data.message?.id);
+            console.log('[SUPPORT CHAT] Message content:', data.message?.content);
+
+            // If conversation is not loaded, load it first
+            if (!conversation) {
+              console.log('[SUPPORT CHAT] Conversation not loaded, loading from API...');
+              try {
+                const response = await apiRequest('/support/conversations/me');
+                const conversations = Array.isArray(response) ? response : (response?.items || []);
+                const targetConv = conversations.find((c: any) => c.id === data.conversationId);
+
+                if (targetConv) {
+                  console.log('[SUPPORT CHAT] Found conversation in API response:', targetConv.id);
+                  // Append the new message to the loaded conversation
+                  const updatedConv = {
+                    ...targetConv,
+                    messages: [...(targetConv.messages || []), data.message],
+                  };
+                  console.log('[SUPPORT CHAT] Setting conversation with new message, messages count:', updatedConv.messages.length);
+                  setConversation(updatedConv);
+                  setUnreadCount(prev => prev + 1);
+                } else {
+                  console.log('[SUPPORT CHAT] Conversation not found in API response, incrementing unread count');
+                  setUnreadCount(prev => prev + 1);
+                }
+              } catch (error) {
+                console.error('[SUPPORT CHAT] Failed to load conversation:', error);
+                setUnreadCount(prev => prev + 1);
+              }
+              return;
+            }
 
             // If conversation is loaded and matches, append the message
-            if (conversation && data.conversationId === conversation.id) {
-              console.log('[SOCKET FRONTEND] Appending message to current conversation');
+            if (data.conversationId === conversation.id) {
+              console.log('[SUPPORT CHAT] Appending message to current conversation');
+              console.log('[SUPPORT CHAT] Messages before append:', conversation.messages.length);
               setConversation((prev) => {
                 if (!prev) {
-                  console.log('[SOCKET FRONTEND] No previous conversation, skipping');
+                  console.log('[SUPPORT CHAT] No previous conversation, skipping');
                   return prev;
                 }
                 // Prevent duplicate messages
                 if (prev.messages.some(m => m.id === data.message.id)) {
-                  console.log('[SOCKET FRONTEND] Duplicate message detected, skipping');
+                  console.log('[SUPPORT CHAT] Duplicate message detected, skipping');
                   return prev;
                 }
                 const updated = {
                   ...prev,
                   messages: [...prev.messages, data.message],
                 };
-                console.log('[SOCKET FRONTEND] messages state updated, new count:', updated.messages.length);
+                console.log('[SUPPORT CHAT] Messages after append:', updated.messages.length);
                 // Auto-scroll to newest message
                 setTimeout(() => {
                   const messagesContainer = document.getElementById('support-chat-messages');
@@ -200,7 +230,7 @@ export const SupportChat: React.FC = () => {
               });
             } else {
               // If chat is not open or different conversation, increment unread count
-              console.log('[SOCKET FRONTEND] Conversation not loaded or ID mismatch, incrementing unread count');
+              console.log('[SUPPORT CHAT] Conversation ID mismatch, incrementing unread count');
               setUnreadCount(prev => prev + 1);
             }
           });
