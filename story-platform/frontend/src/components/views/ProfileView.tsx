@@ -115,6 +115,8 @@ export const ProfileView: React.FC = () => {
                 <Camera size={24} />
               </div>
             </div>
+          </div>
+          <div className="absolute -bottom-12 left-36 flex items-center">
             <button
               onClick={() => setShowAvatarPicker(true)}
               className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-xl hover:bg-cyan-500/20 transition-colors flex items-center gap-2 font-medium text-sm"
