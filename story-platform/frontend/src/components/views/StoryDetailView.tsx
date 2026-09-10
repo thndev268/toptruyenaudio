@@ -1144,7 +1144,7 @@ export const StoryDetailView: React.FC = () => {
       {/* GOOGLE ADSENSE BANNER - After Hero */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="w-full flex justify-center">
-          <GoogleAd slot="YOUR_AD_SLOT_ID_DETAIL_1" className="w-full max-w-[728px] h-[90px]" />
+          <GoogleAd slot="YOUR_AD_SLOT_ID_DETAIL_1" className="w-full max-w-[728px]" />
         </div>
       </div>
 
@@ -1452,7 +1452,7 @@ export const StoryDetailView: React.FC = () => {
 
           {/* GOOGLE ADSENSE BANNER - After Chapters List */}
           <div className="w-full flex justify-center py-4">
-            <GoogleAd slot="YOUR_AD_SLOT_ID_DETAIL_2" className="w-full max-w-[728px] h-[90px]" />
+            <GoogleAd slot="YOUR_AD_SLOT_ID_DETAIL_2" className="w-full max-w-[728px]" />
           </div>
 
 

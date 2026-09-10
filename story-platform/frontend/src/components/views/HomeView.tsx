@@ -74,7 +74,7 @@ export const HomeView: React.FC = () => {
 
       {/* GOOGLE ADSENSE BANNER - After Hero */}
       <div className="w-full flex justify-center">
-        <GoogleAd slot="YOUR_AD_SLOT_ID" className="w-full max-w-[728px] h-[90px]" />
+        <GoogleAd slot="YOUR_AD_SLOT_ID" className="w-full max-w-[728px]" />
       </div>
 
       {/* 2. QUICK STORY FILTER */}
@@ -127,7 +127,7 @@ export const HomeView: React.FC = () => {
 
       {/* GOOGLE ADSENSE BANNER - After Trending */}
       <div className="w-full flex justify-center">
-        <GoogleAd slot="YOUR_AD_SLOT_ID_2" className="w-full max-w-[728px] h-[90px]" />
+        <GoogleAd slot="YOUR_AD_SLOT_ID_2" className="w-full max-w-[728px]" />
       </div>
 
       {/* 6. BOTTOM LOADING INDICATOR */}
@@ -147,7 +147,7 @@ export const HomeView: React.FC = () => {
 
       {/* GOOGLE ADSENSE BANNER - Before Footer */}
       <div className="w-full flex justify-center">
-        <GoogleAd slot="YOUR_AD_SLOT_ID_3" className="w-full max-w-[728px] h-[90px]" />
+        <GoogleAd slot="YOUR_AD_SLOT_ID_3" className="w-full max-w-[728px]" />
       </div>
 
     </div>
