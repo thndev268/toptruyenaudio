@@ -79,7 +79,7 @@ export const ProfileView: React.FC = () => {
               <div className="w-24 h-24 rounded-2xl bg-slate-800 border-4 border-slate-900 flex items-center justify-center text-slate-500 overflow-hidden">
                 {selectedAvatar ? (
                   <img
-                    src={`/avatars/${selectedAvatar}`}
+                    src={selectedAvatar.startsWith('data:') ? selectedAvatar : `/avatars/${selectedAvatar}`}
                     alt="Avatar"
                     className="w-full h-full object-cover"
                   />

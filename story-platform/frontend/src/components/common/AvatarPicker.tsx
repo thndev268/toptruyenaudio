@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Check } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { X, Check, Upload } from 'lucide-react';
 
 interface AvatarPickerProps {
   currentAvatar?: string;
@@ -26,11 +26,33 @@ export const AvatarPicker: React.FC<AvatarPickerProps> = ({
   onClose,
 }) => {
   const [selectedAvatar, setSelectedAvatar] = useState(currentAvatar || '');
+  const [uploadedAvatar, setUploadedAvatar] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSelect = (avatar: string) => {
     setSelectedAvatar(avatar);
+    setUploadedAvatar(null);
     onSelect(avatar);
     onClose();
+  };
+
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setUploadedAvatar(base64);
+        setSelectedAvatar('');
+        onSelect(base64);
+        onClose();
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
   };
 
   return (
@@ -45,6 +67,25 @@ export const AvatarPicker: React.FC<AvatarPickerProps> = ({
             <X size={20} />
           </button>
         </div>
+
+        <div className="mb-4">
+          <button
+            onClick={triggerFileInput}
+            className="w-full py-3 px-4 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-xl hover:bg-cyan-500/20 transition-colors flex items-center justify-center gap-2 font-medium"
+          >
+            <Upload size={20} />
+            Upload ảnh từ máy tính
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleUpload}
+            className="hidden"
+          />
+        </div>
+
+        <div className="mb-2 text-xs text-slate-400 font-medium">Hoặc chọn từ danh sách:</div>
 
         <div className="grid grid-cols-5 gap-3">
           {AVATAR_LIST.map((avatar) => (
