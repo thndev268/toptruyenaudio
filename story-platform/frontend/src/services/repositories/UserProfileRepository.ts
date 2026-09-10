@@ -93,7 +93,8 @@ export class ApiUserProfileRepository implements UserProfileRepository {
       if (input.name !== undefined) body.displayName = input.name.trim();
       if (input.username !== undefined) body.username = input.username.trim();
       if (input.avatarUrl !== undefined) body.avatarUrl = input.avatarUrl;
-      if (input.expectedVersion !== undefined) body.expectedVersion = input.expectedVersion;
+      // Only send expectedVersion if it's provided (not undefined)
+      if (input.expectedVersion !== undefined && input.expectedVersion !== null) body.expectedVersion = input.expectedVersion;
 
       console.log('[UserProfileRepository] updateProfile called with input:', input);
       console.log('[UserProfileRepository] Request body:', body);
