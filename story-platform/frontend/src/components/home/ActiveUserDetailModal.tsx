@@ -144,7 +144,7 @@ export const ActiveUserDetailModal: React.FC<ActiveUserDetailModalProps> = ({ us
               <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3 text-center space-y-0.5">
                 <Clock className="w-4 h-4 text-cyan-400 mx-auto" />
                 <div className="text-base font-extrabold text-cyan-400 font-mono">
-                  {Math.round(user.validListeningMinutes / 60)}h
+                  {Math.round(user.validListeningMinutes || 0)}h
                 </div>
                 <div className="text-[10px] text-slate-400 font-medium">Thời lượng nghe</div>
               </div>
@@ -152,7 +152,7 @@ export const ActiveUserDetailModal: React.FC<ActiveUserDetailModalProps> = ({ us
               <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3 text-center space-y-0.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto" />
                 <div className="text-base font-extrabold text-emerald-400 font-mono">
-                  {user.completedStories}
+                  {user.completedStories || 0}
                 </div>
                 <div className="text-[10px] text-slate-400 font-medium">Truyện hoàn thành</div>
               </div>
@@ -160,7 +160,7 @@ export const ActiveUserDetailModal: React.FC<ActiveUserDetailModalProps> = ({ us
               <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3 text-center space-y-0.5">
                 <Calendar className="w-4 h-4 text-purple-400 mx-auto" />
                 <div className="text-base font-extrabold text-purple-400 font-mono">
-                  {user.activeDays} ngày
+                  {user.activeDays || 0} ngày
                 </div>
                 <div className="text-[10px] text-slate-400 font-medium">Chuỗi hoạt động</div>
               </div>
@@ -168,7 +168,7 @@ export const ActiveUserDetailModal: React.FC<ActiveUserDetailModalProps> = ({ us
               <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3 text-center space-y-0.5">
                 <Star className="w-4 h-4 text-amber-400 mx-auto" />
                 <div className="text-base font-extrabold text-amber-400 font-mono">
-                  {user.helpfulReviews}
+                  {user.helpfulReviews || 0}
                 </div>
                 <div className="text-[10px] text-slate-400 font-medium">Bình luận hữu ích</div>
               </div>
