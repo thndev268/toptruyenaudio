@@ -1,10 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   User,
   KeyRound,
-  Camera,
   Save,
   Loader2,
   Lock,
@@ -21,6 +20,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { userProfileRepository, UserProfileData } from '../../services/repositories/UserProfileRepository';
+import { AvatarPicker } from '../../components/common/AvatarPicker';
 
 export const AccountEditView: React.FC = () => {
   const { user, updateUser } = useAuth();
@@ -41,11 +41,17 @@ export const AccountEditView: React.FC = () => {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isVersionConflict, setIsVersionConflict] = useState(false);
 
-  // AVATAR PREVIEW & FILE STATE
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [avatarError, setAvatarError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // AVATAR STATE
+  const [selectedAvatar, setSelectedAvatar] = useState(() => {
+    if (user?.avatarUrl) {
+      if (user.avatarUrl.startsWith('/avatars/')) {
+        return user.avatarUrl.replace('/avatars/', '');
+      }
+      return user.avatarUrl;
+    }
+    return '';
+  });
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   // FORM 2: PASSWORD STATE
   const [currentPassword, setCurrentPassword] = useState('');
@@ -93,46 +99,7 @@ export const AccountEditView: React.FC = () => {
   const hasProfileChanged =
     safeDisplayName.trim() !== safeInitialName.trim() ||
     safeUsername.trim().toLowerCase() !== safeInitialUsername.trim().toLowerCase() ||
-    selectedFile !== null ||
-    avatarPreview !== null;
-
-  // AVATAR SELECTION & VALIDATION
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setAvatarError(null);
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate type
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    if (!validTypes.includes(file.type)) {
-      setAvatarError('Chỉ chấp nhận các tập tin ảnh (JPG, PNG, WEBP, GIF).');
-      showToast('warning', 'Tập tin không hợp lệ', 'Vui lòng chọn file hình ảnh hợp lệ.');
-      return;
-    }
-
-    // Validate size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setAvatarError('Dung lượng ảnh vượt quá giới hạn 5MB.');
-      showToast('warning', 'Dung lượng quá lớn', 'Kích thước ảnh tối đa cho phép là 5MB.');
-      return;
-    }
-
-    setSelectedFile(file);
-    const reader = new FileReader();
-    reader.onload = () => {
-      setAvatarPreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleCancelAvatarPreview = () => {
-    setSelectedFile(null);
-    setAvatarPreview(null);
-    setAvatarError(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
+    selectedAvatar !== (serverProfile?.avatarUrl?.replace('/avatars/', '') || '');
 
   // SUBMIT PROFILE UPDATE
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -158,21 +125,14 @@ export const AccountEditView: React.FC = () => {
     setIsSavingProfile(true);
 
     try {
-      let finalAvatarUrl = serverProfile?.avatarUrl || user.avatarUrl;
+      // Handle avatar from preset list
+      const avatarUrlToSave = selectedAvatar ? `/avatars/${selectedAvatar}` : (serverProfile?.avatarUrl || user.avatarUrl);
 
-      // Handle avatar file upload if selected
-      if (selectedFile) {
-        const uploadRes = await userProfileRepository.uploadAvatar(selectedFile);
-        finalAvatarUrl = uploadRes.avatarUrl;
-      }
-
-      // Update Profile via Repository with expectedVersion check (optional)
+      // Update Profile via Repository
       const updatedData = await userProfileRepository.updateProfile({
         name: trimmedName,
         username: trimmedUsername || undefined,
-        avatarUrl: finalAvatarUrl,
-        // Only send expectedVersion if we have a valid version number
-        ...(serverProfile?.version !== undefined && { expectedVersion: serverProfile.version }),
+        avatarUrl: avatarUrlToSave,
       });
 
       setServerProfile(updatedData);
@@ -185,9 +145,6 @@ export const AccountEditView: React.FC = () => {
 
       setProfileSuccess('Đã cập nhật hồ sơ thành công.');
       showToast('success', 'Thành công', 'Thông tin hồ sơ của bạn đã được cập nhật.');
-
-      setSelectedFile(null);
-      setAvatarPreview(null);
     } catch (err: any) {
       if (err?.message === 'VERSION_CONFLICT') {
         setIsVersionConflict(true);
@@ -197,14 +154,8 @@ export const AccountEditView: React.FC = () => {
         setProfileError('Tên người dùng này đã được người khác sử dụng.');
         showToast('error', 'Tên người dùng đã tồn tại', 'Vui lòng chọn một tên người dùng khác.');
       } else {
-        const msg =
-          err?.message === 'FILE_TOO_LARGE'
-            ? 'Kích thước ảnh vượt quá 5MB.'
-            : err?.message === 'UNSUPPORTED_MEDIA_TYPE'
-            ? 'Định dạng tập tin không được hỗ trợ.'
-            : 'Có lỗi xảy ra khi cập nhật hồ sơ. Vui lòng thử lại.';
-        setProfileError(msg);
-        showToast('error', 'Lỗi cập nhật', msg);
+        setProfileError('Có lỗi xảy ra khi cập nhật hồ sơ. Vui lòng thử lại.');
+        showToast('error', 'Lỗi cập nhật', 'Có lỗi xảy ra khi cập nhật hồ sơ. Vui lòng thử lại.');
       }
     } finally {
       setIsSavingProfile(false);
@@ -270,7 +221,7 @@ export const AccountEditView: React.FC = () => {
   };
 
   const currentAvatarSrc =
-    avatarPreview || serverProfile?.avatarUrl || user.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150';
+    selectedAvatar ? `/avatars/${selectedAvatar}` : (serverProfile?.avatarUrl || user.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150');
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 sm:py-8 space-y-6 animate-fadeIn pb-24">
@@ -298,14 +249,6 @@ export const AccountEditView: React.FC = () => {
                 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150';
             }}
           />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="absolute inset-0 bg-slate-950/60 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white"
-            title="Đổi ảnh đại diện"
-          >
-            <Camera className="w-6 h-6" />
-          </button>
         </div>
 
         <div className="text-center sm:text-left min-w-0 flex-1 space-y-1">
@@ -315,36 +258,25 @@ export const AccountEditView: React.FC = () => {
           <p className="text-xs text-slate-400 break-all">{user.email}</p>
 
           <div className="pt-2 flex items-center justify-center sm:justify-start gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              onChange={handleFileChange}
-              className="hidden"
-            />
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => setShowAvatarPicker(true)}
               className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 min-h-[36px]"
             >
-              <Camera className="w-3.5 h-3.5" />
-              <span>{avatarPreview ? 'Đổi ảnh khác' : 'Thay ảnh đại diện'}</span>
+              <User className="w-3.5 h-3.5" />
+              <span>Thay ảnh đại diện</span>
             </button>
-
-            {avatarPreview && (
-              <button
-                type="button"
-                onClick={handleCancelAvatarPreview}
-                className="px-2.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 min-h-[36px]"
-              >
-                <X className="w-3.5 h-3.5" />
-                <span>Hủy xem trước</span>
-              </button>
-            )}
           </div>
-          {avatarError && <p className="text-[11px] text-rose-400 pt-1">{avatarError}</p>}
         </div>
       </div>
+
+      {showAvatarPicker && (
+        <AvatarPicker
+          currentAvatar={selectedAvatar}
+          onSelect={(avatar) => setSelectedAvatar(avatar)}
+          onClose={() => setShowAvatarPicker(false)}
+        />
+      )}
 
       {/* SEGMENTED CONTROL TABS */}
       <div className="p-1 bg-slate-900 border border-slate-800 rounded-2xl grid grid-cols-2 gap-1 shadow-md">
