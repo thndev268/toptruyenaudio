@@ -86,6 +86,8 @@ import { HorizontalStoryRail } from '../common/HorizontalStoryRail';
 
 import { GoogleAd } from '../ads/GoogleAd';
 
+const EMPTY_STORIES: any[] = [];
+
 
 
 export const StoryDetailView: React.FC = () => {
@@ -144,9 +146,8 @@ export const StoryDetailView: React.FC = () => {
 
 
 
-  const publicStories = useStories();
-
-  const storiesArray = Array.isArray(publicStories.stories) ? publicStories.stories : [];
+  const { stories: publicStories } = useStories();
+  const storiesArray = Array.isArray(publicStories) ? publicStories : EMPTY_STORIES;
   const story = storiesArray.find((s) => s.slug === slug || s.id === slug);
 
   const videoSettings = adminRepository.getVideoSettings();
@@ -318,7 +319,7 @@ export const StoryDetailView: React.FC = () => {
 
     if (!story) return [];
 
-    const allPublic = Array.isArray(publicStories.stories) ? publicStories.stories : [];
+    const allPublic = Array.isArray(publicStories) ? publicStories : [];
 
     const combined = [...allPublic];
 

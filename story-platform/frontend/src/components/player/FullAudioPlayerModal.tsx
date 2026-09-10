@@ -27,6 +27,8 @@ import { HorizontalStoryRail } from '../common/HorizontalStoryRail';
 import { StoryCard } from '../common/StoryCard';
 import { useStories } from '../../hooks/useStories';
 
+const EMPTY_STORIES: any[] = [];
+
 export const FullAudioPlayerModal: React.FC = () => {
   const {
     currentStory,
@@ -58,7 +60,7 @@ export const FullAudioPlayerModal: React.FC = () => {
   } = useAudioPlayer();
 
   const { stories } = useStories();
-  const storiesArray = Array.isArray(stories) ? stories : [];
+  const storiesArray = Array.isArray(stories) ? stories : EMPTY_STORIES;
   const [activeTab, setActiveTab] = useState<'visual' | 'playlist' | 'recommendations'>('visual');
 
   // Handle Escape key to close player

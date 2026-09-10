@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { adminRepository } from '../services/repositories/AdminRepository';
 
 const TIMEOUT_MS = 60000; // 1 minute timeout
@@ -148,9 +148,9 @@ export function useStories() {
     };
   }, [fetchStories]);
 
-  return useMemo(() => ({
+  return {
     ...state,
     retry,
     loadMore,
-  }), [state, retry, loadMore]);
+  };
 }

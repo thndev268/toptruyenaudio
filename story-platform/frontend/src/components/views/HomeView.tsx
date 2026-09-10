@@ -21,15 +21,18 @@ import { ErrorState } from '../common/ErrorState';
 import { BottomLoadingIndicator } from '../common/BottomLoadingIndicator';
 import { GoogleAd } from '../ads/GoogleAd';
 
+const EMPTY_STORIES: any[] = [];
+const EMPTY_GENRES: any[] = [];
+
 export const HomeView: React.FC = () => {
   const navigate = useNavigate();
   const [showInitialLoading, setShowInitialLoading] = useState(true);
 
   const { stories, isLoading, isLoadingMore, error, hasTimedOut, retry, loadMore } = useStories();
-  const allStories = Array.isArray(stories) ? stories : [];
+  const allStories = Array.isArray(stories) ? stories : EMPTY_STORIES;
   const featuredStory = allStories.length > 0 ? allStories[0] : null;
   const genres = useGenres();
-  const genresArray = Array.isArray(genres) ? genres : [];
+  const genresArray = Array.isArray(genres) ? genres : EMPTY_GENRES;
 
   // Show premium loading screen for initial load
   useEffect(() => {
