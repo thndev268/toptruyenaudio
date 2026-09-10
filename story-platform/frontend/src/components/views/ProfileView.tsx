@@ -4,6 +4,8 @@ import { useToast } from '../../context/ToastContext';
 import { User, Mail, Shield, Camera, Save, Loader2 } from 'lucide-react';
 import { usePwaInstall } from '../../context/PwaInstallContext';
 import { InstallPwaButton } from '../common/InstallPwaButton';
+import { AvatarPicker } from '../common/AvatarPicker';
+import { userProfileRepository } from '../../services/repositories/UserProfileRepository';
 
 export const ProfileView: React.FC = () => {
   const { user, role } = useAuth();
@@ -16,18 +18,33 @@ export const ProfileView: React.FC = () => {
     email: user?.email || '',
     bio: '',
   });
-  
+
   const [loading, setLoading] = useState(false);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [selectedAvatar, setSelectedAvatar] = useState(user?.avatarUrl || '');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setLoading(false);
-    showToast('success', 'Thành công', 'Thông tin hồ sơ đã được cập nhật.');
+
+    try {
+      // Update profile with selected avatar
+      await userProfileRepository.updateProfile({
+        name: formData.name,
+        avatarUrl: selectedAvatar,
+      });
+
+      // Update auth context
+      if (user) {
+        user.avatarUrl = selectedAvatar;
+      }
+
+      setLoading(false);
+      showToast('success', 'Thành công', 'Thông tin hồ sơ đã được cập nhật.');
+    } catch (error) {
+      setLoading(false);
+      showToast('error', 'Lỗi', 'Không thể cập nhật hồ sơ. Vui lòng thử lại.');
+    }
   };
 
   if (!user) {
@@ -60,9 +77,20 @@ export const ProfileView: React.FC = () => {
           <div className="absolute -bottom-12 left-8 flex items-end gap-4">
             <div className="relative group">
               <div className="w-24 h-24 rounded-2xl bg-slate-800 border-4 border-slate-900 flex items-center justify-center text-slate-500 overflow-hidden">
-                <User size={48} />
+                {selectedAvatar ? (
+                  <img
+                    src={`/avatars/${selectedAvatar}`}
+                    alt="Avatar"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User size={48} />
+                )}
               </div>
-              <button className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl text-white">
+              <button
+                onClick={() => setShowAvatarPicker(true)}
+                className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl text-white"
+              >
                 <Camera size={24} />
               </button>
             </div>
@@ -152,6 +180,14 @@ export const ProfileView: React.FC = () => {
           Xóa Tài Khoản
         </button>
       </div>
+
+      {showAvatarPicker && (
+        <AvatarPicker
+          currentAvatar={selectedAvatar}
+          onSelect={(avatar) => setSelectedAvatar(avatar)}
+          onClose={() => setShowAvatarPicker(false)}
+        />
+      )}
     </div>
   );
 };

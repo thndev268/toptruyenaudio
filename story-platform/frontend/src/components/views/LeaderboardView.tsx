@@ -205,8 +205,8 @@ export const LeaderboardView: React.FC = () => {
                 </div>
 
                 <div className="text-right text-xs font-mono shrink-0">
-                  <div className="text-slate-200 font-bold">{Math.round(user.validListeningMinutes / 60)} Giờ nghe</div>
-                  <div className="text-[10px] text-slate-400">{user.completedStories} truyện hoàn thành</div>
+                  <div className="text-slate-200 font-bold">{Math.round(user.validListeningMinutes || 0)} Giờ nghe</div>
+                  <div className="text-[10px] text-slate-400">{user.completedStories || 0} truyện hoàn thành</div>
                 </div>
               </div>
             ))
