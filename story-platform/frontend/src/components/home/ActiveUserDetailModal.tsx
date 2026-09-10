@@ -26,7 +26,7 @@ export const ActiveUserDetailModal: React.FC<ActiveUserDetailModalProps> = ({ us
   if (!user) return null;
 
   // Derive favorite sample stories for this user based on level/index
-  const favoriteStories = [];
+  const favoriteStories = user.favoriteStories || [];
 
   const getRankBadgeColor = (rank?: number) => {
     if (rank === 1) return 'from-amber-400 to-yellow-600 text-slate-950';
@@ -192,45 +192,47 @@ export const ActiveUserDetailModal: React.FC<ActiveUserDetailModalProps> = ({ us
             </div>
 
             {/* Sample Top Favorite Audiobooks */}
-            <div className="space-y-2 pt-1 border-t border-slate-800/80">
-              <div className="text-xs font-bold text-slate-300 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Heart className="w-4 h-4 text-rose-400 fill-rose-500/20" /> Tủ truyện đang nghe nhiều nhất:
-                </span>
-              </div>
+            {favoriteStories.length > 0 && (
+              <div className="space-y-2 pt-1 border-t border-slate-800/80">
+                <div className="text-xs font-bold text-slate-300 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Heart className="w-4 h-4 text-rose-400 fill-rose-500/20" /> Tủ truyện đang nghe nhiều nhất:
+                  </span>
+                </div>
 
-              <div className="space-y-2">
-                {favoriteStories.map((story) => (
-                  <Link
-                    key={story.id}
-                    to={`/story/${story.slug}`}
-                    onClick={onClose}
-                    className="flex items-center justify-between p-2 rounded-xl bg-slate-950/60 hover:bg-slate-800 border border-slate-800/80 transition-colors group"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <img
-                        loading="lazy"
-                        src={story.coverUrl}
-                        alt={story.title}
-                        className="w-10 h-12 rounded-lg object-cover bg-slate-800 border border-slate-700/80 shrink-0"
-                      />
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-white group-hover:text-cyan-300 truncate">
-                          {story.title}
-                        </div>
-                        <div className="text-[10px] text-slate-400 truncate">
-                          MC: {story.narratorName} • {story.totalChapters} Tập
+                <div className="space-y-2">
+                  {favoriteStories.map((story) => (
+                    <Link
+                      key={story.id}
+                      to={`/story/${story.slug}`}
+                      onClick={onClose}
+                      className="flex items-center justify-between p-2 rounded-xl bg-slate-950/60 hover:bg-slate-800 border border-slate-800/80 transition-colors group"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <img
+                          loading="lazy"
+                          src={story.coverUrl}
+                          alt={story.title}
+                          className="w-10 h-12 rounded-lg object-cover bg-slate-800 border border-slate-700/80 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-white group-hover:text-cyan-300 truncate">
+                            {story.title}
+                          </div>
+                          <div className="text-[10px] text-slate-400 truncate">
+                            MC: {story.narratorName} • {story.totalChapters} Tập
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <span className="text-[11px] font-bold text-cyan-400 shrink-0 ml-2 group-hover:underline">
-                      Xem truyện
-                    </span>
-                  </Link>
-                ))}
+                      <span className="text-[11px] font-bold text-cyan-400 shrink-0 ml-2 group-hover:underline">
+                        Xem truyện
+                      </span>
+                    </Link>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Modal Footer */}
