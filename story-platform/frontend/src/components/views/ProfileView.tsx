@@ -21,22 +21,32 @@ export const ProfileView: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
-  const [selectedAvatar, setSelectedAvatar] = useState(user?.avatarUrl || '');
+  const [selectedAvatar, setSelectedAvatar] = useState(() => {
+    // Extract filename from avatarUrl if it has /avatars/ prefix
+    if (user?.avatarUrl) {
+      if (user.avatarUrl.startsWith('/avatars/')) {
+        return user.avatarUrl.replace('/avatars/', '');
+      }
+      return user.avatarUrl;
+    }
+    return '';
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Update profile with selected avatar
+      // Update profile with selected avatar (add prefix for storage)
+      const avatarUrlToSave = selectedAvatar ? `/avatars/${selectedAvatar}` : '';
       await userProfileRepository.updateProfile({
         name: formData.name,
-        avatarUrl: selectedAvatar,
+        avatarUrl: avatarUrlToSave,
       });
 
       // Update auth context
       if (user) {
-        user.avatarUrl = selectedAvatar;
+        user.avatarUrl = avatarUrlToSave;
       }
 
       setLoading(false);
@@ -82,7 +92,7 @@ export const ProfileView: React.FC = () => {
               >
                 {selectedAvatar ? (
                   <img
-                    src={selectedAvatar.startsWith('data:') ? selectedAvatar : `/avatars/${selectedAvatar}`}
+                    src={`/avatars/${selectedAvatar}`}
                     alt="Avatar"
                     className="w-full h-full object-cover"
                   />

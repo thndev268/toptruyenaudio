@@ -97,7 +97,7 @@ export const ActiveUserDetailModal: React.FC<ActiveUserDetailModalProps> = ({ us
               <div className="flex items-end gap-3.5">
                 <div className="relative shrink-0">
                   <img
-                    src={user.avatarUrl ? (user.avatarUrl.startsWith('data:') ? user.avatarUrl : `/avatars/${user.avatarUrl}`) : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'}
+                    src={user.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'}
                     alt={user.displayName}
                     className="w-20 h-20 rounded-2xl object-cover border-4 border-slate-900 bg-slate-800 shadow-xl"
                   />
