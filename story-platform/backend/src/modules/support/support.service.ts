@@ -298,21 +298,8 @@ export class SupportService {
             data: { lastMessageAt: new Date() },
           });
 
-          // Emit bot message via Socket.IO
+          // Emit bot message via Socket.IO (only to user room to avoid duplicate)
           await this.chatGateway.sendToUser(userId, 'new-message', {
-            conversationId,
-            message: {
-              id: botMessage.id,
-              conversationId: botMessage.conversationId,
-              senderId: botMessage.senderId,
-              senderRole: botMessage.senderRole,
-              senderName: botMessage.senderName,
-              content: botMessage.content,
-              createdAt: botMessage.createdAt.toISOString(),
-            },
-          });
-
-          await this.chatGateway.sendToConversation(conversationId, 'new-message', {
             conversationId,
             message: {
               id: botMessage.id,
