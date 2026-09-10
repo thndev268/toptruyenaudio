@@ -22,12 +22,12 @@ export const ProfileView: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState(() => {
-    // Handle both base64 and path avatars
+    // Extract filename from avatarUrl if it has /avatars/ prefix
     if (user?.avatarUrl) {
       if (user.avatarUrl.startsWith('/avatars/')) {
         return user.avatarUrl.replace('/avatars/', '');
       }
-      return user.avatarUrl; // Could be base64 or already a filename
+      return user.avatarUrl;
     }
     return '';
   });
@@ -37,17 +37,8 @@ export const ProfileView: React.FC = () => {
     setLoading(true);
 
     try {
-      // Handle both base64 (upload) and path (public folder) avatars
-      let avatarUrlToSave = '';
-      if (selectedAvatar) {
-        if (selectedAvatar.startsWith('data:')) {
-          // Base64 from upload - save directly
-          avatarUrlToSave = selectedAvatar;
-        } else {
-          // Filename from public folder - add prefix
-          avatarUrlToSave = `/avatars/${selectedAvatar}`;
-        }
-      }
+      // Handle path (public folder) avatars only
+      const avatarUrlToSave = selectedAvatar ? `/avatars/${selectedAvatar}` : '';
 
       await userProfileRepository.updateProfile({
         name: formData.name,
@@ -103,7 +94,7 @@ export const ProfileView: React.FC = () => {
               >
                 {selectedAvatar ? (
                   <img
-                    src={selectedAvatar.startsWith('data:') ? selectedAvatar : `/avatars/${selectedAvatar}`}
+                    src={`/avatars/${selectedAvatar}`}
                     alt="Avatar"
                     className="w-full h-full object-cover"
                   />
