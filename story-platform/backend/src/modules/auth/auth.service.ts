@@ -43,12 +43,18 @@ export class AuthService {
 
     const passwordHash = await this.passwordHasher.hash(dto.password);
 
+    // Random avatar from branding folder
+    const avatarList = ['user1.jpg', 'user2.jpg', 'user3.jpg', 'user4.png', 'user5.jpg', 'user6.jpg', 'user7.jpg', 'user8.jpg', 'user9.png', 'user10.jpg'];
+    const randomAvatar = avatarList[Math.floor(Math.random() * avatarList.length)];
+    const avatarUrl = `/avatars/${randomAvatar}`;
+
     const user = await this.prisma.profile.create({
       data: {
         email: dto.email.trim(),
         emailNormalized,
         passwordHash,
         displayName: dto.displayName.trim(),
+        avatarUrl,
         role: AccountRole.USER,
         status: AccountStatus.ACTIVE,
         membershipTier: MembershipTier.FREE,
