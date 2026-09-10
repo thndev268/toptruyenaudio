@@ -141,6 +141,7 @@ export interface UserActivityRanking {
   activeDays: number;
   rank: number;
   achievements?: string[];
+  favoriteStories?: any[];
 }
 
 export interface CreatorRanking {

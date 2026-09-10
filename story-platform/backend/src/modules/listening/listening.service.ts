@@ -263,6 +263,7 @@ export class ListeningService {
         level: 1,
         validListeningMinutes: (ranking._sum.validListeningSeconds || 0) / 60,
         achievements: [],
+        favoriteStories: [], // TODO: Fetch actual favorite stories from database
       };
     });
   }
