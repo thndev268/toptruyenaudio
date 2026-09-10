@@ -186,7 +186,7 @@ export const LeaderboardView: React.FC = () => {
 
                   <div className="w-12 h-12 rounded-2xl overflow-hidden bg-slate-800 border border-slate-700 group-hover:border-cyan-400/80 transition-colors shrink-0">
                     <img
-                      src={user.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'}
+                      src={user.avatarUrl ? (user.avatarUrl.startsWith('data:') ? user.avatarUrl : user.avatarUrl) : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80'}
                       alt={user.displayName}
                       className="w-full h-full object-cover"
                     />
