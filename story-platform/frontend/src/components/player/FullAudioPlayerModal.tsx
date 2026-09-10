@@ -58,6 +58,7 @@ export const FullAudioPlayerModal: React.FC = () => {
   } = useAudioPlayer();
 
   const { stories } = useStories();
+  const storiesArray = Array.isArray(stories) ? stories : [];
   const [activeTab, setActiveTab] = useState<'visual' | 'playlist' | 'recommendations'>('visual');
 
   // Handle Escape key to close player
@@ -95,9 +96,9 @@ export const FullAudioPlayerModal: React.FC = () => {
 
   // Calculate related stories (similar logic to StoryDetailView)
   const relatedStories = useMemo(() => {
-    if (!currentStory || !stories || stories.length === 0) return [];
+    if (!currentStory || !storiesArray || storiesArray.length === 0) return [];
 
-    const allPublic = stories.filter((s: any) => s.status === 'PUBLISHED');
+    const allPublic = storiesArray.filter((s: any) => s.status === 'PUBLISHED');
     const others = allPublic.filter((s: any) => s.id !== currentStory.id && s.slug !== currentStory.slug);
 
     const scored = others.map((s: any) => {
@@ -112,7 +113,7 @@ export const FullAudioPlayerModal: React.FC = () => {
 
     scored.sort((a: any, b: any) => b.score - a.score);
     return scored.slice(0, 10).map((item: any) => item.story);
-  }, [currentStory, stories]);
+  }, [currentStory, storiesArray]);
 
   return (
     <AnimatePresence>
