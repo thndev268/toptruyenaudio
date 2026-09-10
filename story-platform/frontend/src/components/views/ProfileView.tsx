@@ -76,7 +76,10 @@ export const ProfileView: React.FC = () => {
         <div className="h-32 bg-gradient-to-r from-cyan-600/20 to-indigo-600/20 relative">
           <div className="absolute -bottom-12 left-8 flex items-end gap-4">
             <div className="relative group">
-              <div className="w-24 h-24 rounded-2xl bg-slate-800 border-4 border-slate-900 flex items-center justify-center text-slate-500 overflow-hidden">
+              <button
+                onClick={() => setShowAvatarPicker(true)}
+                className="w-24 h-24 rounded-2xl bg-slate-800 border-4 border-slate-900 flex items-center justify-center text-slate-500 overflow-hidden cursor-pointer hover:border-cyan-500/50 transition-colors"
+              >
                 {selectedAvatar ? (
                   <img
                     src={selectedAvatar.startsWith('data:') ? selectedAvatar : `/avatars/${selectedAvatar}`}
@@ -86,13 +89,10 @@ export const ProfileView: React.FC = () => {
                 ) : (
                   <User size={48} />
                 )}
-              </div>
-              <button
-                onClick={() => setShowAvatarPicker(true)}
-                className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl text-white"
-              >
-                <Camera size={24} />
               </button>
+              <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl text-white pointer-events-none">
+                <Camera size={24} />
+              </div>
             </div>
           </div>
         </div>
