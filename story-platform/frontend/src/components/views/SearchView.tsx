@@ -30,7 +30,7 @@ export const SearchView: React.FC = () => {
     }
   }, [query]);
 
-  const publicStories = useStories();
+  const { stories: publicStories } = useStories();
   const allStories = Array.isArray(publicStories) ? publicStories : EMPTY_STORIES;
   const genres = useGenres();
 

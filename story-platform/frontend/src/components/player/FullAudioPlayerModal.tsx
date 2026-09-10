@@ -82,21 +82,8 @@ export const FullAudioPlayerModal: React.FC = () => {
     };
   }, [isFullPlayerOpen, toggleFullPlayer]);
 
-  if (!currentStory || !currentChapter) return null;
-
-  const isFav = favorites.includes(currentStory.id);
-
-  const formatTime = (secs: number) => {
-    if (isNaN(secs)) return '00:00';
-    const mins = Math.floor(secs / 60);
-    const remainder = Math.floor(secs % 60);
-    return `${mins.toString().padStart(2, '0')}:${remainder.toString().padStart(2, '0')}`;
-  };
-
-  const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const speedOptions = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
-
   // Calculate related stories (similar logic to StoryDetailView)
+  // MUST be called before early return to follow Rules of Hooks
   const relatedStories = useMemo(() => {
     if (!currentStory || !storiesArray || storiesArray.length === 0) return [];
 
@@ -116,6 +103,20 @@ export const FullAudioPlayerModal: React.FC = () => {
     scored.sort((a: any, b: any) => b.score - a.score);
     return scored.slice(0, 10).map((item: any) => item.story);
   }, [currentStory, storiesArray]);
+
+  if (!currentStory || !currentChapter) return null;
+
+  const isFav = favorites.includes(currentStory.id);
+
+  const formatTime = (secs: number) => {
+    if (isNaN(secs)) return '00:00';
+    const mins = Math.floor(secs / 60);
+    const remainder = Math.floor(secs % 60);
+    return `${mins.toString().padStart(2, '0')}:${remainder.toString().padStart(2, '0')}`;
+  };
+
+  const progressPercentage = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const speedOptions = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
   return (
     <AnimatePresence>
