@@ -111,7 +111,7 @@ export const ActiveUserDetailModal: React.FC<ActiveUserDetailModalProps> = ({ us
                   <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
                     <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
                     <span className="text-cyan-400 font-bold font-mono">
-                      {user.activityPoints.toLocaleString('vi-VN')}
+                      {(user.activityPoints || 0).toLocaleString('vi-VN')}
                     </span>{' '}
                     điểm tích cực
                   </p>
