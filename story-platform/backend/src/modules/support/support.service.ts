@@ -269,52 +269,64 @@ export class SupportService {
 
     // Auto bot response for user messages from popup
     try {
+      // Check if last message is already a bot response to prevent duplicates
+      const lastMessage = await this.prisma.supportMessage.findFirst({
+        where: { conversationId: conv.id },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+      });
+
       const botResponse = await this.generateBotResponse(dto.content, conv.subject);
       if (botResponse) {
-        console.log(`[SupportService] Generating bot response for user message`);
-        const botMessage = await this.prisma.supportMessage.create({
-          data: {
-            conversationId: conv.id,
-            senderId: 'AI_BOT',
-            senderRole: 'AI',
-            senderName: 'AI Bot',
-            content: botResponse,
-          },
-        });
+        // Check if last message is a bot message with same content (prevent duplicate)
+        if (lastMessage && lastMessage.senderRole === 'AI' && lastMessage.content === botResponse) {
+          console.log(`[SupportService] Duplicate bot response detected, skipping`);
+        } else {
+          console.log(`[SupportService] Generating bot response for user message`);
+          const botMessage = await this.prisma.supportMessage.create({
+            data: {
+              conversationId: conv.id,
+              senderId: 'AI_BOT',
+              senderRole: 'AI',
+              senderName: 'AI Bot',
+              content: botResponse,
+            },
+          });
 
-        await this.prisma.supportConversation.update({
-          where: { id: conversationId },
-          data: { lastMessageAt: new Date() },
-        });
+          await this.prisma.supportConversation.update({
+            where: { id: conversationId },
+            data: { lastMessageAt: new Date() },
+          });
 
-        // Emit bot message via Socket.IO
-        await this.chatGateway.sendToUser(userId, 'new-message', {
-          conversationId,
-          message: {
-            id: botMessage.id,
-            conversationId: botMessage.conversationId,
-            senderId: botMessage.senderId,
-            senderRole: botMessage.senderRole,
-            senderName: botMessage.senderName,
-            content: botMessage.content,
-            createdAt: botMessage.createdAt.toISOString(),
-          },
-        });
+          // Emit bot message via Socket.IO
+          await this.chatGateway.sendToUser(userId, 'new-message', {
+            conversationId,
+            message: {
+              id: botMessage.id,
+              conversationId: botMessage.conversationId,
+              senderId: botMessage.senderId,
+              senderRole: botMessage.senderRole,
+              senderName: botMessage.senderName,
+              content: botMessage.content,
+              createdAt: botMessage.createdAt.toISOString(),
+            },
+          });
 
-        await this.chatGateway.sendToConversation(conversationId, 'new-message', {
-          conversationId,
-          message: {
-            id: botMessage.id,
-            conversationId: botMessage.conversationId,
-            senderId: botMessage.senderId,
-            senderRole: botMessage.senderRole,
-            senderName: botMessage.senderName,
-            content: botMessage.content,
-            createdAt: botMessage.createdAt.toISOString(),
-          },
-        });
+          await this.chatGateway.sendToConversation(conversationId, 'new-message', {
+            conversationId,
+            message: {
+              id: botMessage.id,
+              conversationId: botMessage.conversationId,
+              senderId: botMessage.senderId,
+              senderRole: botMessage.senderRole,
+              senderName: botMessage.senderName,
+              content: botMessage.content,
+              createdAt: botMessage.createdAt.toISOString(),
+            },
+          });
 
-        console.log(`[SupportService] Bot message sent via Socket.IO`);
+          console.log(`[SupportService] Bot message sent via Socket.IO`);
+        }
       }
     } catch (error) {
       console.error('[SupportService] Failed to generate bot response:', error);

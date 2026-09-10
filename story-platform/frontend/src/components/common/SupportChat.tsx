@@ -418,22 +418,51 @@ export const SupportChat: React.FC = () => {
   const handleSendMessage = async () => {
     if (!message.trim() || !conversation || !user || isSending) return;
 
+    const messageContent = message.trim();
     setIsSending(true);
     setIsBotTyping(true);
     console.log('[AI CHAT] typing started');
+
+    // Optimistic update: add user message immediately
+    const tempMessage: Message = {
+      id: `temp-${Date.now()}`,
+      senderId: user.id,
+      senderRole: 'USER',
+      senderName: user.name,
+      content: messageContent,
+      createdAt: new Date().toISOString(),
+    };
+
+    setConversation((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        messages: [...prev.messages, tempMessage],
+      };
+    });
+    setMessage('');
+
     try {
       const response = await apiRequest(`/support/conversations/${conversation.id}/messages`, {
         method: 'POST',
         body: JSON.stringify({
-          content: message,
+          content: messageContent,
         }),
       });
 
+      // Replace with actual response from server
       setConversation(response);
-      setMessage('');
     } catch (error) {
       console.error('[SupportChat] Failed to send message:', error);
       setIsBotTyping(false);
+      // Remove temp message on error
+      setConversation((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          messages: prev.messages.filter((m) => m.id !== tempMessage.id),
+        };
+      });
     } finally {
       setIsSending(false);
     }

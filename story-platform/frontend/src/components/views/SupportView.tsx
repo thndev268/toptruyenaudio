@@ -252,22 +252,58 @@ export const SupportView: React.FC = () => {
     e.preventDefault();
     if (!replyMessage.trim() || !selectedConvId || !user) return;
 
+    const messageContent = replyMessage.trim();
     setIsSendingReply(true);
     setIsBotTyping(true);
     console.log('[AI CHAT] typing started (SupportView)');
+
+    // Optimistic update: add user message immediately
+    const tempMessage = {
+      id: `temp-${Date.now()}`,
+      senderId: user.id,
+      senderRole: 'USER' as const,
+      senderName: user.name,
+      content: messageContent,
+      createdAt: new Date().toISOString(),
+    };
+
+    setConversations((prev) => {
+      return prev.map((conv) => {
+        if (conv.id === selectedConvId) {
+          return {
+            ...conv,
+            messages: [...conv.messages, tempMessage],
+          };
+        }
+        return conv;
+      });
+    });
+    setReplyMessage('');
+
     try {
       await supportRepository.sendMessage(
         selectedConvId,
         'USER',
         user.name,
-        replyMessage.trim()
+        messageContent
       );
-      setReplyMessage('');
       await loadConversations();
       showToast('success', 'Đã gửi tin nhắn', 'Tin nhắn của bạn đã được lưu.');
     } catch {
       showToast('error', 'Lỗi', 'Không thể gửi tin nhắn.');
       setIsBotTyping(false);
+      // Remove temp message on error
+      setConversations((prev) => {
+        return prev.map((conv) => {
+          if (conv.id === selectedConvId) {
+            return {
+              ...conv,
+              messages: conv.messages.filter((m) => m.id !== tempMessage.id),
+            };
+          }
+          return conv;
+        });
+      });
     } finally {
       setIsSendingReply(false);
     }
