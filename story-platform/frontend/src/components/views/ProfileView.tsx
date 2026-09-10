@@ -52,6 +52,7 @@ export const ProfileView: React.FC = () => {
       await userProfileRepository.updateProfile({
         name: formData.name,
         avatarUrl: avatarUrlToSave,
+        expectedVersion: undefined, // Don't send version check to avoid 409 conflict
       });
 
       // Update auth context
