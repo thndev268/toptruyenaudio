@@ -115,8 +115,23 @@ export const ProfileView: React.FC = () => {
                 <Camera size={24} />
               </div>
             </div>
+            <button
+              onClick={() => setShowAvatarPicker(true)}
+              className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-xl hover:bg-cyan-500/20 transition-colors flex items-center gap-2 font-medium text-sm"
+            >
+              <Camera size={16} />
+              Đổi ảnh
+            </button>
           </div>
         </div>
+
+        {showAvatarPicker && (
+          <AvatarPicker
+            currentAvatar={selectedAvatar}
+            onSelect={(avatar) => setSelectedAvatar(avatar)}
+            onClose={() => setShowAvatarPicker(false)}
+          />
+        )}
 
         <div className="pt-16 pb-8 px-8">
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -201,14 +216,6 @@ export const ProfileView: React.FC = () => {
           Xóa Tài Khoản
         </button>
       </div>
-
-      {showAvatarPicker && (
-        <AvatarPicker
-          currentAvatar={selectedAvatar}
-          onSelect={(avatar) => setSelectedAvatar(avatar)}
-          onClose={() => setShowAvatarPicker(false)}
-        />
-      )}
     </div>
   );
 };
