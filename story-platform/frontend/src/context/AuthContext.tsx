@@ -56,9 +56,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [devModeRoleOverride, setDevModeRoleOverride] = useState<boolean>(false);
   const [isBanned, setIsBanned] = useState<boolean>(false);
   const [banReason, setBanReason] = useState<string>('');
-  
+
   // Track last fetched session to prevent duplicate calls
   const lastFetchedSessionRef = useRef<string | null>(null);
+
+  // Track last synced session to prevent duplicate session-sync calls
+  const lastSyncedSessionRef = useRef<string | null>(null);
 
   // Save profile to cache
   const saveProfileToCache = (profile: UserProfile | null) => {
@@ -100,11 +103,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // Shared function to sync session with backend for IP tracking
-  const syncAuthSession = async () => {
+  const syncAuthSession = async (userId: string) => {
+    // Prevent duplicate sync for the same session
+    if (lastSyncedSessionRef.current === userId) {
+      console.log('[AUTH SESSION SYNC] skipping duplicate sync for user:', userId);
+      return;
+    }
+
     try {
-      console.log('[AUTH SESSION SYNC] calling /auth/session-sync');
+      console.log('[AUTH SESSION SYNC] calling /auth/session-sync for user:', userId);
       const result = await apiRequest('/auth/session-sync', { method: 'POST' });
       console.log('[AUTH SESSION SYNC] status: success', result);
+      lastSyncedSessionRef.current = userId; // Mark as synced
       return result;
     } catch (err) {
       console.error('[AUTH SESSION SYNC] status: failed', err);
@@ -239,15 +249,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[AuthContext] Auth state changed:', event, session?.user?.id);
       if (!isMounted) return;
-      
+
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         if (session && session.user) {
+          // Call session-sync for OAuth flows (Google, etc.) on SIGNED_IN
+          // Skip for TOKEN_REFRESHED to avoid unnecessary syncs
+          if (event === 'SIGNED_IN') {
+            syncAuthSession(session.user.id).catch(err => {
+              console.warn('[AuthContext] Session-sync failed on auth state change (non-blocking):', err);
+            });
+          }
+
           const profile = await fetchProfile(session.user.id, session.user.email || '');
           if (profile) {
             setAuthData({ role: profile.role, user: profile });
             checkBannedStatus(profile);
             saveProfileToCache(profile); // Save to cache after successful fetch
-            
+
             // Hide loading screen after profile is loaded
             if (showLoadingScreen) {
               setTimeout(() => setShowLoadingScreen(false), 500);
@@ -259,6 +277,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setAuthData({ role: 'GUEST', user: null });
         setShowLoadingScreen(false);
         saveProfileToCache(null); // Clear cache on sign out
+        lastSyncedSessionRef.current = null; // Reset sync tracking on logout
       }
     });
 
@@ -293,7 +312,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Call session-sync to track IP after successful Supabase login
     if (data.session && data.session.user) {
       // Call sync in background, don't block login
-      syncAuthSession().catch(err => {
+      syncAuthSession(data.session.user.id).catch(err => {
         console.warn('[AuthContext] Session-sync failed (non-blocking):', err);
       });
     }
@@ -357,7 +376,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Call session-sync to track IP after successful Supabase registration (auto-login)
     if (data?.session && data?.session.user) {
       // Call sync in background, don't block registration
-      syncAuthSession().catch(err => {
+      syncAuthSession(data.session.user.id).catch(err => {
         console.warn('[AuthContext] Session-sync failed after registration (non-blocking):', err);
       });
     }
