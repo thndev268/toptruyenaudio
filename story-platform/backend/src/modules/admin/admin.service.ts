@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AccountStatus, AccountRole } from '../../common/enums';
 import { QueryUsersDto, UserMutationDto } from './dto/admin-users.dto';
 import { CreateGenreDto, UpdateGenreDto } from './dto/genre.dto';
@@ -16,6 +17,7 @@ export class AdminService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async getUsers(queryDto: QueryUsersDto) {
@@ -861,11 +863,12 @@ export class AdminService {
   async updateBadge(id: string, body: any) {
     // Build update data object with only fields that exist in the database schema
     const updateData: any = {};
-    
+
     // Only update fields that exist in HonoraryTitle model
     if (body.code !== undefined) updateData.code = body.code;
     if (body.name !== undefined) updateData.name = body.name;
     if (body.description !== undefined) updateData.description = body.description;
+    if (body.level !== undefined) updateData.level = body.level;
     if (body.iconUrl !== undefined) updateData.iconUrl = body.iconUrl;
     if (body.effects !== undefined) updateData.effects = body.effects;
     if (body.isActive !== undefined) updateData.isActive = body.isActive;
@@ -929,6 +932,33 @@ export class AdminService {
         assignedBy: 'ADMIN',
       },
     });
+
+    // Create notification for user
+    try {
+      const notification = await this.prisma.notification.create({
+        data: {
+          title: 'Chúc mừng! Bạn nhận được danh hiệu mới',
+          content: `Bạn đã được trao danh hiệu "${badge.name}". Hãy kiểm tra hồ sơ cá nhân để xem chi tiết.`,
+          type: 'SYSTEM',
+          targetAudience: 'SPECIFIC_USER',
+          targetUserId: userId,
+          status: 'SENT',
+          sentAt: new Date(),
+        },
+      });
+
+      // Create user notification record
+      await this.prisma.userNotification.create({
+        data: {
+          notificationId: notification.id,
+          userId: userId,
+          isRead: false,
+        },
+      });
+    } catch (error) {
+      console.error('[AdminService] Failed to create notification for badge assignment:', error);
+      // Don't throw error - badge assignment should succeed even if notification fails
+    }
 
     return {
       success: true,
