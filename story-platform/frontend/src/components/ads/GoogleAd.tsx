@@ -9,8 +9,7 @@ interface GoogleAdProps {
 export const GoogleAd: React.FC<GoogleAdProps> = ({ slot, className = '', style = {} }) => {
   const adRef = useRef<HTMLModElement>(null);
   const adInitialized = useRef(false);
-  const [adLoaded, setAdLoaded] = useState(false);
-  const [hasContent, setHasContent] = useState(false);
+  const [isUnfilled, setIsUnfilled] = useState(false);
 
   useEffect(() => {
     if (adInitialized.current) return;
@@ -29,71 +28,68 @@ export const GoogleAd: React.FC<GoogleAdProps> = ({ slot, className = '', style 
   useEffect(() => {
     if (!adRef.current) return;
 
-    // Use MutationObserver to detect when AdSense fills the ad slot
+    // Use MutationObserver to detect data-ad-status changes
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
-        if (mutation.type === 'childList' || mutation.type === 'attributes') {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'data-ad-status') {
           const adElement = adRef.current;
           if (adElement) {
-            // Check if ad has content or has been filled
-            const hasChildren = adElement.children.length > 0;
-            const hasIframe = adElement.querySelector('iframe');
             const adStatus = adElement.getAttribute('data-ad-status');
-            
-            if (hasChildren || hasIframe || adStatus === 'filled') {
-              setHasContent(true);
-              setAdLoaded(true);
+            if (adStatus === 'unfilled' || adStatus === 'unfill-optimized') {
+              // Collapse wrapper for unfilled or unfill-optimized
+              setIsUnfilled(true);
+            } else if (adStatus === 'filled') {
+              // Show wrapper when ad is filled
+              setIsUnfilled(false);
             }
           }
         }
       });
     });
 
-    // Start observing
+    // Start observing data-ad-status attribute
     observer.observe(adRef.current, {
-      childList: true,
-      subtree: true,
       attributes: true,
       attributeFilter: ['data-ad-status']
     });
 
-    // Also check periodically for ad status
+    // Also check periodically for ad status (fallback)
     const checkInterval = setInterval(() => {
       const adElement = adRef.current;
       if (adElement) {
         const adStatus = adElement.getAttribute('data-ad-status');
-        if (adStatus === 'filled') {
-          setHasContent(true);
-          setAdLoaded(true);
+        if (adStatus === 'unfilled' || adStatus === 'unfill-optimized') {
+          setIsUnfilled(true);
           clearInterval(checkInterval);
-        } else if (adStatus === 'unfilled') {
-          // Ad was not filled, keep it collapsed
+        } else if (adStatus === 'filled') {
+          setIsUnfilled(false);
           clearInterval(checkInterval);
         }
       }
     }, 500);
 
-    // Cleanup
+    // Cleanup on unmount
     return () => {
       observer.disconnect();
       clearInterval(checkInterval);
     };
   }, []);
 
-  // Container style: collapsed until ad has content
+  // Container style: collapse only when ad is unfilled
   const containerStyle: React.CSSProperties = {
     ...style,
-    minHeight: hasContent ? 'auto' : '0',
-    height: hasContent ? 'auto' : '0',
-    overflow: 'hidden',
+    minHeight: isUnfilled ? '0' : 'auto',
+    height: isUnfilled ? '0' : 'auto',
+    overflow: isUnfilled ? 'hidden' : 'visible',
     transition: 'height 0.3s ease',
   };
 
   return (
-    <div 
-      className={`google-ad-container ${className}`} 
+    <div
+      className={`google-ad-container ${className}`}
       style={containerStyle}
     >
+      {/* <ins> must be rendered normally for AdSense to work */}
       <ins
         ref={adRef}
         className="adsbygoogle block"
