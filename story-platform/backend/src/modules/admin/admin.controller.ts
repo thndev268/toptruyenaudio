@@ -67,6 +67,12 @@ export class AdminController {
     return this.adminService.getUserById(userId);
   }
 
+  @Get('users/:userId/badges')
+  @ApiOperation({ summary: 'Lấy danh sách badges của người dùng' })
+  async getUserBadges(@Param('userId') userId: string) {
+    return this.adminService.getUserBadges(userId);
+  }
+
   @Post('users/:userId/suspend')
   @ApiOperation({ summary: 'Tạm khóa tài khoản người dùng' })
   async suspendUser(
