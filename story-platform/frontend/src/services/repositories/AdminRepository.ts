@@ -1702,21 +1702,33 @@ class AdminRepositoryService {
   async fetchNotificationsFromBackend(): Promise<AdminBroadcastNotification[]> {
     try {
       const response = await apiRequest<{ success: boolean; data: any[]; meta?: any }>('/notifications/admin/all?status=SENT');
-      if (response?.success && response?.data) {
-        this.notifications = response.data.map((n: any) => ({
-          id: n.id,
-          title: n.title,
-          content: n.content,
-          type: n.type,
-          targetAudience: n.targetAudience,
-          sentAt: n.sentAt || n.createdAt,
-          sentBy: n.createdBy || 'OWNER_ADMIN',
-          reachCount: n.recipientCount || 0,
-          status: n.status,
-        }));
-        console.log('[AdminRepository] Fetched notifications:', this.notifications.length);
+      
+      // apiRequest automatically extracts the 'data' property
+      // So response might be the array directly or the full object
+      let notificationsData: any[];
+      
+      if (Array.isArray(response)) {
+        notificationsData = response;
+      } else if (response && typeof response === 'object' && 'data' in response && Array.isArray(response.data)) {
+        notificationsData = response.data;
+      } else {
+        console.warn('[AdminRepository] Invalid response format:', response);
         return this.notifications;
       }
+      
+      this.notifications = notificationsData.map((n: any) => ({
+        id: n.id,
+        title: n.title,
+        content: n.content,
+        type: n.type,
+        targetAudience: n.targetAudience,
+        sentAt: n.sentAt || n.createdAt,
+        sentBy: n.createdBy || 'OWNER_ADMIN',
+        reachCount: n.recipientCount || 0,
+        status: n.status,
+      }));
+      console.log('[AdminRepository] Fetched notifications:', this.notifications.length);
+      return this.notifications;
     } catch (error) {
       console.error('[AdminRepository] Failed to fetch notifications:', error);
     }
