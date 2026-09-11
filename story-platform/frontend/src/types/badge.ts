@@ -92,7 +92,8 @@ export interface UserBadge {
   code: string;
   name: string;
   description: string;
-  icon: string;
+  icon?: string; // Frontend icon name (Lucide icon)
+  iconUrl?: string; // Backend icon URL
   level: BadgeLevel;
   requirementText?: string;
   awardMode: BadgeAwardMode;

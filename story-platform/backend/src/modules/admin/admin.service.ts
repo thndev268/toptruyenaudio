@@ -861,6 +861,8 @@ export class AdminService {
   }
 
   async updateBadge(id: string, body: any) {
+    console.log('[AdminService] updateBadge called with body:', body);
+
     // Build update data object with only fields that exist in the database schema
     const updateData: any = {};
 
@@ -873,10 +875,14 @@ export class AdminService {
     if (body.effects !== undefined) updateData.effects = body.effects;
     if (body.isActive !== undefined) updateData.isActive = body.isActive;
 
+    console.log('[AdminService] updateData to be saved:', updateData);
+
     const badge = await this.prisma.honoraryTitle.update({
       where: { id },
       data: updateData,
     });
+
+    console.log('[AdminService] updated badge:', badge);
 
     return {
       success: true,
