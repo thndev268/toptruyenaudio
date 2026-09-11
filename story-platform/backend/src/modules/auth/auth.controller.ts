@@ -25,8 +25,8 @@ export class AuthController {
 
   @Post('auth/register')
   @ApiOperation({ summary: 'Đăng ký tài khoản người dùng mới' })
-  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
-    const result = await this.authService.register(dto);
+  async register(@Body() dto: RegisterDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.register(dto, req);
     
     // Set HttpOnly cookie for refresh token
     res.cookie('refreshToken', result.tokens.refreshToken, {
@@ -42,8 +42,8 @@ export class AuthController {
 
   @Post('auth/login')
   @ApiOperation({ summary: 'Đăng nhập người dùng hoặc OWNER_ADMIN' })
-  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
-    const result = await this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const result = await this.authService.login(dto, req);
 
     res.cookie('refreshToken', result.tokens.refreshToken, {
       httpOnly: true,

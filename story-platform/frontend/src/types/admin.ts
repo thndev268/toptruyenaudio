@@ -54,6 +54,7 @@ export interface AdminUser {
   joinedAt?: string;
   createdAt: string;
   lastLoginAt: string;
+  lastLoginIp?: string | null;
   totalListens: number;
   isOwnerAdmin?: boolean;
   banReason?: string;

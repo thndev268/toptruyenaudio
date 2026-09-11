@@ -9,12 +9,14 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { Request } from 'express';
 import { AccountRole, AccountStatus, MembershipTier, SubscriptionStatus } from '../../common/enums';
 import { RegisterDto, LoginDto, ChangePasswordDto, UpdateProfileDto, ResetPasswordDto } from './dto/auth.dto';
 import { PasswordHasherService } from '../../common/services/password-hasher.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
+import { getClientIp } from '../../common/helpers/ip.helper';
 
 @Injectable()
 export class AuthService {
@@ -29,7 +31,7 @@ export class AuthService {
     private readonly featureFlagsService: FeatureFlagsService,
   ) {}
 
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto, request?: Request) {
     const emailNormalized = dto.email.trim().toLowerCase();
 
     const existing = await this.prisma.profile.findUnique({ where: { emailNormalized } });
@@ -48,6 +50,9 @@ export class AuthService {
     const randomAvatar = avatarList[Math.floor(Math.random() * avatarList.length)];
     const avatarUrl = `/avatars/${randomAvatar}`;
 
+    // Extract client IP from request
+    const clientIp = request ? getClientIp(request) : null;
+
     const user = await this.prisma.profile.create({
       data: {
         email: dto.email.trim(),
@@ -58,6 +63,7 @@ export class AuthService {
         role: AccountRole.USER,
         status: AccountStatus.ACTIVE,
         membershipTier: MembershipTier.FREE,
+        lastLoginIp: clientIp,
       }
     });
 
@@ -100,7 +106,7 @@ export class AuthService {
     };
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, request?: Request) {
     const emailNormalized = dto.email.trim().toLowerCase();
     let user = await this.prisma.profile.findUnique({ where: { emailNormalized } });
 
@@ -143,9 +149,15 @@ export class AuthService {
       });
     }
 
+    // Extract client IP from request
+    const clientIp = request ? getClientIp(request) : null;
+
     user = await this.prisma.profile.update({
       where: { id: user.id },
-      data: { lastLoginAt: new Date() },
+      data: { 
+        lastLoginAt: new Date(),
+        lastLoginIp: clientIp,
+      },
     });
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);

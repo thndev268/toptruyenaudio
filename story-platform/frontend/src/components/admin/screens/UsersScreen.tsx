@@ -129,7 +129,8 @@ export const UsersScreen: React.FC<UsersScreenProps> = ({
                 <th className="py-3.5 px-4">Vai Trò</th>
                 <th className="py-3.5 px-4 text-center">Gói</th>
                 <th className="py-3.5 px-4">Trạng Thái</th>
-                <th className="py-3.5 px-4">Ngày Tham Gia</th>
+                <th className="py-3.5 px-4">Đăng Nhập Gần Nhất</th>
+                <th className="py-3.5 px-4">IP Đăng Nhập</th>
                 <th className="py-3.5 px-4 text-right">Thao Tác</th>
               </tr>
             </thead>
@@ -190,7 +191,12 @@ export const UsersScreen: React.FC<UsersScreenProps> = ({
                     </div>
                   </td>
                   <td className="py-4 px-4 text-xs text-slate-500">
-                    {user.joinedAt}
+                    {user.lastLoginAt}
+                  </td>
+                  <td className="py-4 px-4">
+                    <div className="text-xs font-mono text-slate-400">
+                      {user.lastLoginIp || <span className="text-slate-600 italic">Chưa ghi nhận</span>}
+                    </div>
                   </td>
                   <td className="py-4 px-4 text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -272,6 +278,17 @@ export const UsersScreen: React.FC<UsersScreenProps> = ({
                 user.status === 'ACTIVE' ? 'text-emerald-400' : 'text-rose-500'
               }`}>
                 {user.status === 'ACTIVE' ? 'HOẠT ĐỘNG' : 'BỊ KHÓA'}
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-[10px]">
+                <span className="text-slate-500">Đăng nhập gần nhất:</span>
+                <span className="text-slate-400">{user.lastLoginAt}</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px]">
+                <span className="text-slate-500">IP đăng nhập:</span>
+                <span className="text-slate-400 font-mono">{user.lastLoginIp || <span className="italic text-slate-600">Chưa ghi nhận</span>}</span>
               </div>
             </div>
             

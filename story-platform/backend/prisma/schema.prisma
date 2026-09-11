@@ -25,6 +25,7 @@ model Profile {
   suspendedAt     DateTime?
   avatarUrl       String?
   lastLoginAt     DateTime?
+  lastLoginIp     String?
   passwordChangedAt DateTime?
   premiumExpiresAt DateTime?
   version         Int      @default(0)

@@ -299,6 +299,7 @@ export class AdminService {
       suspendedReason: user.suspendedReason,
       suspendedAt: user.suspendedAt ? user.suspendedAt.toISOString() : null,
       lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
+      lastLoginIp: user.lastLoginIp || null,
       createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString(),
       version: user.version,
     };
