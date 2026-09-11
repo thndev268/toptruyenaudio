@@ -141,14 +141,18 @@ export class RestBadgeRepository implements BadgeRepository {
     assignedBy: string = 'Admin',
     internalNote?: string
   ): Promise<UserBadgeAssignment> {
+    console.log('[BadgeRepository] assignBadge called with:', { userId, badgeId, source, assignedBy, internalNote });
     const response = await apiRequest<{ success: boolean; data: UserBadgeAssignment }>(`/admin/badges/${badgeId}/assign/${userId}`, {
       method: 'POST',
       body: JSON.stringify({ internalNote }),
     });
 
+    console.log('[BadgeRepository] assignBadge response:', response);
+
     if (!response?.success) {
       throw new Error('Gán danh hiệu thất bại');
     }
+    console.log('[BadgeRepository] assignBadge returned data:', response.data);
     return response.data;
   }
 
@@ -213,14 +217,18 @@ export class RestBadgeRepository implements BadgeRepository {
   }
 
   async updateBadge(id: string, updates: Partial<UserBadge>): Promise<UserBadge> {
+    console.log('[BadgeRepository] updateBadge called with:', { id, updates });
     const response = await apiRequest<{ success: boolean; data: UserBadge }>(`/admin/badges/${id}`, {
       method: 'PUT',
       body: JSON.stringify(updates),
     });
 
+    console.log('[BadgeRepository] updateBadge response:', response);
+
     if (!response?.success) {
       throw new Error('Cập nhật danh hiệu thất bại');
     }
+    console.log('[BadgeRepository] updateBadge returned data:', response.data);
     return response.data;
   }
 
