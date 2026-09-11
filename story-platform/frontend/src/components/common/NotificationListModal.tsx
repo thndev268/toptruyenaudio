@@ -32,6 +32,8 @@ export const NotificationListModal: React.FC<NotificationListModalProps> = ({
       deleteNotification(notificationId);
     } catch (error) {
       console.error('Failed to claim badge:', error);
+      // Show error to user (could add toast notification here)
+      alert('Không thể nhận danh hiệu. Vui lòng thử lại sau.');
     } finally {
       setClaimingBadge(null);
     }

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class BadgeAwardingService {
@@ -8,22 +9,39 @@ export class BadgeAwardingService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  // Run on the first day of every month at 00:00
-  @Cron('0 0 1 * *')
+  // Run on the first day of every month at 00:00 Vietnam time (UTC+7)
+  @Cron('0 0 1 * *', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+  })
   async checkAndAwardBadges() {
+    const startTime = Date.now();
     this.logger.log('Starting monthly badge awarding check...');
+    
+    let topListenerResult = { success: false, error: null as any };
+    let premiumResult = { success: false, error: null as any };
     
     try {
       // Check Top 1 Listener badge for previous month
       await this.checkTopListenerBadge();
-      
+      topListenerResult.success = true;
+      this.logger.log('Top listener badge check completed successfully');
+    } catch (error) {
+      topListenerResult.error = error;
+      this.logger.error('Error checking top listener badge:', error);
+    }
+    
+    try {
       // Check Premium badge
       await this.checkPremiumBadge();
-      
-      this.logger.log('Monthly badge awarding check completed');
+      premiumResult.success = true;
+      this.logger.log('Premium badge check completed successfully');
     } catch (error) {
-      this.logger.error('Error during monthly badge awarding check:', error);
+      premiumResult.error = error;
+      this.logger.error('Error checking premium badge:', error);
     }
+    
+    const duration = Date.now() - startTime;
+    this.logger.log(`Monthly badge awarding check completed in ${duration}ms. Top Listener: ${topListenerResult.success ? 'SUCCESS' : 'FAILED'}, Premium: ${premiumResult.success ? 'SUCCESS' : 'FAILED'}`);
   }
 
   /**
@@ -40,13 +58,16 @@ export class BadgeAwardingService {
       this.logger.log(`Checking top listener for period: ${firstDayOfPreviousMonth.toISOString()} to ${firstDayOfCurrentMonth.toISOString()}`);
 
       // Get top 1 listener by total listening time in the previous month
+      // Use COALESCE to handle NULL durationSeconds
       const topListener = await this.prisma.$queryRaw`
         SELECT 
           profileId,
-          SUM(durationSeconds) as totalDuration
+          COALESCE(SUM(durationSeconds), 0) as totalDuration
         FROM listening_sessions
         WHERE createdAt >= ${firstDayOfPreviousMonth} AND createdAt < ${firstDayOfCurrentMonth}
+          AND profileId IS NOT NULL
         GROUP BY profileId
+        HAVING COALESCE(SUM(durationSeconds), 0) > 0
         ORDER BY totalDuration DESC
         LIMIT 1
       ` as any[];
@@ -54,6 +75,18 @@ export class BadgeAwardingService {
       if (topListener.length > 0) {
         const topListenerData = topListener[0];
         const userId = topListenerData.profileId;
+        
+        if (!userId) {
+          this.logger.warn('Top listener has null profileId, skipping');
+          return;
+        }
+        
+        // Verify user exists
+        const user = await this.prisma.profile.findUnique({ where: { id: userId } });
+        if (!user) {
+          this.logger.warn(`User ${userId} not found, skipping badge award`);
+          return;
+        }
         
         // Get the badge for top listener
         const badge = await this.prisma.honoraryTitle.findFirst({
@@ -68,22 +101,35 @@ export class BadgeAwardingService {
           return;
         }
 
+        // Check if user already has this badge (prevent duplicate)
+ const existingAssignment = await this.prisma.userTitle.findFirst({
+          where: {
+            profileId: userId,
+            titleId: badge.id,
+            revokedAt: null, // Only check active badges
+          },
+        });
+
+        if (existingAssignment) {
+          this.logger.log(`User ${userId} already has active top listener badge, skipping`);
+          return;
+        }
+
         // Calculate badge expiration (30 days from now)
         const expirationDate = new Date();
         expirationDate.setDate(expirationDate.getDate() + 30);
 
         // Award badge with expiration
-        await this.awardBadgeWithExpiration(userId, badge.id, 'SYSTEM', `Top 1 listener tháng ${now.getMonth()}`, expirationDate);
+        await this.awardBadgeWithExpiration(userId, badge.id, 'SYSTEM', `Top 1 listener tháng ${now.getMonth() + 1}`, expirationDate);
         this.logger.log(`Awarded top listener badge to user ${userId} with expiration ${expirationDate.toISOString()}`);
       } else {
         this.logger.log('No listening sessions found for previous month');
       }
 
-      // Reset listening sessions for the new month (optional - keep history but mark as new month)
-      // This is just a marker, actual data is kept for analytics
       this.logger.log('New month started, listening competition reset');
     } catch (error) {
       this.logger.error('Error checking top listener badge:', error);
+      throw error;
     }
   }
 
@@ -106,6 +152,8 @@ export class BadgeAwardingService {
         },
       });
 
+      this.logger.log(`Found ${premiumUsers.length} active premium users`);
+
       // Get the premium badge
       const badge = await this.prisma.honoraryTitle.findFirst({
         where: {
@@ -119,27 +167,48 @@ export class BadgeAwardingService {
         return;
       }
 
+      let awardedCount = 0;
+      let skippedCount = 0;
+      let errorCount = 0;
+
       for (const subscription of premiumUsers) {
         const userId = subscription.profileId;
 
-        // Check if user already has this badge
-        const existingAssignment = await this.prisma.userTitle.findFirst({
-          where: {
-            profileId: userId,
-            titleId: badge.id,
-          },
-        });
-
-        if (existingAssignment) {
-          continue; // User already has the badge
+        if (!userId) {
+          this.logger.warn('Subscription has null profileId, skipping');
+          skippedCount++;
+          continue;
         }
 
-        // Award badge
-        await this.awardBadge(userId, badge.id, 'SYSTEM', 'Premium membership');
-        this.logger.log(`Awarded premium badge to user ${userId}`);
+        try {
+          // Check if user already has this badge (only active badges)
+          const existingAssignment = await this.prisma.userTitle.findFirst({
+            where: {
+              profileId: userId,
+              titleId: badge.id,
+              revokedAt: null,
+            },
+          });
+
+          if (existingAssignment) {
+            skippedCount++;
+            continue; // User already has the badge
+          }
+
+          // Award badge
+          await this.awardBadge(userId, badge.id, 'SYSTEM', 'Premium membership');
+          awardedCount++;
+          this.logger.log(`Awarded premium badge to user ${userId}`);
+        } catch (error) {
+          errorCount++;
+          this.logger.error(`Error awarding premium badge to user ${userId}:`, error);
+        }
       }
+
+      this.logger.log(`Premium badge check completed: ${awardedCount} awarded, ${skippedCount} skipped, ${errorCount} errors`);
     } catch (error) {
       this.logger.error('Error checking premium badge:', error);
+      throw error;
     }
   }
 
@@ -162,49 +231,68 @@ export class BadgeAwardingService {
         throw new Error('Badge not found');
       }
 
-      // Assign badge to user
-      await this.prisma.userTitle.upsert({
-        where: {
-          profileId_titleId: {
+      // Use transaction to ensure atomicity
+      await this.prisma.$transaction(async (tx) => {
+        // Assign badge to user
+        await tx.userTitle.upsert({
+          where: {
+            profileId_titleId: {
+              profileId: userId,
+              titleId: badgeId,
+            },
+          },
+          update: {
+            assignedAt: new Date(),
+            revokedAt: null, // Reactivate if was revoked
+          },
+          create: {
             profileId: userId,
             titleId: badgeId,
+            assignedBy,
           },
-        },
-        update: {
-          assignedAt: new Date(),
-        },
-        create: {
-          profileId: userId,
-          titleId: badgeId,
-          assignedBy,
-        },
+        });
+
+        // Check if notification already exists for this badge award
+        const existingNotification = await tx.notification.findFirst({
+          where: {
+            targetUserId: userId,
+            badgeId: badgeId,
+            badgeClaimed: false,
+            type: 'BADGE_AWARD',
+          },
+        });
+
+        if (existingNotification) {
+          this.logger.log(`Notification already exists for badge ${badge.name} to user ${userId}, skipping`);
+          return;
+        }
+
+        // Create notification with badge
+        const notification = await tx.notification.create({
+          data: {
+            title: 'Chúc mừng! Bạn nhận được danh hiệu mới',
+            content: `Bạn đã đạt được danh hiệu "${badge.name}". ${reason}. Nhấn để nhận danh hiệu và hiển thị trong hồ sơ cá nhân.`,
+            type: 'BADGE_AWARD',
+            targetAudience: 'SPECIFIC_USER',
+            targetUserId: userId,
+            badgeId: badgeId,
+            badgeClaimed: false,
+            status: 'SENT',
+            sentAt: new Date(),
+          },
+        });
+
+        // Create user notification record
+        await tx.userNotification.create({
+          data: {
+            notificationId: notification.id,
+            userId: userId,
+            isRead: false,
+          },
+        });
       });
 
-      // Create notification with badge
-      const notification = await this.prisma.notification.create({
-        data: {
-          title: 'Chúc mừng! Bạn nhận được danh hiệu mới',
-          content: `Bạn đã đạt được danh hiệu "${badge.name}". ${reason}. Nhấn để nhận danh hiệu và hiển thị trong hồ sơ cá nhân.`,
-          type: 'BADGE_AWARD',
-          targetAudience: 'SPECIFIC_USER',
-          targetUserId: userId,
-          badgeId: badgeId,
-          badgeClaimed: false,
-          status: 'SENT',
-          sentAt: new Date(),
-        },
-      });
-
-      // Create user notification record
-      await this.prisma.userNotification.create({
-        data: {
-          notificationId: notification.id,
-          userId: userId,
-          isRead: false,
-        },
-      });
-
-      this.logger.log(`Badge ${badge.name} awarded to user ${userId} with notification ${notification.id}`);
+      this.logger.log(`Badge ${badge.name} awarded to user ${userId}`);
     } catch (error) {
       this.logger.error('Error awarding badge:', error);
       throw error;
@@ -231,48 +319,66 @@ export class BadgeAwardingService {
         throw new Error('Badge not found');
       }
 
-      // Assign badge to user with expiration
-      await this.prisma.userTitle.upsert({
-        where: {
-          profileId_titleId: {
+      // Use transaction to ensure atomicity
+      await this.prisma.$transaction(async (tx) => {
+        // Assign badge to user with expiration
+        await tx.userTitle.upsert({
+          where: {
+            profileId_titleId: {
+              profileId: userId,
+              titleId: badgeId,
+            },
+          },
+          update: {
+            assignedAt: new Date(),
+            revokedAt: expirationDate,
+          },
+          create: {
             profileId: userId,
             titleId: badgeId,
+            assignedBy,
+            revokedAt: expirationDate,
           },
-        },
-        update: {
-          assignedAt: new Date(),
-          revokedAt: expirationDate,
-        },
-        create: {
-          profileId: userId,
-          titleId: badgeId,
-          assignedBy,
-          revokedAt: expirationDate,
-        },
-      });
+        });
 
-      // Create notification with badge
-      const notification = await this.prisma.notification.create({
-        data: {
-          title: 'Chúc mừng! Bạn nhận được danh hiệu mới',
-          content: `Bạn đã đạt được danh hiệu "${badge.name}". ${reason}. Hạn sử dụng: ${expirationDate.toLocaleDateString('vi-VN')}. Nhấn để nhận danh hiệu và hiển thị trong hồ sơ cá nhân.`,
-          type: 'BADGE_AWARD',
-          targetAudience: 'SPECIFIC_USER',
-          targetUserId: userId,
-          badgeId: badgeId,
-          badgeClaimed: false,
-          status: 'SENT',
-          sentAt: new Date(),
-        },
-      });
+        // Check if notification already exists for this badge award
+        const existingNotification = await tx.notification.findFirst({
+          where: {
+            targetUserId: userId,
+            badgeId: badgeId,
+            badgeClaimed: false,
+            type: 'BADGE_AWARD',
+          },
+        });
 
-      // Create user notification record
-      await this.prisma.userNotification.create({
-        data: {
-          notificationId: notification.id,
-          userId: userId,
-          isRead: false,
-        },
+        if (existingNotification) {
+          this.logger.log(`Notification already exists for badge ${badge.name} to user ${userId}, skipping`);
+          return;
+        }
+
+        // Create notification with badge
+        const notification = await tx.notification.create({
+          data: {
+            title: 'Chúc mừng! Bạn nhận được danh hiệu mới',
+            content: `Bạn đã đạt được danh hiệu "${badge.name}". ${reason}. Hạn sử dụng: ${expirationDate.toLocaleDateString('vi-VN')}. Nhấn để nhận danh hiệu và hiển thị trong hồ sơ cá nhân.`,
+            type: 'BADGE_AWARD',
+            targetAudience: 'SPECIFIC_USER',
+            targetUserId: userId,
+            badgeId: badgeId,
+            badgeClaimed: false,
+            status: 'SENT',
+            sentAt: new Date(),
+          },
+        });
+
+        // Create user notification record
+        await tx.userNotification.create({
+          data: {
+            notificationId: notification.id,
+            userId: userId,
+            isRead: false,
+          },
+        });
       });
 
       this.logger.log(`Badge ${badge.name} awarded to user ${userId} with expiration ${expirationDate.toISOString()}`);
@@ -297,6 +403,12 @@ export class BadgeAwardingService {
     badgeCode: string,
     reason: string,
   ) {
+    // Validate user exists
+    const user = await this.prisma.profile.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new Error(`User ${userId} not found`);
+    }
+
     const badge = await this.prisma.honoraryTitle.findFirst({
       where: {
         code: badgeCode,

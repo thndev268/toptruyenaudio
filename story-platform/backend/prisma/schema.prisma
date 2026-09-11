@@ -249,6 +249,8 @@ model ListeningSession {
   updatedAt       DateTime @updatedAt
   createdAt       DateTime @default(now())
 
+  @@index([profileId])
+  @@index([createdAt])
   @@map("listening_sessions")
 }
 
@@ -287,6 +289,9 @@ model UserSubscription {
   lastNotifiedAt DateTime?
   updatedAt     DateTime @updatedAt
 
+  @@index([profileId])
+  @@index([status])
+  @@index([endAt])
   @@map("user_subscriptions")
 }
 
@@ -588,6 +593,9 @@ model UserTitle {
   revokeReason String?
 
   @@unique([profileId, titleId], name: "profileId_titleId")
+  @@index([profileId])
+  @@index([titleId])
+  @@index([revokedAt])
   @@map("user_titles")
 }
 

@@ -953,74 +953,78 @@ export class AdminService {
   }
 
   async claimBadgeFromNotification(notificationId: string, userId: string) {
-    // Get notification
-    const notification = await this.prisma.notification.findUnique({
-      where: { id: notificationId },
-    });
+    // Use transaction to prevent race conditions
+    return await this.prisma.$transaction(async (tx) => {
+      // Get notification with lock
+      const notification = await tx.notification.findUnique({
+        where: { id: notificationId },
+      });
 
-    if (!notification) {
-      throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy thông báo.' });
-    }
+      if (!notification) {
+        throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy thông báo.' });
+      }
 
-    // Check if notification has badge
-    if (!notification.badgeId) {
-      throw new BadRequestException({ code: 'INVALID_REQUEST', message: 'Thông báo này không có danh hiệu để nhận.' });
-    }
+      // Check if notification has badge
+      if (!notification.badgeId) {
+        throw new BadRequestException({ code: 'INVALID_REQUEST', message: 'Thông báo này không có danh hiệu để nhận.' });
+      }
 
-    // Check if badge already claimed
-    if (notification.badgeClaimed) {
-      throw new BadRequestException({ code: 'INVALID_REQUEST', message: 'Danh hiệu này đã được nhận rồi.' });
-    }
+      // Check if badge already claimed
+      if (notification.badgeClaimed) {
+        throw new BadRequestException({ code: 'INVALID_REQUEST', message: 'Danh hiệu này đã được nhận rồi.' });
+      }
 
-    // Check if notification is for this user
-    if (notification.targetUserId !== userId) {
-      throw new ForbiddenException({ code: 'FORBIDDEN', message: 'Bạn không có quyền nhận danh hiệu này.' });
-    }
+      // Check if notification is for this user
+      if (notification.targetUserId !== userId) {
+        throw new ForbiddenException({ code: 'FORBIDDEN', message: 'Bạn không có quyền nhận danh hiệu này.' });
+      }
 
-    // Get badge details
-    const badge = await this.prisma.honoraryTitle.findUnique({
-      where: { id: notification.badgeId },
-    });
+      // Get badge details
+      const badge = await tx.honoraryTitle.findUnique({
+        where: { id: notification.badgeId },
+      });
 
-    if (!badge) {
-      throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy danh hiệu.' });
-    }
+      if (!badge) {
+        throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy danh hiệu.' });
+      }
 
-    // Assign badge to user
-    await this.prisma.userTitle.upsert({
-      where: {
-        profileId_titleId: {
+      // Assign badge to user
+      await tx.userTitle.upsert({
+        where: {
+          profileId_titleId: {
+            profileId: userId,
+            titleId: notification.badgeId,
+          },
+        },
+        update: {
+          assignedAt: new Date(),
+          revokedAt: null, // Reactivate if was revoked
+        },
+        create: {
           profileId: userId,
           titleId: notification.badgeId,
+          assignedBy: 'SYSTEM',
         },
-      },
-      update: {
-        assignedAt: new Date(),
-      },
-      create: {
-        profileId: userId,
-        titleId: notification.badgeId,
-        assignedBy: 'SYSTEM',
-      },
-    });
+      });
 
-    // Mark notification as claimed
-    await this.prisma.notification.update({
-      where: { id: notificationId },
-      data: {
-        badgeClaimed: true,
-      },
-    });
+      // Mark notification as claimed
+      await tx.notification.update({
+        where: { id: notificationId },
+        data: {
+          badgeClaimed: true,
+        },
+      });
 
-    return {
-      success: true,
-      message: 'Đã nhận danh hiệu thành công!',
-      data: {
-        badgeId: badge.id,
-        badgeName: badge.name,
-        badgeLevel: badge.level,
-      },
-    };
+      return {
+        success: true,
+        message: 'Đã nhận danh hiệu thành công!',
+        data: {
+          badgeId: badge.id,
+          badgeName: badge.name,
+          badgeLevel: badge.level,
+        },
+      };
+    });
   }
 
   async assignBadgeToUser(badgeId: string, userId: string) {
