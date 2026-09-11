@@ -242,24 +242,35 @@ export class BadgeAwardingService {
 
       // Use transaction to ensure atomicity
       await this.prisma.$transaction(async (tx) => {
-        // Assign badge to user
-        await tx.userTitle.upsert({
+        // Check existing badge assignment
+        const existing = await tx.userTitle.findFirst({
           where: {
-            profileId_titleId: {
-              profileId: userId,
-              titleId: badgeId,
-            },
-          },
-          update: {
-            assignedAt: new Date(),
-            revokedAt: null, // Reactivate if was revoked
-          },
-          create: {
             profileId: userId,
             titleId: badgeId,
-            assignedBy,
+            awardPeriod: null,
           },
         });
+
+        // Assign badge to user (no period, no expiration for permanent badges)
+        if (existing) {
+          await tx.userTitle.update({
+            where: { id: existing.id },
+            data: {
+              assignedAt: new Date(),
+              revokedAt: null, // Clear revocation if was revoked
+              expirationAt: null, // No expiration for permanent badges
+            },
+          });
+        } else {
+          await tx.userTitle.create({
+            data: {
+              profileId: userId,
+              titleId: badgeId,
+              assignedBy,
+              awardPeriod: null,
+            },
+          });
+        }
 
         // Check if notification already exists for this badge award
         const existingNotification = await tx.notification.findFirst({
@@ -332,27 +343,35 @@ export class BadgeAwardingService {
 
       // Use transaction to ensure atomicity
       await this.prisma.$transaction(async (tx) => {
-        // Assign badge to user with period and expiration
-        await tx.userTitle.upsert({
+        // Check existing badge assignment for this period
+        const existing = await tx.userTitle.findFirst({
           where: {
-            profileId_titleId_awardPeriod: {
-              profileId: userId,
-              titleId: badgeId,
-              awardPeriod: awardPeriod,
-            },
-          },
-          update: {
-            assignedAt: new Date(),
-            expirationAt: expirationDate,
-          },
-          create: {
             profileId: userId,
             titleId: badgeId,
-            assignedBy,
             awardPeriod: awardPeriod,
-            expirationAt: expirationDate,
           },
         });
+
+        // Assign badge to user with period and expiration
+        if (existing) {
+          await tx.userTitle.update({
+            where: { id: existing.id },
+            data: {
+              assignedAt: new Date(),
+              expirationAt: expirationDate,
+            },
+          });
+        } else {
+          await tx.userTitle.create({
+            data: {
+              profileId: userId,
+              titleId: badgeId,
+              assignedBy,
+              awardPeriod: awardPeriod,
+              expirationAt: expirationDate,
+            },
+          });
+        }
 
         // Check if notification already exists for this badge award and period
         const existingNotification = await tx.notification.findFirst({
@@ -423,27 +442,35 @@ export class BadgeAwardingService {
 
       // Use transaction to ensure atomicity
       await this.prisma.$transaction(async (tx) => {
-        // Assign badge to user with expiration (no period)
-        await tx.userTitle.upsert({
+        // Check existing badge assignment (no period)
+        const existing = await tx.userTitle.findFirst({
           where: {
-            profileId_titleId_awardPeriod: {
-              profileId: userId,
-              titleId: badgeId,
-              awardPeriod: null,
-            },
-          },
-          update: {
-            assignedAt: new Date(),
-            expirationAt: expirationDate,
-          },
-          create: {
             profileId: userId,
             titleId: badgeId,
-            assignedBy,
             awardPeriod: null,
-            expirationAt: expirationDate,
           },
         });
+
+        // Assign badge to user with expiration (no period)
+        if (existing) {
+          await tx.userTitle.update({
+            where: { id: existing.id },
+            data: {
+              assignedAt: new Date(),
+              expirationAt: expirationDate,
+            },
+          });
+        } else {
+          await tx.userTitle.create({
+            data: {
+              profileId: userId,
+              titleId: badgeId,
+              assignedBy,
+              awardPeriod: null,
+              expirationAt: expirationDate,
+            },
+          });
+        }
 
         // Check if notification already exists for this badge award
         const existingNotification = await tx.notification.findFirst({

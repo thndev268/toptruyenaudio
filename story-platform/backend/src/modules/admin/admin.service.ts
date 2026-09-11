@@ -989,23 +989,32 @@ export class AdminService {
       }
 
       // Assign badge to user
-      await tx.userTitle.upsert({
+      const existing = await tx.userTitle.findFirst({
         where: {
-          profileId_titleId: {
-            profileId: userId,
-            titleId: notification.badgeId,
-          },
-        },
-        update: {
-          assignedAt: new Date(),
-          revokedAt: null, // Reactivate if was revoked
-        },
-        create: {
           profileId: userId,
           titleId: notification.badgeId,
-          assignedBy: 'SYSTEM',
+          awardPeriod: null,
         },
       });
+
+      if (existing) {
+        await tx.userTitle.update({
+          where: { id: existing.id },
+          data: {
+            assignedAt: new Date(),
+            revokedAt: null, // Reactivate if was revoked
+          },
+        });
+      } else {
+        await tx.userTitle.create({
+          data: {
+            profileId: userId,
+            titleId: notification.badgeId,
+            assignedBy: 'SYSTEM',
+            awardPeriod: null,
+          },
+        });
+      }
 
       // Mark notification as claimed
       await tx.notification.update({
@@ -1046,49 +1055,28 @@ export class AdminService {
       throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Không tìm thấy người dùng.' });
     }
 
-    // Assign badge to user
-    await this.prisma.userTitle.upsert({
+    const existing = await this.prisma.userTitle.findFirst({
       where: {
-        profileId_titleId: {
-          profileId: userId,
-          titleId: badgeId,
-        },
-      },
-      update: {
-        assignedAt: new Date(),
-      },
-      create: {
         profileId: userId,
         titleId: badgeId,
-        assignedBy: 'ADMIN',
+        awardPeriod: null,
       },
     });
 
-    // Create notification for user
-    try {
-      const notification = await this.prisma.notification.create({
+    if (existing) {
+      await this.prisma.userTitle.update({
+        where: { id: existing.id },
+        data: {},
+      });
+    } else {
+      await this.prisma.userTitle.create({
         data: {
-          title: 'Chúc mừng! Bạn nhận được danh hiệu mới',
-          content: `Bạn đã được trao danh hiệu "${badge.name}". Hãy kiểm tra hồ sơ cá nhân để xem chi tiết.`,
-          type: 'SYSTEM',
-          targetAudience: 'SPECIFIC_USER',
-          targetUserId: userId,
-          status: 'SENT',
-          sentAt: new Date(),
+          profileId: userId,
+          titleId: badgeId,
+          assignedBy: 'ADMIN',
+          awardPeriod: null,
         },
       });
-
-      // Create user notification record
-      await this.prisma.userNotification.create({
-        data: {
-          notificationId: notification.id,
-          userId: userId,
-          isRead: false,
-        },
-      });
-    } catch (error) {
-      console.error('[AdminService] Failed to create notification for badge assignment:', error);
-      // Don't throw error - badge assignment should succeed even if notification fails
     }
 
     return {
