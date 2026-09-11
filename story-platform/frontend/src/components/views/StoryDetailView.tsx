@@ -84,6 +84,10 @@ import { StoryCard } from '../common/StoryCard';
 
 import { HorizontalStoryRail } from '../common/HorizontalStoryRail';
 
+import { GoogleAd } from '../ads/GoogleAd';
+
+const EMPTY_STORIES: any[] = [];
+
 
 
 export const StoryDetailView: React.FC = () => {
@@ -142,9 +146,8 @@ export const StoryDetailView: React.FC = () => {
 
 
 
-  const publicStories = useStories();
-
-  const storiesArray = Array.isArray(publicStories.stories) ? publicStories.stories : [];
+  const { stories: publicStories } = useStories();
+  const storiesArray = Array.isArray(publicStories) ? publicStories : EMPTY_STORIES;
   const story = storiesArray.find((s) => s.slug === slug || s.id === slug);
 
   const videoSettings = adminRepository.getVideoSettings();
@@ -316,7 +319,7 @@ export const StoryDetailView: React.FC = () => {
 
     if (!story) return [];
 
-    const allPublic = Array.isArray(publicStories.stories) ? publicStories.stories : [];
+    const allPublic = Array.isArray(publicStories) ? publicStories : [];
 
     const combined = [...allPublic];
 
@@ -1138,7 +1141,12 @@ export const StoryDetailView: React.FC = () => {
 
       />
 
-
+      {/* GOOGLE ADSENSE BANNER - After Hero */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="w-full flex justify-center">
+          <GoogleAd slot="YOUR_AD_SLOT_ID_DETAIL_1" className="w-full max-w-[728px]" />
+        </div>
+      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8 sm:space-y-12">
 
@@ -1442,6 +1450,10 @@ export const StoryDetailView: React.FC = () => {
 
           </div>
 
+          {/* GOOGLE ADSENSE BANNER - After Chapters List */}
+          <div className="w-full flex justify-center py-4">
+            <GoogleAd slot="YOUR_AD_SLOT_ID_DETAIL_2" className="w-full max-w-[728px]" />
+          </div>
 
 
           {/* DANH SÁCH PHIM & TRUYỆN GỢI Ý THEO CHỦ ĐỀ, THỂ LOẠI (HIỂN THỊ BÊN DƯỚI DANH SÁCH TẬP) */}

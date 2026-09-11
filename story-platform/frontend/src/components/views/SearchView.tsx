@@ -7,6 +7,8 @@ import { useStories } from '../../hooks/useStories';
 import { matchesSearchKeyword } from '../../utils/searchHelpers';
 import { StoryCard } from '../common/StoryCard';
 
+const EMPTY_STORIES: any[] = [];
+
 export const SearchView: React.FC = () => {
   const { navigateTo, playChapter } = useAudioPlayer();
   const [query, setQuery] = useState('');
@@ -28,8 +30,8 @@ export const SearchView: React.FC = () => {
     }
   }, [query]);
 
-  const publicStories = useStories();
-  const allStories = Array.isArray(publicStories) ? publicStories : [];
+  const { stories: publicStories } = useStories();
+  const allStories = Array.isArray(publicStories) ? publicStories : EMPTY_STORIES;
   const genres = useGenres();
 
   const filtered = allStories.filter((story) => {

@@ -450,8 +450,26 @@ export const SupportChat: React.FC = () => {
         }),
       });
 
-      // Replace with actual response from server
-      setConversation(response);
+      // Append new messages from response (response may be full conversation or just new messages)
+      setConversation((prev) => {
+        if (!prev) return prev;
+        // If response is a full conversation object
+        if (response.id && response.messages) {
+          // Remove temp message and use server response
+          return {
+            ...response,
+            messages: response.messages.filter((m: Message) => m.id !== tempMessage.id),
+          };
+        }
+        // If response is just a message or array of messages
+        const newMessages = Array.isArray(response) ? response : [response];
+        return {
+          ...prev,
+          messages: prev.messages
+            .filter((m) => m.id !== tempMessage.id) // Remove temp message
+            .concat(newMessages), // Add server messages
+        };
+      });
     } catch (error) {
       console.error('[SupportChat] Failed to send message:', error);
       setIsBotTyping(false);

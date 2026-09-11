@@ -21,22 +21,33 @@ export const ProfileView: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
-  const [selectedAvatar, setSelectedAvatar] = useState(user?.avatarUrl || '');
+  const [selectedAvatar, setSelectedAvatar] = useState(() => {
+    // Extract filename from avatarUrl if it has /avatars/ prefix
+    if (user?.avatarUrl) {
+      if (user.avatarUrl.startsWith('/avatars/')) {
+        return user.avatarUrl.replace('/avatars/', '');
+      }
+      return user.avatarUrl;
+    }
+    return '';
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Update profile with selected avatar
+      // Handle path (public folder) avatars only
+      const avatarUrlToSave = selectedAvatar ? `/avatars/${selectedAvatar}` : '';
+
       await userProfileRepository.updateProfile({
         name: formData.name,
-        avatarUrl: selectedAvatar,
+        avatarUrl: avatarUrlToSave,
       });
 
       // Update auth context
       if (user) {
-        user.avatarUrl = selectedAvatar;
+        user.avatarUrl = avatarUrlToSave;
       }
 
       setLoading(false);
@@ -76,7 +87,10 @@ export const ProfileView: React.FC = () => {
         <div className="h-32 bg-gradient-to-r from-cyan-600/20 to-indigo-600/20 relative">
           <div className="absolute -bottom-12 left-8 flex items-end gap-4">
             <div className="relative group">
-              <div className="w-24 h-24 rounded-2xl bg-slate-800 border-4 border-slate-900 flex items-center justify-center text-slate-500 overflow-hidden">
+              <button
+                onClick={() => setShowAvatarPicker(true)}
+                className="w-24 h-24 rounded-2xl bg-slate-800 border-4 border-slate-900 flex items-center justify-center text-slate-500 overflow-hidden cursor-pointer hover:border-cyan-500/50 transition-colors"
+              >
                 {selectedAvatar ? (
                   <img
                     src={`/avatars/${selectedAvatar}`}
@@ -86,16 +100,28 @@ export const ProfileView: React.FC = () => {
                 ) : (
                   <User size={48} />
                 )}
-              </div>
-              <button
-                onClick={() => setShowAvatarPicker(true)}
-                className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl text-white"
-              >
-                <Camera size={24} />
               </button>
+              <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-2xl text-white pointer-events-none">
+                <Camera size={24} />
+              </div>
             </div>
+            <button
+              onClick={() => setShowAvatarPicker(true)}
+              className="px-4 py-2 bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 rounded-xl hover:bg-cyan-500/20 transition-colors flex items-center gap-2 font-medium text-sm"
+            >
+              <Camera size={16} />
+              Đổi ảnh
+            </button>
           </div>
         </div>
+
+        {showAvatarPicker && (
+          <AvatarPicker
+            currentAvatar={selectedAvatar}
+            onSelect={(avatar) => setSelectedAvatar(avatar)}
+            onClose={() => setShowAvatarPicker(false)}
+          />
+        )}
 
         <div className="pt-16 pb-8 px-8">
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -180,14 +206,6 @@ export const ProfileView: React.FC = () => {
           Xóa Tài Khoản
         </button>
       </div>
-
-      {showAvatarPicker && (
-        <AvatarPicker
-          currentAvatar={selectedAvatar}
-          onSelect={(avatar) => setSelectedAvatar(avatar)}
-          onClose={() => setShowAvatarPicker(false)}
-        />
-      )}
     </div>
   );
 };

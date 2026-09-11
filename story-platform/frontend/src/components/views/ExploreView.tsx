@@ -13,6 +13,8 @@ import {
   filterStoryList,
 } from '../../utils/searchHelpers';
 
+const EMPTY_STORIES: any[] = [];
+
 export const ExploreView: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [isSearching, setIsSearching] = useState(false);
@@ -91,7 +93,7 @@ export const ExploreView: React.FC = () => {
   };
 
   const { stories: publicStories } = useStories();
-  const allStories = Array.isArray(publicStories) ? publicStories : [];
+  const allStories = Array.isArray(publicStories) ? publicStories : EMPTY_STORIES;
   const filteredStories = filterStoryList(allStories, filters);
 
   // Simulate network loading time for smoother visual transition

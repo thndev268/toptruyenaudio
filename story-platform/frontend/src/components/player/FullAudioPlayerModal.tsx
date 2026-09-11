@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Play,
@@ -17,11 +17,17 @@ import {
   AlertTriangle,
   RefreshCw,
   X,
-  Crown
+  Crown,
+  Sparkles as SparklesIcon
 } from 'lucide-react';
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
 import { FocusTrap } from '../common/FocusTrap';
 import { motionTokens } from '../../config/motionTokens';
+import { HorizontalStoryRail } from '../common/HorizontalStoryRail';
+import { StoryCard } from '../common/StoryCard';
+import { useStories } from '../../hooks/useStories';
+
+const EMPTY_STORIES: any[] = [];
 
 export const FullAudioPlayerModal: React.FC = () => {
   const {
@@ -53,7 +59,9 @@ export const FullAudioPlayerModal: React.FC = () => {
     clearAudioError,
   } = useAudioPlayer();
 
-  const [activeTab, setActiveTab] = useState<'visual' | 'playlist'>('visual');
+  const { stories } = useStories();
+  const storiesArray = Array.isArray(stories) ? stories : EMPTY_STORIES;
+  const [activeTab, setActiveTab] = useState<'visual' | 'playlist' | 'recommendations'>('visual');
 
   // Handle Escape key to close player
   useEffect(() => {
@@ -73,6 +81,28 @@ export const FullAudioPlayerModal: React.FC = () => {
       document.body.style.overflow = '';
     };
   }, [isFullPlayerOpen, toggleFullPlayer]);
+
+  // Calculate related stories (similar logic to StoryDetailView)
+  // MUST be called before early return to follow Rules of Hooks
+  const relatedStories = useMemo(() => {
+    if (!currentStory || !storiesArray || storiesArray.length === 0) return [];
+
+    const allPublic = storiesArray.filter((s: any) => s.status === 'PUBLISHED');
+    const others = allPublic.filter((s: any) => s.id !== currentStory.id && s.slug !== currentStory.slug);
+
+    const scored = others.map((s: any) => {
+      let score = 0;
+      const commonGenres = (s.genres || []).filter((g: any) => (currentStory.genres || []).includes(g));
+      score += commonGenres.length * 10;
+      if (s.isVideoStory && currentStory.isVideoStory) score += 15;
+      if (s.authorName && s.authorName === currentStory.authorName) score += 20;
+      score += s.rating || 0;
+      return { story: s, score };
+    });
+
+    scored.sort((a: any, b: any) => b.score - a.score);
+    return scored.slice(0, 10).map((item: any) => item.story);
+  }, [currentStory, storiesArray]);
 
   if (!currentStory || !currentChapter) return null;
 
@@ -204,6 +234,14 @@ export const FullAudioPlayerModal: React.FC = () => {
               >
                 <List className="w-3.5 h-3.5" /> Danh Sách Tập ({currentStory.chapters.length})
               </button>
+              <button
+                onClick={() => setActiveTab('recommendations')}
+                className={`px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all min-h-[38px] ${
+                  activeTab === 'recommendations' ? 'bg-cyan-500 text-slate-950 font-bold shadow-md' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <SparklesIcon className="w-3.5 h-3.5" /> Gợi Ý
+              </button>
             </div>
           </div>
 
@@ -297,6 +335,30 @@ export const FullAudioPlayerModal: React.FC = () => {
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Tab 3: Recommendations View */}
+          {activeTab === 'recommendations' && (
+            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 sm:p-4 space-y-2 flex-1 overflow-y-auto">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 border-b border-slate-800 pb-2">
+                <span>CÓ THỂ BẠN SẼ THÍCH</span>
+                <span>{relatedStories.length} truyện</span>
+              </div>
+
+              {relatedStories.length > 0 ? (
+                <HorizontalStoryRail>
+                  {relatedStories.map((item) => (
+                    <div key={item.id} className="w-48 sm:w-56 shrink-0 snap-start">
+                      <StoryCard story={item} />
+                    </div>
+                  ))}
+                </HorizontalStoryRail>
+              ) : (
+                <div className="flex items-center justify-center py-8 text-slate-400 text-sm">
+                  Không có gợi ý
+                </div>
+              )}
             </div>
           )}
 

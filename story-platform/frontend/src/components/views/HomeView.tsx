@@ -19,16 +19,20 @@ import { HomeViewSkeleton } from './skeletons/HomeViewSkeleton';
 import { PremiumLoadingScreen } from '../common/PremiumLoadingScreen';
 import { ErrorState } from '../common/ErrorState';
 import { BottomLoadingIndicator } from '../common/BottomLoadingIndicator';
+import { GoogleAd } from '../ads/GoogleAd';
+
+const EMPTY_STORIES: any[] = [];
+const EMPTY_GENRES: any[] = [];
 
 export const HomeView: React.FC = () => {
   const navigate = useNavigate();
   const [showInitialLoading, setShowInitialLoading] = useState(true);
 
   const { stories, isLoading, isLoadingMore, error, hasTimedOut, retry, loadMore } = useStories();
-  const allStories = Array.isArray(stories) ? stories : [];
+  const allStories = Array.isArray(stories) ? stories : EMPTY_STORIES;
   const featuredStory = allStories.length > 0 ? allStories[0] : null;
   const genres = useGenres();
-  const genresArray = Array.isArray(genres) ? genres : [];
+  const genresArray = Array.isArray(genres) ? genres : EMPTY_GENRES;
 
   // Show premium loading screen for initial load
   useEffect(() => {
@@ -64,9 +68,14 @@ export const HomeView: React.FC = () => {
 
   return (
     <div className="space-y-8 sm:space-y-12 lg:space-y-14 pb-28 sm:pb-32 animate-fadeIn max-w-[1800px] w-full mx-auto px-1 sm:px-2 lg:px-3">
-      
+
       {/* 1. HERO BANNER SECTION */}
       {featuredStory && <HeroSection featuredStory={featuredStory} />}
+
+      {/* GOOGLE ADSENSE BANNER - After Hero */}
+      <div className="w-full flex justify-center">
+        <GoogleAd slot="YOUR_AD_SLOT_ID" className="w-full max-w-[728px]" />
+      </div>
 
       {/* 2. QUICK STORY FILTER */}
       <QuickStoryFilter />
@@ -116,6 +125,11 @@ export const HomeView: React.FC = () => {
       {/* 5. TRENDING 24H SECTION */}
       <TrendingStoriesSection stories={allStories} />
 
+      {/* GOOGLE ADSENSE BANNER - After Trending */}
+      <div className="w-full flex justify-center">
+        <GoogleAd slot="YOUR_AD_SLOT_ID_2" className="w-full max-w-[728px]" />
+      </div>
+
       {/* 6. BOTTOM LOADING INDICATOR */}
       {isLoadingMore && <BottomLoadingIndicator />}
 
@@ -130,6 +144,11 @@ export const HomeView: React.FC = () => {
 
       {/* 10. BECOME CREATOR CTA BANNER */}
       <BecomeCreatorBanner />
+
+      {/* GOOGLE ADSENSE BANNER - Before Footer */}
+      <div className="w-full flex justify-center">
+        <GoogleAd slot="YOUR_AD_SLOT_ID_3" className="w-full max-w-[728px]" />
+      </div>
 
     </div>
   );
