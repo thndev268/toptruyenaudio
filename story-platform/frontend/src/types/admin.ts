@@ -202,9 +202,11 @@ export interface AdminBroadcastNotification {
   id: string;
   title: string;
   content: string;
-  type?: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT';
+  type?: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT' | 'BADGE_AWARD';
   targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER';
   targetUserId?: string; // For SPECIFIC_USER target
+  badgeId?: string; // ID of badge to be awarded
+  badgeClaimed?: boolean; // Whether badge has been claimed
   sentAt: string;
   sentBy: AdminType;
   reachCount: number;

@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Bell, Trash2, Clock, CheckCircle2, Mic, Share2, ShieldCheck, Info } from 'lucide-react';
+import { X, Bell, Trash2, Clock, CheckCircle2, Mic, Share2, ShieldCheck, Info, Award, Gift } from 'lucide-react';
 import { useNotifications, Notification, getNotificationIcon, getNotificationTypeLabel } from '../../context/NotificationContext';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import { badgeRepository } from '../../services/repositories/BadgeRepository';
 
 interface NotificationListModalProps {
   isOpen: boolean;
@@ -18,8 +19,23 @@ export const NotificationListModal: React.FC<NotificationListModalProps> = ({
   onViewDetail,
 }) => {
   const { notifications, unreadCount, markAllAsRead, deleteNotification } = useNotifications();
+  const [claimingBadge, setClaimingBadge] = useState<string | null>(null);
 
   useBodyScrollLock(isOpen);
+
+  const handleClaimBadge = async (notificationId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setClaimingBadge(notificationId);
+    try {
+      await badgeRepository.claimBadgeFromNotification(notificationId);
+      // Refresh notifications or update local state
+      deleteNotification(notificationId);
+    } catch (error) {
+      console.error('Failed to claim badge:', error);
+    } finally {
+      setClaimingBadge(null);
+    }
+  };
 
   const getIcon = (type?: string) => {
     const IconComponent = getNotificationIcon(type);
@@ -127,6 +143,25 @@ export const NotificationListModal: React.FC<NotificationListModalProps> = ({
                           <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
                             {notif.content}
                           </p>
+                          {notif.type === 'BADGE_AWARD' && notif.badgeId && !notif.badgeClaimed && (
+                            <button
+                              onClick={(e) => handleClaimBadge(notif.id, e)}
+                              disabled={claimingBadge === notif.id}
+                              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-rose-500 text-white text-[10px] font-bold rounded-lg hover:from-amber-600 hover:to-rose-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {claimingBadge === notif.id ? (
+                                <>
+                                  <Clock className="w-3 h-3 animate-spin" />
+                                  Đang nhận...
+                                </>
+                              ) : (
+                                <>
+                                  <Gift className="w-3 h-3" />
+                                  Nhận danh hiệu
+                                </>
+                              )}
+                            </button>
+                          )}
                         </div>
 
                         <button

@@ -261,6 +261,21 @@ export class RestBadgeRepository implements BadgeRepository {
     // Not implemented in backend yet
     return [];
   }
+
+  async claimBadgeFromNotification(notificationId: string): Promise<{ success: boolean; message: string; data?: any }> {
+    const response = await apiRequest<{ success: boolean; message: string; data?: any }>(
+      `/admin/notifications/${notificationId}/claim-badge`,
+      {
+        method: 'POST',
+      }
+    );
+
+    if (!response?.success) {
+      throw new Error('Nhận danh hiệu thất bại');
+    }
+
+    return response;
+  }
 }
 
 export const badgeRepository = new RestBadgeRepository();

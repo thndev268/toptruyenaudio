@@ -634,9 +634,11 @@ model Notification {
   id              String   @id @default(cuid())
   title           String
   content         String
-  type            String   @default("SYSTEM") // NEW_USER, NEW_STORY, NEW_CHAPTER, PROMOTION, SYSTEM, OTHER
+  type            String   @default("SYSTEM") // NEW_USER, NEW_STORY, NEW_CHAPTER, PROMOTION, SYSTEM, OTHER, BADGE_AWARD
   targetAudience  String   @default("ALL") // ALL, REGULAR, PREMIUM, CREATOR, SPECIFIC_USER
   targetUserId    String?
+  badgeId         String?  // ID of badge to be awarded
+  badgeClaimed    Boolean  @default(false) // Whether badge has been claimed
   status          String   @default("DRAFT") // DRAFT, SCHEDULED, SENDING, SENT, CANCELLED
   scheduledAt     DateTime?
   sentAt          DateTime?

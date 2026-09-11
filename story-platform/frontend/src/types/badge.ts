@@ -223,4 +223,5 @@ export interface BadgeRepository {
   createEventDefinition(data: Omit<BadgeEventDefinition, 'id' | 'createdAt' | 'updatedAt'>): Promise<BadgeEventDefinition>;
   updateEventDefinition(id: string, updates: Partial<BadgeEventDefinition>): Promise<BadgeEventDefinition>;
   getAuditLogs(userId?: string): Promise<BadgeAuditLog[]>;
+  claimBadgeFromNotification(notificationId: string): Promise<{ success: boolean; message: string; data?: any }>;
 }

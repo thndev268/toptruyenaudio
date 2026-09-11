@@ -73,6 +73,15 @@ export class AdminController {
     return this.adminService.getUserBadges(userId);
   }
 
+  @Post('notifications/:notificationId/claim-badge')
+  @ApiOperation({ summary: 'Nhận badge từ notification' })
+  async claimBadgeFromNotification(
+    @Param('notificationId') notificationId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.adminService.claimBadgeFromNotification(notificationId, userId);
+  }
+
   @Post('users/:userId/suspend')
   @ApiOperation({ summary: 'Tạm khóa tài khoản người dùng' })
   async suspendUser(
