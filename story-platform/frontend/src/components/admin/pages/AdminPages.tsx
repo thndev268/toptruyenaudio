@@ -32,6 +32,7 @@ import { AuditLogsScreen } from '../screens/AuditLogsScreen';
 import { AdminProfileScreen } from '../screens/AdminProfileScreen';
 import { AdminBadgesScreen } from '../screens/AdminBadgesScreen';
 import { AdminBadgesPage } from './AdminBadgesPage';
+import { SystemStatusScreen } from '../screens/SystemStatusScreen';
 
 export { AdminBadgesPage };
 
@@ -62,6 +63,7 @@ export const AdminDashboardPage: React.FC = () => {
       'audit-logs': '/admin/audit-logs',
       'feature-flags': '/admin/settings',
       'admin-profile': '/admin/profile',
+      'system-status': '/admin/system-status',
     };
     const route = routeMap[screen] || '/admin/dashboard';
     if (paramId) {
@@ -402,6 +404,15 @@ export const AdminPayOSPage: React.FC = () => {
   return (
     <AdminPageContainer>
       <PayOSScreen />
+    </AdminPageContainer>
+  );
+};
+
+// 20. System Status Page
+export const AdminSystemStatusPage: React.FC = () => {
+  return (
+    <AdminPageContainer>
+      <SystemStatusScreen />
     </AdminPageContainer>
   );
 };

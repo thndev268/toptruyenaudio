@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../../prisma/prisma.service';
 import OpenAI from 'openai';
 
 export interface AiResponse {
@@ -46,7 +47,10 @@ KHI NÀO CHUYỂN CSKH:
 Nếu cần chuyển CSKH, hãy trả lời với format:
 HANDOFF_TO_HUMAN: [lý do ngắn gọn]`;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
     const apiKey = this.configService.get<string>('OPENAI_API_KEY');
     if (apiKey) {
       this.openai = new OpenAI({ apiKey });
@@ -119,6 +123,16 @@ HANDOFF_TO_HUMAN: [lý do ngắn gọn]`;
       this.logger.log(`[AiService] OpenAI response received in ${duration}ms`);
 
       const answer = completion.choices[0]?.message?.content || '';
+
+      // Track AI usage if response has token information
+      if (completion.usage) {
+        await this.trackUsage(
+          'gpt-4o-mini',
+          completion.usage.prompt_tokens,
+          completion.usage.completion_tokens,
+          completion.usage.total_tokens,
+        );
+      }
 
       // Check if AI wants to handoff
       const shouldHandoff = this.detectHandoff(answer);
@@ -197,5 +211,46 @@ HANDOFF_TO_HUMAN: [lý do ngắn gọn]`;
 
   isConfigured(): boolean {
     return this.openai !== null;
+  }
+
+  private async trackUsage(
+    model: string,
+    inputTokens: number,
+    outputTokens: number,
+    totalTokens: number,
+  ): Promise<void> {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Start of day
+
+      await this.prisma.aiUsage.upsert({
+        where: {
+          date_model: {
+            date: today,
+            model,
+          },
+        },
+        update: {
+          requestCount: { increment: 1 },
+          inputTokens: { increment: inputTokens },
+          outputTokens: { increment: outputTokens },
+          totalTokens: { increment: totalTokens },
+          updatedAt: new Date(),
+        },
+        create: {
+          date: today,
+          model,
+          requestCount: 1,
+          inputTokens,
+          outputTokens,
+          totalTokens,
+        },
+      });
+
+      this.logger.log(`[AiService] Tracked usage: ${totalTokens} tokens for ${model}`);
+    } catch (error) {
+      this.logger.error('[AiService] Failed to track AI usage:', error);
+      // Don't throw error - tracking failure should not break AI responses
+    }
   }
 }

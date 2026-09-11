@@ -717,6 +717,22 @@ model UserBannerDismissal {
   @@map("user_banner_dismissals")
 }
 
+model AiUsage {
+  id            String   @id @default(cuid())
+  date          DateTime @db.Date
+  model         String   // gpt-4o-mini, etc.
+  requestCount  Int      @default(0)
+  inputTokens   Int      @default(0)
+  outputTokens  Int      @default(0)
+  totalTokens   Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([date, model])
+  @@index([date])
+  @@map("ai_usage")
+}
+
 model BotSettings {
   id                     String   @id @default(cuid())
   botEnabled             Boolean  @default(true)

@@ -11,6 +11,7 @@ import { StorageModule } from '../storage/storage.module';
 import { AdminStoriesController } from './admin-stories.controller';
 import { SubscriptionsModule } from '../subscriptions/subscriptions.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { SystemStatusModule } from '../system-status/system-status.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     StorageModule,
     SubscriptionsModule,
     NotificationsModule,
+    SystemStatusModule,
   ],
   controllers: [AdminController, AdminStoriesController],
   providers: [AdminService],

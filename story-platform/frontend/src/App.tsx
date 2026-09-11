@@ -80,6 +80,7 @@ import {
   AdminHonoraryTitlesPage,
   AdminBadgesPage,
   AdminPayOSPage,
+  AdminSystemStatusPage,
 } from './components/admin/pages/AdminPages';
 
 // Legal Policy Views
@@ -390,6 +391,7 @@ export function App() {
                 <Route path="/admin/settings" element={<AdminSettingsPage />} />
                 <Route path="/admin/payos" element={<AdminPayOSPage />} />
                 <Route path="/admin/profile" element={<AdminProfilePage />} />
+                <Route path="/admin/system-status" element={<AdminSystemStatusPage />} />
                 <Route path="/admin/*" element={<AdminNotFoundView />} />
               </Route>
 
