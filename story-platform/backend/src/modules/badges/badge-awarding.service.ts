@@ -388,7 +388,9 @@ export class BadgeAwardingService {
         const idempotencyKey = `badge_${badge.code}_${userId}_${awardPeriod}`;
         const existingNotification = await tx.notification.findFirst({
           where: {
-            idempotencyKey: idempotencyKey,
+            targetUserId: userId,
+            badgeId: badgeId,
+            type: 'BADGE_AWARD',
           },
         });
 

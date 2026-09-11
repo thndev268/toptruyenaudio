@@ -1701,7 +1701,7 @@ class AdminRepositoryService {
 
   async fetchNotificationsFromBackend(): Promise<AdminBroadcastNotification[]> {
     try {
-      const response = await apiRequest<{ success: boolean; data: any[] }>('/notifications/admin/all?status=SENT');
+      const response = await apiRequest<{ success: boolean; data: any[]; meta?: any }>('/notifications/admin/all?status=SENT');
       if (response?.success && response?.data) {
         this.notifications = response.data.map((n: any) => ({
           id: n.id,
@@ -1714,6 +1714,7 @@ class AdminRepositoryService {
           reachCount: n.recipientCount || 0,
           status: n.status,
         }));
+        console.log('[AdminRepository] Fetched notifications:', this.notifications.length);
         return this.notifications;
       }
     } catch (error) {
