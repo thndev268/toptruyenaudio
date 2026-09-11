@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
@@ -595,6 +596,7 @@ model UserTitle {
   expirationAt DateTime? // Badge tự hết hạn (khác với revokedAt)
 
   @@unique([profileId, titleId, awardPeriod], name: "profileId_titleId_awardPeriod")
+  @@unique([profileId, titleId], where: { awardPeriod: null }, name: "profileId_titleId_permanent")
   @@index([profileId])
   @@index([titleId])
   @@index([revokedAt])
@@ -654,6 +656,7 @@ model Notification {
   targetUserId    String?
   badgeId         String?  // ID of badge to be awarded
   badgeClaimed    Boolean  @default(false) // Whether badge has been claimed
+  idempotencyKey  String?  @unique // Unique key to prevent duplicate notifications (e.g., "badge_TOP_LISTENER_user123_2026-08")
   status          String   @default("DRAFT") // DRAFT, SCHEDULED, SENDING, SENT, CANCELLED
   scheduledAt     DateTime?
   sentAt          DateTime?

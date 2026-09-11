@@ -361,56 +361,75 @@ export class BadgeAwardingService {
               expirationAt: expirationDate,
             },
           });
+          this.logger.log(`Updated existing badge ${badge.name} for user ${userId} period ${awardPeriod}`);
         } else {
-          await tx.userTitle.create({
-            data: {
-              profileId: userId,
-              titleId: badgeId,
-              assignedBy,
-              awardPeriod: awardPeriod,
-              expirationAt: expirationDate,
-            },
-          });
+          try {
+            await tx.userTitle.create({
+              data: {
+                profileId: userId,
+                titleId: badgeId,
+                assignedBy,
+                awardPeriod: awardPeriod,
+                expirationAt: expirationDate,
+              },
+            });
+            this.logger.log(`Created new badge ${badge.name} for user ${userId} period ${awardPeriod}`);
+          } catch (createError: any) {
+            // Handle unique constraint violation (race condition from multiple cron instances)
+            if (createError.code === 'P2002') {
+              this.logger.warn(`Badge ${badge.name} for user ${userId} period ${awardPeriod} already created by another instance, skipping`);
+              return; // Exit transaction gracefully
+            }
+            throw createError; // Re-throw other errors
+          }
         }
 
         // Check if notification already exists for this badge award and period
+        const idempotencyKey = `badge_${badge.code}_${userId}_${awardPeriod}`;
         const existingNotification = await tx.notification.findFirst({
           where: {
-            targetUserId: userId,
-            badgeId: badgeId,
-            badgeClaimed: false,
-            type: 'BADGE_AWARD',
+            idempotencyKey: idempotencyKey,
           },
         });
 
         if (existingNotification) {
-          this.logger.log(`Notification already exists for badge ${badge.name} to user ${userId}, skipping`);
+          this.logger.log(`Notification already exists for badge ${badge.name} to user ${userId} period ${awardPeriod}, skipping`);
           return;
         }
 
-        // Create notification with badge
-        const notification = await tx.notification.create({
-          data: {
-            title: '🏆 Chúc mừng! Bạn nhận được danh hiệu mới',
-            content: `Bạn đã đạt được danh hiệu "${badge.name}". ${reason}. Hạn sử dụng: ${expirationDate.toLocaleDateString('vi-VN')}. Nhấn để nhận danh hiệu và hiển thị trong hồ sơ cá nhân.`,
-            type: 'BADGE_AWARD',
-            targetAudience: 'SPECIFIC_USER',
-            targetUserId: userId,
-            badgeId: badgeId,
-            badgeClaimed: false,
-            status: 'SENT',
-            sentAt: new Date(),
-          },
-        });
+        // Create notification with badge and idempotency key
+        try {
+          const notification = await tx.notification.create({
+            data: {
+              title: '🏆 Chúc mừng! Bạn nhận được danh hiệu mới',
+              content: `Bạn đã đạt được danh hiệu "${badge.name}". ${reason}. Hạn sử dụng: ${expirationDate.toLocaleDateString('vi-VN')}. Nhấn để nhận danh hiệu và hiển thị trong hồ sơ cá nhân.`,
+              type: 'BADGE_AWARD',
+              targetAudience: 'SPECIFIC_USER',
+              targetUserId: userId,
+              badgeId: badgeId,
+              badgeClaimed: false,
+              idempotencyKey: idempotencyKey,
+              status: 'SENT',
+              sentAt: new Date(),
+            },
+          });
 
-        // Create user notification record
-        await tx.userNotification.create({
-          data: {
-            notificationId: notification.id,
-            userId: userId,
-            isRead: false,
-          },
-        });
+          // Create user notification record
+          await tx.userNotification.create({
+            data: {
+              notificationId: notification.id,
+              userId: userId,
+              isRead: false,
+            },
+          });
+        } catch (createError: any) {
+          // Handle unique constraint violation (race condition from multiple cron instances)
+          if (createError.code === 'P2002') {
+            this.logger.warn(`Notification for badge ${badge.name} to user ${userId} period ${awardPeriod} already created by another instance, skipping`);
+            return; // Exit transaction gracefully
+          }
+          throw createError; // Re-throw other errors
+        }
       });
 
       this.logger.log(`Badge ${badge.name} awarded to user ${userId} for period ${awardPeriod}, expires ${expirationDate.toISOString()}`);
