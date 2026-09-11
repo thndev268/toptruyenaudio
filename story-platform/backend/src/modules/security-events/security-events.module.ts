@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { SecurityEventsController } from './security-events.controller';
 import { SecurityEventsService } from './security-events.service';
+import { SecurityDetectionService } from './security-detection.service';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 
@@ -10,7 +11,7 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
     AuditLogsModule,
   ],
   controllers: [SecurityEventsController],
-  providers: [SecurityEventsService],
-  exports: [SecurityEventsService],
+  providers: [SecurityEventsService, SecurityDetectionService],
+  exports: [SecurityEventsService, SecurityDetectionService],
 })
 export class SecurityEventsModule {}

@@ -47,12 +47,22 @@ export class NotificationsRepository {
       console.log('[NotificationsRepository] Fetching notifications for userId:', userId);
       const response = await apiRequest<{ success: boolean; data: Notification[] }>('/notifications');
       console.log('[NotificationsRepository] Response:', response);
-      if (response?.success && Array.isArray(response.data)) {
-        this.notifications = response.data;
+      
+      // Backend returns { success: true, data: [...] }
+      // apiRequest already extracts the 'data' property, so response is the array directly
+      if (Array.isArray(response)) {
+        this.notifications = response;
         console.log('[NotificationsRepository] Fetched notifications count:', this.notifications.length);
         this.notifyListeners();
         return this.notifications;
+      } else if (response && typeof response === 'object' && 'data' in response && Array.isArray(response.data)) {
+        // Handle case where full response is returned
+        this.notifications = response.data;
+        console.log('[NotificationsRepository] Fetched notifications count (from data):', this.notifications.length);
+        this.notifyListeners();
+        return this.notifications;
       }
+      
       console.warn('[NotificationsRepository] Invalid response format:', response);
       return [];
     } catch (error) {

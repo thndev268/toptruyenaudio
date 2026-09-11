@@ -7,6 +7,7 @@ import {
   Query,
   UseGuards,
   Req,
+  Delete,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { Request } from 'express';
@@ -35,6 +36,96 @@ export class SecurityEventsController {
     @Query('severity') severity?: string,
   ) {
     return this.securityEventsService.getAllEvents(status, severity);
+  }
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Get security statistics for Security Center' })
+  async getSecurityStats() {
+    return this.securityEventsService.getSecurityStats();
+  }
+
+  @Get('events')
+  @ApiOperation({ summary: 'Get security events with pagination and filters' })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
+  @ApiQuery({ name: 'riskLevel', required: false })
+  @ApiQuery({ name: 'action', required: false })
+  @ApiQuery({ name: 'ipAddress', required: false })
+  @ApiQuery({ name: 'statusCode', required: false })
+  @ApiQuery({ name: 'search', required: false })
+  async getEventsPaginated(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('riskLevel') riskLevel?: string,
+    @Query('action') action?: string,
+    @Query('ipAddress') ipAddress?: string,
+    @Query('statusCode') statusCode?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.securityEventsService.getEventsPaginated({
+      page: page ? parseInt(page) : undefined,
+      limit: limit ? parseInt(limit) : undefined,
+      riskLevel,
+      action,
+      ipAddress,
+      statusCode: statusCode ? parseInt(statusCode) : undefined,
+      search,
+    });
+  }
+
+  @Get('top-suspicious-ips')
+  @ApiOperation({ summary: 'Get top suspicious IPs' })
+  @ApiQuery({ name: 'limit', required: false })
+  async getTopSuspiciousIps(@Query('limit') limit?: string) {
+    return this.securityEventsService.getTopSuspiciousIps(limit ? parseInt(limit) : 20);
+  }
+
+  @Get('blocked-ips')
+  @ApiOperation({ summary: 'Get all blocked IPs' })
+  async getBlockedIps() {
+    return this.securityEventsService.getBlockedIps();
+  }
+
+  @Get('ip/:ipAddress')
+  @ApiOperation({ summary: 'Get IP details' })
+  async getIpDetails(@Param('ipAddress') ipAddress: string) {
+    return this.securityEventsService.getIpDetails(ipAddress);
+  }
+
+  @Get('users/:userId')
+  @ApiOperation({ summary: 'Get user security details' })
+  async getUserSecurityDetails(@Param('userId') userId: string) {
+    return this.securityEventsService.getUserSecurityDetails(userId);
+  }
+
+  @Post('block-ip')
+  @ApiOperation({ summary: 'Block IP address' })
+  async blockIp(
+    @Body() dto: { ipAddress: string; reason: string; duration?: string },
+    @CurrentUser('id') adminId: string,
+    @Req() req: Request,
+  ) {
+    const requestId =(req.headers['x-request-id'] as string) || (req as any).id;
+    return this.securityEventsService.blockIp({
+      ...dto,
+      adminId,
+      requestId,
+    });
+  }
+
+  @Post('unblock-ip')
+  @ApiOperation({ summary: 'Unblock IP address' })
+  async unblockIp(
+    @Body() dto: { ipAddress: string },
+    @CurrentUser('id') adminId: string,
+    @Req() req: Request,
+  ) {
+    const requestId = (req.headers['x-request-id'] as string) || (req as any).id;
+    return this.securityEventsService.unblockIp({
+      ...dto,
+      adminId,
+      requestId,
+    });
   }
 
   @Get(':id')
@@ -96,5 +187,16 @@ export class SecurityEventsController {
   ) {
     const requestId = (req.headers['x-request-id'] as string) || (req as any).id;
     return this.securityEventsService.reopenEvent(id, adminId, dto.reason, requestId);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete security event' })
+  async deleteEvent(
+    @Param('id') id: string,
+    @CurrentUser('id') adminId: string,
+    @Req() req: Request,
+  ) {
+    const requestId = (req.headers['x-request-id'] as string) || (req as any).id;
+    return this.securityEventsService.deleteEvent(id, adminId, requestId);
   }
 }

@@ -74,6 +74,7 @@ import {
   AdminIncidentsPage,
   AdminSystemPage,
   AdminSecurityPage,
+  AdminSecurityCenterPage,
   AdminAuditLogsPage,
   AdminSettingsPage,
   AdminProfilePage,
@@ -387,6 +388,7 @@ export function App() {
                 <Route path="/admin/system" element={<AdminSystemPage />} />
                 <Route path="/admin/security" element={<AdminSecurityPage />} />
                 <Route path="/admin/security/:alertId" element={<AdminSecurityPage />} />
+                <Route path="/admin/security-center" element={<AdminSecurityCenterPage />} />
                 <Route path="/admin/audit-logs" element={<AdminAuditLogsPage />} />
                 <Route path="/admin/settings" element={<AdminSettingsPage />} />
                 <Route path="/admin/payos" element={<AdminPayOSPage />} />

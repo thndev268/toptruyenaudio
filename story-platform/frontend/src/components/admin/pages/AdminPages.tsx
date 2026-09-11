@@ -24,6 +24,7 @@ import { MaintenanceScreen } from '../screens/MaintenanceScreen';
 import { IncidentsScreen } from '../screens/IncidentsScreen';
 import { ServiceHealthScreen } from '../screens/ServiceHealthScreen';
 import { SecurityAlertsScreen } from '../screens/SecurityAlertsScreen';
+import { SecurityCenterScreen } from '../screens/SecurityCenterScreen';
 import { FeatureFlagsScreen } from '../screens/FeatureFlagsScreen';
 import { ZaloSettingsScreen } from '../screens/ZaloSettingsScreen';
 import { TelegramSettingsScreen } from '../screens/TelegramSettingsScreen';
@@ -353,6 +354,15 @@ export const AdminSecurityPage: React.FC = () => {
         onResolveAlert={ctx.handleResolveSecurityAlert}
         onMarkFalsePositive={ctx.handleMarkFalsePositiveAlert}
       />
+    </AdminPageContainer>
+  );
+};
+
+// 15b. Security Center Page (New)
+export const AdminSecurityCenterPage: React.FC = () => {
+  return (
+    <AdminPageContainer>
+      <SecurityCenterScreen />
     </AdminPageContainer>
   );
 };

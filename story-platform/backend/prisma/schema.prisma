@@ -506,19 +506,48 @@ model SecurityEvent {
   severity          String   @default("MEDIUM")
   description       String
   ipAddress         String?
+  country           String?
+  userAgent         String?
+  endpoint          String?
+  method            String?
+  statusCode        Int?
+  action            String   @default("ALLOWED") // ALLOWED, WARNING, BLOCKED
+  riskLevel         String   @default("LOW") // LOW, MEDIUM, HIGH, CRITICAL
+  reason            String?
+  requestCount      Int?
+  metadata          Json?
   detectedAt        DateTime @default(now())
   investigatedAt    DateTime?
   actionTaken       String?
   resolvedAt        DateTime?
   resolvedByAdminId String?
   resolutionNote    String?
-  reason            String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   profile           Profile? @relation(fields: [resolvedByAdminId], references: [id], onDelete: SetNull)
 
+  @@index([ipAddress])
+  @@index([riskLevel])
+  @@index([statusCode])
+  @@index([createdAt])
+  @@index([action])
+
   @@map("security_events")
+}
+
+model BlockedIp {
+  id          String   @id @default(cuid())
+  ipAddress   String   @unique
+  reason      String?
+  blockedBy   String?
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([ipAddress])
+  @@index([expiresAt])
+
+  @@map("blocked_ips")
 }
 
 model AuditLog {
