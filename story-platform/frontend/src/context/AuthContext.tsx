@@ -88,7 +88,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setBanReason('');
       return;
     }
-    
+
     // Fallback to local admin check if needed, but optimally from profile.status
     if (profile.accountStatus === 'SUSPENDED' || profile.accountStatus === 'BANNED') {
       setIsBanned(true);
@@ -98,6 +98,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsBanned(false);
     setBanReason('');
   }, []);
+
+  // Shared function to sync session with backend for IP tracking
+  const syncAuthSession = async () => {
+    try {
+      console.log('[AUTH SESSION SYNC] calling /auth/session-sync');
+      const result = await apiRequest('/auth/session-sync', { method: 'POST' });
+      console.log('[AUTH SESSION SYNC] status: success', result);
+      return result;
+    } catch (err) {
+      console.error('[AUTH SESSION SYNC] status: failed', err);
+      // Don't block auth flow if session-sync fails
+      throw err;
+    }
+  };
 
   const fetchProfile = async (userId: string, email: string): Promise<UserProfile | null> => {
     // Prevent duplicate calls for the same session
@@ -278,14 +292,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Call session-sync to track IP after successful Supabase login
     if (data.session && data.session.user) {
-      try {
-        console.log('[AuthContext] Calling session-sync to track IP');
-        await apiRequest('/auth/session-sync', { method: 'POST' });
-        console.log('[AuthContext] Session-sync completed');
-      } catch (err) {
-        console.warn('[AuthContext] Failed to sync session (IP tracking may be affected):', err);
-        // Don't block login if session-sync fails
-      }
+      // Call sync in background, don't block login
+      syncAuthSession().catch(err => {
+        console.warn('[AuthContext] Session-sync failed (non-blocking):', err);
+      });
     }
 
     // Immediately fetch profile to update auth state without waiting for onAuthStateChange
@@ -346,14 +356,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     // Call session-sync to track IP after successful Supabase registration (auto-login)
     if (data?.session && data?.session.user) {
-      try {
-        console.log('[AuthContext] Calling session-sync after registration to track IP');
-        await apiRequest('/auth/session-sync', { method: 'POST' });
-        console.log('[AuthContext] Session-sync completed after registration');
-      } catch (err) {
-        console.warn('[AuthContext] Failed to sync session after registration (IP tracking may be affected):', err);
-        // Don't block registration if session-sync fails
-      }
+      // Call sync in background, don't block registration
+      syncAuthSession().catch(err => {
+        console.warn('[AuthContext] Session-sync failed after registration (non-blocking):', err);
+      });
     }
 
     // Clear guest listening timer on register
