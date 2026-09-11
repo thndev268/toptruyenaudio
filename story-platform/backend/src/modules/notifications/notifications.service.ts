@@ -389,10 +389,30 @@ export class NotificationsService {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
+        include: {
+          userNotifications: {
+            select: {
+              userId: true,
+              isRead: true,
+              readAt: true,
+            },
+          },
+        },
       }),
       this.prisma.notification.count({ where }),
       this.getUserCountsData(),
     ]);
+
+    // Get user details for specific user notifications
+    const notificationIds = notifications.filter(n => n.targetUserId).map(n => n.targetUserId);
+    const targetUsers = notificationIds.length > 0 
+      ? await this.prisma.profile.findMany({
+          where: { id: { in: notificationIds as string[] } },
+          select: { id: true, displayName: true, email: true, avatarUrl: true },
+        })
+      : [];
+    
+    const userMap = new Map(targetUsers.map(u => [u.id, u]));
 
     return {
       success: true,
@@ -409,9 +429,17 @@ export class NotificationsService {
         } else {
           recipientCount = userCounts.total;
         }
+
+        const readCount = n.userNotifications.filter(un => un.isRead).length;
+        const deliveredCount = n.userNotifications.length;
+
         return {
           ...n,
           recipientCount,
+          readCount,
+          deliveredCount,
+          readRate: deliveredCount > 0 ? Math.round((readCount / deliveredCount) * 100) : 0,
+          targetUser: n.targetUserId ? userMap.get(n.targetUserId) || null : null,
         };
       }),
       meta: {

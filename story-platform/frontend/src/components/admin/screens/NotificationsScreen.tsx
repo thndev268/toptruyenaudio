@@ -18,6 +18,9 @@ import {
   Headphones,
   Shield,
   MessageSquare,
+  Filter,
+  Eye,
+  User,
 } from 'lucide-react';
 import { AdminBroadcastNotification } from '../../../types/admin';
 import { adminRepository } from '../../../services/repositories/AdminRepository';
@@ -36,7 +39,7 @@ interface NotificationsScreenProps {
 
 const DRAFT_STORAGE_KEY = 'broadcast_draft';
 
-const notificationTypeConfig = {
+const notificationTypeConfig: Record<string, any> = {
   NEW_USER: { icon: Users, color: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30', label: 'Người dùng mới' },
   NEW_STORY: { icon: BookOpen, color: 'bg-blue-500/10 text-blue-300 border-blue-500/30', label: 'Truyện mới' },
   NEW_CHAPTER: { icon: Headphones, color: 'bg-purple-500/10 text-purple-300 border-purple-500/30', label: 'Chương mới' },
@@ -46,6 +49,7 @@ const notificationTypeConfig = {
   WARNING: { icon: AlertTriangle, color: 'bg-orange-500/10 text-orange-300 border-orange-500/30', label: 'Cảnh báo' },
   ERROR: { icon: AlertCircle, color: 'bg-rose-500/10 text-rose-300 border-rose-500/30', label: 'Lỗi' },
   SUPPORT: { icon: MessageSquare, color: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30', label: 'Hỗ trợ' },
+  BADGE_AWARD: { icon: Gift, color: 'bg-amber-500/10 text-amber-300 border-amber-500/30', label: 'Danh hiệu' },
 };
 
 export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
@@ -63,8 +67,30 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   const [lastSaved, setLastSaved] = useState<string>('');
   const [validationErrors, setValidationErrors] = useState<{ title?: string; content?: string }>({});
   
+  // Filtering state
+  const [filterType, setFilterType] = useState<string>('ALL');
+  const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [filterAudience, setFilterAudience] = useState<string>('ALL');
+  const [showFilters, setShowFilters] = useState(false);
+  
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const contentRef = useRef<HTMLTextAreaElement>(null);
+
+  // Filter notifications
+  const filteredNotifications = notifications.filter((notif) => {
+    if (filterType !== 'ALL' && notif.type !== filterType) return false;
+    if (filterStatus !== 'ALL' && notif.status !== filterStatus) return false;
+    if (filterAudience !== 'ALL' && notif.targetAudience !== filterAudience) return false;
+    return true;
+  });
+
+  const resetFilters = () => {
+    setFilterType('ALL');
+    setFilterStatus('ALL');
+    setFilterAudience('ALL');
+  };
+
+  const hasActiveFilters = filterType !== 'ALL' || filterStatus !== 'ALL' || filterAudience !== 'ALL';
 
   // Load draft from localStorage on mount
   useEffect(() => {
@@ -390,11 +416,88 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
       {/* Broadcast History */}
       <div className="space-y-3">
-        <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-          Lịch Sử Các Bản Tin Đã Phát Sóng
-        </h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+            Lịch Sử Các Bản Tin Đã Phát Sóng
+          </h3>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+              hasActiveFilters 
+                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30' 
+                : 'bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-750'
+            }`}
+          >
+            <Filter className="w-3.5 h-3.5" />
+            <span>Bộ Lọc</span>
+            {hasActiveFilters && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>}
+          </button>
+        </div>
 
-        {notifications.map((notif) => {
+        {/* Filter Panel */}
+        {showFilters && (
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 mb-1">Loại thông báo</label>
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                >
+                  <option value="ALL">Tất cả</option>
+                  <option value="SYSTEM">Hệ thống</option>
+                  <option value="NEW_USER">Người dùng mới</option>
+                  <option value="NEW_STORY">Truyện mới</option>
+                  <option value="NEW_CHAPTER">Chương mới</option>
+                  <option value="PROMOTION">Khuyến mãi</option>
+                  <option value="WARNING">Cảnh báo</option>
+                  <option value="ERROR">Lỗi</option>
+                  <option value="SUPPORT">Hỗ trợ</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 mb-1">Trạng thái</label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                >
+                  <option value="ALL">Tất cả</option>
+                  <option value="SENT">Đã gửi</option>
+                  <option value="SCHEDULED">Đã lên lịch</option>
+                  <option value="DRAFT">Nháp</option>
+                  <option value="CANCELLED">Đã hủy</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 mb-1">Đối tượng</label>
+                <select
+                  value={filterAudience}
+                  onChange={(e) => setFilterAudience(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
+                >
+                  <option value="ALL">Tất cả</option>
+                  <option value="ALL">Toàn bộ</option>
+                  <option value="PREMIUM">Premium</option>
+                  <option value="CREATOR">Tác giả</option>
+                  <option value="SPECIFIC_USER">Người dùng cụ thể</option>
+                </select>
+              </div>
+            </div>
+            {hasActiveFilters && (
+              <button
+                onClick={resetFilters}
+                className="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1"
+              >
+                <X className="w-3 h-3" />
+                Đặt lại bộ lọc
+              </button>
+            )}
+          </div>
+        )}
+
+        {filteredNotifications.map((notif) => {
           const typeConfig = notificationTypeConfig[notif.type || 'OTHER'] || notificationTypeConfig.OTHER;
           const TypeIcon = typeConfig.icon;
           
@@ -412,13 +515,27 @@ export const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
                   <span className="px-2 py-0.5 rounded bg-slate-500/10 text-slate-300 text-[10px] font-mono font-bold border border-slate-500/30">
                     {notif.targetAudience}
                   </span>
+                  {notif.targetUser && (
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 text-[10px] font-mono font-bold border border-cyan-500/30">
+                      <User className="w-3 h-3" />
+                      <span>{notif.targetUser.displayName}</span>
+                    </div>
+                  )}
                   <h4 className="font-bold text-white text-sm sm:text-base">{notif.title}</h4>
                 </div>
 
-                <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1 font-bold">
-                  <CheckCircle2 className="w-3 h-3" />
-                  <span>Đã tiếp cận ~{notif.reachCount?.toLocaleString('vi-VN') || '0'} tài khoản</span>
-                </span>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1 font-bold">
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>Đã tiếp cận ~{notif.reachCount?.toLocaleString('vi-VN') || '0'} tài khoản</span>
+                  </span>
+                  {(notif as any).readCount !== undefined && (
+                    <span className="text-[10px] text-blue-400 font-mono flex items-center gap-1 font-bold">
+                      <Eye className="w-3 h-3" />
+                      <span>Đã đọc {notif.readCount?.toLocaleString('vi-VN') || '0'}</span>
+                    </span>
+                  )}
+                </div>
               </div>
 
               <p className="text-xs sm:text-sm text-slate-300 bg-slate-950 p-3 rounded-xl border border-slate-850">

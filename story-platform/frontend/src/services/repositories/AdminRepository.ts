@@ -1722,10 +1722,15 @@ class AdminRepositoryService {
         content: n.content,
         type: n.type,
         targetAudience: n.targetAudience,
+        targetUserId: n.targetUserId,
+        targetUser: n.targetUser || null,
         sentAt: n.sentAt || n.createdAt,
         sentBy: n.createdBy || 'OWNER_ADMIN',
         reachCount: n.recipientCount || 0,
         status: n.status,
+        readCount: n.readCount,
+        deliveredCount: n.deliveredCount,
+        readRate: n.readRate,
       }));
       console.log('[AdminRepository] Fetched notifications:', this.notifications.length);
       return this.notifications;

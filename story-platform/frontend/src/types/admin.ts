@@ -206,12 +206,21 @@ export interface AdminBroadcastNotification {
   type?: 'NEW_USER' | 'NEW_STORY' | 'NEW_CHAPTER' | 'PROMOTION' | 'SYSTEM' | 'OTHER' | 'WARNING' | 'ERROR' | 'SUPPORT' | 'BADGE_AWARD';
   targetAudience: 'ALL' | 'PREMIUM' | 'CREATOR' | 'PARTNER' | 'SPECIFIC_USER';
   targetUserId?: string; // For SPECIFIC_USER target
+  targetUser?: {
+    id: string;
+    displayName: string;
+    email: string;
+    avatarUrl?: string;
+  } | null; // User details when targetUserId is set
   badgeId?: string; // ID of badge to be awarded
   badgeClaimed?: boolean; // Whether badge has been claimed
   sentAt: string;
   sentBy: AdminType;
   reachCount: number;
   status: 'SENT' | 'DRAFT';
+  readCount?: number; // Number of users who read the notification
+  deliveredCount?: number; // Number of users who received the notification
+  readRate?: number; // Percentage of read rate
 }
 
 export interface AdminMaintenanceConfig {
