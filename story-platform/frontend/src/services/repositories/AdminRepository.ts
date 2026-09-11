@@ -2259,12 +2259,12 @@ class AdminRepositoryService {
   async fetchAuditLogsApi(): Promise<AdminAuditLogEntry[]> {
     if (getDataSourceMode() === 'API') {
       try {
-        const res = await apiRequest<{ data: any[] }>('/admin/audit-logs');
-        if (res && Array.isArray(res.data)) {
-          this.auditLogs = res.data.map((l: any) => ({
+        const res = await apiRequest<{ items: any[]; pagination: any }>('/admin/audit-logs');
+        if (res && Array.isArray(res.items)) {
+          this.auditLogs = res.items.map((l: any) => ({
             id: l.id || l._id,
-            timestamp: l.createdAt ? l.createdAt.substring(0, 19).replace('T', ' ') : new Date().toISOString(),
-            performedBy: l.performedByAdminId || 'OWNER_ADMIN',
+            timestamp: l.timestamp ? l.timestamp.substring(0, 19).replace('T', ' ') : new Date().toISOString(),
+            performedBy: l.performedBy || l.performedByAdminId || 'OWNER_ADMIN',
             action: l.action,
             entityType: l.resource,
             entityId: l.resourceId || '',
@@ -2272,8 +2272,10 @@ class AdminRepositoryService {
             reason: l.reason || '',
             impactScope: l.impactScope || '',
           }));
+          console.log('[AdminRepository] Fetched audit logs:', this.auditLogs.length);
         }
       } catch (err) {
+        console.error('[AdminRepository] Failed to fetch audit logs:', err);
         if (getDataSourceMode() === 'API') throw err;
       }
     }
