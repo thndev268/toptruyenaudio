@@ -25,6 +25,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { BadgesModule } from './modules/badges/badges.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { ChatModule } from './modules/chat/chat.module';
     StorageModule,
     TelegramModule,
     ChatModule,
+    BadgesModule,
   ],
   providers: [
     // Tắt rate limiting trong development

@@ -583,6 +583,9 @@ model UserTitle {
   title       HonoraryTitle @relation(fields: [titleId], references: [id], onDelete: Cascade)
   assignedAt  DateTime @default(now())
   assignedBy  String?
+  revokedAt   DateTime?
+  revokedBy   String?
+  revokeReason String?
 
   @@unique([profileId, titleId], name: "profileId_titleId")
   @@map("user_titles")
