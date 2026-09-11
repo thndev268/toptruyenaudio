@@ -113,7 +113,7 @@ export class RestBadgeRepository implements BadgeRepository {
 
   async getUserBadges(userId: string): Promise<UserBadgeAssignment[]> {
     try {
-      const response = await apiRequest<{ success: boolean; data: UserBadgeAssignment[] }>(`/admin/users/${userId}/badges`);
+      const response = await apiRequest<{ success: boolean; data: UserBadgeAssignment[] }>('/users/me/badges');
       return response?.data || [];
     } catch (e) {
       console.warn('[RestBadgeRepository] Error fetching user badges, falling back to local:', e);

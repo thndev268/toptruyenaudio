@@ -45,6 +45,15 @@ export class UsersController {
     return this.usersService.getUserProfileResponse(userId);
   }
 
+  @Get('me/badges')
+  @UseGuards(JwtAuthGuard)
+  @SkipThrottle()
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Lấy danh sách badges của người dùng đang đăng nhập' })
+  async getMyBadges(@CurrentUser('id') userId: string) {
+    return this.usersService.getUserBadges(userId);
+  }
+
   @Patch('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

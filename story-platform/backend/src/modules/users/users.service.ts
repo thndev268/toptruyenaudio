@@ -262,4 +262,54 @@ export class UsersService {
       version: user.version,
     };
   }
+
+  async getUserBadges(userId: string) {
+    const userTitles = await this.prisma.userTitle.findMany({
+      where: {
+        profileId: userId,
+      },
+      include: {
+        title: true,
+      },
+      orderBy: {
+        assignedAt: 'desc',
+      },
+    });
+
+    const badges = userTitles.map((ut) => ({
+      id: ut.id,
+      userId: ut.profileId,
+      badgeId: ut.titleId,
+      source: 'ADMIN' as const,
+      assignedBy: ut.assignedBy || 'ADMIN',
+      assignedAt: ut.assignedAt,
+      revokedAt: null,
+      revokedBy: null,
+      revokeReason: null,
+      visibility: 'PUBLIC' as const,
+      isFeatured: false,
+      seenAt: null,
+      toastShownAt: null,
+      internalNote: null,
+      badge: {
+        id: ut.title.id,
+        code: ut.title.code,
+        name: ut.title.name,
+        description: ut.title.description || '',
+        iconUrl: ut.title.iconUrl,
+        level: ut.title.level || 'COMMON',
+        requirementText: undefined,
+        awardMode: 'MANUAL' as const,
+        condition: undefined,
+        isActive: ut.title.isActive,
+        createdAt: ut.title.createdAt.toISOString(),
+        updatedAt: ut.title.updatedAt.toISOString(),
+      },
+    }));
+
+    return {
+      success: true,
+      data: badges,
+    };
+  }
 }
