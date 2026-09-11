@@ -572,6 +572,7 @@ class AdminRepositoryService {
           membershipTier: u.membershipTier || u.membership?.tier || 'FREE',
           createdAt: u.createdAt ? u.createdAt.substring(0, 10) : '2026-01-01',
           lastLoginAt: u.lastLoginAt ? u.lastLoginAt.substring(0, 16) : 'Chưa có',
+          lastLoginIp: u.lastLoginIp || null,
           totalListens: u.stats?.totalListens || 0,
           listenHistoryCount: u.stats?.historyCount || 0,
           favoritesCount: u.stats?.favoritesCount || 0,
