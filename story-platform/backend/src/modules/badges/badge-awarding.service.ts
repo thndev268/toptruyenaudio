@@ -55,7 +55,10 @@ export class BadgeAwardingService {
       const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const firstDayOfPreviousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-      this.logger.log(`Checking top listener for period: ${firstDayOfPreviousMonth.toISOString()} to ${firstDayOfCurrentMonth.toISOString()}`);
+      // Award period in YYYY-MM format (e.g., "2026-08")
+      const awardPeriod = `${firstDayOfPreviousMonth.getFullYear()}-${String(firstDayOfPreviousMonth.getMonth() + 1).padStart(2, '0')}`;
+
+      this.logger.log(`Checking top listener for period: ${awardPeriod} (${firstDayOfPreviousMonth.toISOString()} to ${firstDayOfCurrentMonth.toISOString()})`);
 
       // Get top 1 listener by total listening time in the previous month
       // Use COALESCE to handle NULL durationSeconds
@@ -75,6 +78,7 @@ export class BadgeAwardingService {
       if (topListener.length > 0) {
         const topListenerData = topListener[0];
         const userId = topListenerData.profileId;
+        const totalDuration = topListenerData.totalDuration;
         
         if (!userId) {
           this.logger.warn('Top listener has null profileId, skipping');
@@ -101,17 +105,17 @@ export class BadgeAwardingService {
           return;
         }
 
-        // Check if user already has this badge (prevent duplicate)
- const existingAssignment = await this.prisma.userTitle.findFirst({
+        // Check if user already has this badge for this award period
+        const existingAssignment = await this.prisma.userTitle.findFirst({
           where: {
             profileId: userId,
             titleId: badge.id,
-            revokedAt: null, // Only check active badges
+            awardPeriod: awardPeriod,
           },
         });
 
         if (existingAssignment) {
-          this.logger.log(`User ${userId} already has active top listener badge, skipping`);
+          this.logger.log(`User ${userId} already has top listener badge for period ${awardPeriod}, skipping`);
           return;
         }
 
@@ -119,9 +123,14 @@ export class BadgeAwardingService {
         const expirationDate = new Date();
         expirationDate.setDate(expirationDate.getDate() + 30);
 
-        // Award badge with expiration
-        await this.awardBadgeWithExpiration(userId, badge.id, 'SYSTEM', `Top 1 listener tháng ${now.getMonth() + 1}`, expirationDate);
-        this.logger.log(`Awarded top listener badge to user ${userId} with expiration ${expirationDate.toISOString()}`);
+        // Format total duration for notification
+        const hours = Math.floor(totalDuration / 3600);
+        const minutes = Math.floor((totalDuration % 3600) / 60);
+        const durationText = hours > 0 ? `${hours} giờ ${minutes} phút` : `${minutes} phút`;
+
+        // Award badge with period and expiration
+        await this.awardBadgeWithPeriod(userId, badge.id, 'SYSTEM', awardPeriod, `Top 1 listener tháng ${now.getMonth() + 1} với ${durationText}`, expirationDate);
+        this.logger.log(`Awarded top listener badge to user ${userId} for period ${awardPeriod}, expires ${expirationDate.toISOString()}`);
       } else {
         this.logger.log('No listening sessions found for previous month');
       }
@@ -300,7 +309,100 @@ export class BadgeAwardingService {
   }
 
   /**
-   * Award badge to user with expiration date
+   * Award badge to user with period and expiration date
+   * Used for monthly badges like TOP_LISTENER
+   */
+  private async awardBadgeWithPeriod(
+    userId: string,
+    badgeId: string,
+    assignedBy: string,
+    awardPeriod: string,
+    reason: string,
+    expirationDate: Date,
+  ) {
+    try {
+      // Get badge details
+      const badge = await this.prisma.honoraryTitle.findUnique({
+        where: { id: badgeId },
+      });
+
+      if (!badge) {
+        throw new Error('Badge not found');
+      }
+
+      // Use transaction to ensure atomicity
+      await this.prisma.$transaction(async (tx) => {
+        // Assign badge to user with period and expiration
+        await tx.userTitle.upsert({
+          where: {
+            profileId_titleId_awardPeriod: {
+              profileId: userId,
+              titleId: badgeId,
+              awardPeriod: awardPeriod,
+            },
+          },
+          update: {
+            assignedAt: new Date(),
+            expirationAt: expirationDate,
+          },
+          create: {
+            profileId: userId,
+            titleId: badgeId,
+            assignedBy,
+            awardPeriod: awardPeriod,
+            expirationAt: expirationDate,
+          },
+        });
+
+        // Check if notification already exists for this badge award and period
+        const existingNotification = await tx.notification.findFirst({
+          where: {
+            targetUserId: userId,
+            badgeId: badgeId,
+            badgeClaimed: false,
+            type: 'BADGE_AWARD',
+          },
+        });
+
+        if (existingNotification) {
+          this.logger.log(`Notification already exists for badge ${badge.name} to user ${userId}, skipping`);
+          return;
+        }
+
+        // Create notification with badge
+        const notification = await tx.notification.create({
+          data: {
+            title: '🏆 Chúc mừng! Bạn nhận được danh hiệu mới',
+            content: `Bạn đã đạt được danh hiệu "${badge.name}". ${reason}. Hạn sử dụng: ${expirationDate.toLocaleDateString('vi-VN')}. Nhấn để nhận danh hiệu và hiển thị trong hồ sơ cá nhân.`,
+            type: 'BADGE_AWARD',
+            targetAudience: 'SPECIFIC_USER',
+            targetUserId: userId,
+            badgeId: badgeId,
+            badgeClaimed: false,
+            status: 'SENT',
+            sentAt: new Date(),
+          },
+        });
+
+        // Create user notification record
+        await tx.userNotification.create({
+          data: {
+            notificationId: notification.id,
+            userId: userId,
+            isRead: false,
+          },
+        });
+      });
+
+      this.logger.log(`Badge ${badge.name} awarded to user ${userId} for period ${awardPeriod}, expires ${expirationDate.toISOString()}`);
+    } catch (error) {
+      this.logger.error('Error awarding badge with period:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Award badge to user with expiration date (legacy method for non-periodic badges)
    */
   private async awardBadgeWithExpiration(
     userId: string,
@@ -321,23 +423,25 @@ export class BadgeAwardingService {
 
       // Use transaction to ensure atomicity
       await this.prisma.$transaction(async (tx) => {
-        // Assign badge to user with expiration
+        // Assign badge to user with expiration (no period)
         await tx.userTitle.upsert({
           where: {
-            profileId_titleId: {
+            profileId_titleId_awardPeriod: {
               profileId: userId,
               titleId: badgeId,
+              awardPeriod: null,
             },
           },
           update: {
             assignedAt: new Date(),
-            revokedAt: expirationDate,
+            expirationAt: expirationDate,
           },
           create: {
             profileId: userId,
             titleId: badgeId,
             assignedBy,
-            revokedAt: expirationDate,
+            awardPeriod: null,
+            expirationAt: expirationDate,
           },
         });
 

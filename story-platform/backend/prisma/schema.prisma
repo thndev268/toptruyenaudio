@@ -591,11 +591,15 @@ model UserTitle {
   revokedAt   DateTime?
   revokedBy   String?
   revokeReason String?
+  awardPeriod String? // Format: YYYY-MM for monthly badges (e.g., "2026-08")
+  expirationAt DateTime? // Badge tự hết hạn (khác với revokedAt)
 
-  @@unique([profileId, titleId], name: "profileId_titleId")
+  @@unique([profileId, titleId, awardPeriod], name: "profileId_titleId_awardPeriod")
   @@index([profileId])
   @@index([titleId])
   @@index([revokedAt])
+  @@index([expirationAt])
+  @@index([awardPeriod])
   @@map("user_titles")
 }
 
