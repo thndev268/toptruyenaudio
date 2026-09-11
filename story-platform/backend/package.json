@@ -13,6 +13,7 @@
     "postinstall": "npm run seed:premium-plans",
     "bootstrap:owner-admin": "ts-node src/scripts/bootstrap-owner-admin.ts",
     "set-admin-role": "ts-node src/scripts/set-admin-role.ts",
+    "set-user-ip": "ts-node src/scripts/set-user-ip.ts",
     "list-profiles": "ts-node src/scripts/list-profiles.ts",
     "seed-sample": "ts-node src/scripts/seed-sample-data.ts",
     "seed:dev": "ts-node src/scripts/seed-development.ts",

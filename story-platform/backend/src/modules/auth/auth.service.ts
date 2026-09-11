@@ -151,6 +151,16 @@ export class AuthService {
 
     // Extract client IP from request
     const clientIp = request ? getClientIp(request) : null;
+    console.log('[AuthService] Login IP extraction:', {
+      email: emailNormalized,
+      clientIp,
+      hasRequest: !!request,
+      headers: request ? {
+        'cf-connecting-ip': request.headers['cf-connecting-ip'],
+        'x-forwarded-for': request.headers['x-forwarded-for'],
+        'x-real-ip': request.headers['x-real-ip'],
+      } : null,
+    });
 
     user = await this.prisma.profile.update({
       where: { id: user.id },
@@ -158,6 +168,11 @@ export class AuthService {
         lastLoginAt: new Date(),
         lastLoginIp: clientIp,
       },
+    });
+
+    console.log('[AuthService] Updated lastLoginIp:', {
+      userId: user.id,
+      lastLoginIp: user.lastLoginIp,
     });
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
