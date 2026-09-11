@@ -265,6 +265,38 @@ export class AuthService {
     return { success: true };
   }
 
+  async sessionSync(userId: string, request?: Request) {
+    // Extract client IP from request
+    const clientIp = request ? getClientIp(request) : null;
+    console.log('[AuthSessionSync] Session sync for user:', {
+      userId,
+      clientIp,
+      hasRequest: !!request,
+      headers: request ? {
+        'cf-connecting-ip': request.headers['cf-connecting-ip'],
+        'x-forwarded-for': request.headers['x-forwarded-for'],
+        'x-real-ip': request.headers['x-real-ip'],
+      } : null,
+    });
+
+    // Update lastLoginIp and lastLoginAt
+    const user = await this.prisma.profile.update({
+      where: { id: userId },
+      data: {
+        lastLoginAt: new Date(),
+        lastLoginIp: clientIp,
+      },
+    });
+
+    console.log('[AuthSessionSync] Updated lastLoginIp:', {
+      userId: user.id,
+      lastLoginIp: user.lastLoginIp,
+      lastLoginAt: user.lastLoginAt,
+    });
+
+    return { success: true, lastLoginIp: user.lastLoginIp, lastLoginAt: user.lastLoginAt };
+  }
+
   async getCurrentUser(userId: string) {
     const user = await this.prisma.profile.findUnique({ where: { id: userId } });
     if (!user) {

@@ -130,4 +130,12 @@ export class AuthController {
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Post('auth/session-sync')
+  @ApiOperation({ summary: 'Sync session after Supabase login/register to track IP' })
+  async sessionSync(@CurrentUser('id') userId: string, @Req() req: Request) {
+    return this.authService.sessionSync(userId, req);
+  }
 }

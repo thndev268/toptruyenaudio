@@ -256,7 +256,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (email: string, password?: string) => {
     if (!password) throw new Error('Vui lòng nhập mật khẩu để đăng nhập.');
-    
+
     // Use Supabase auth directly
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -276,6 +276,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Clear guest listening timer on login
     localStorage.removeItem('guest_listen_start');
 
+    // Call session-sync to track IP after successful Supabase login
+    if (data.session && data.session.user) {
+      try {
+        console.log('[AuthContext] Calling session-sync to track IP');
+        await apiRequest('/auth/session-sync', { method: 'POST' });
+        console.log('[AuthContext] Session-sync completed');
+      } catch (err) {
+        console.warn('[AuthContext] Failed to sync session (IP tracking may be affected):', err);
+        // Don't block login if session-sync fails
+      }
+    }
+
     // Immediately fetch profile to update auth state without waiting for onAuthStateChange
     if (data.session && data.session.user) {
       try {
@@ -293,7 +305,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const register = async (name: string, email: string, password?: string, username?: string) => {
     if (!password) throw new Error('Vui lòng nhập mật khẩu để đăng ký.');
-    
+
     // Use Supabase auth directly
     if (!username || username.length < 3 || username.length > 30) {
       throw new Error('Tên đăng nhập phải từ 3 đến 30 ký tự.');
@@ -327,11 +339,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       throw error;
     }
-    
+
     if (data?.user && data?.session === null) {
       throw new Error('Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.');
     }
-    
+
+    // Call session-sync to track IP after successful Supabase registration (auto-login)
+    if (data?.session && data?.session.user) {
+      try {
+        console.log('[AuthContext] Calling session-sync after registration to track IP');
+        await apiRequest('/auth/session-sync', { method: 'POST' });
+        console.log('[AuthContext] Session-sync completed after registration');
+      } catch (err) {
+        console.warn('[AuthContext] Failed to sync session after registration (IP tracking may be affected):', err);
+        // Don't block registration if session-sync fails
+      }
+    }
+
     // Clear guest listening timer on register
     localStorage.removeItem('guest_listen_start');
   };
