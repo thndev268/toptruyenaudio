@@ -368,117 +368,167 @@
   background-color: var(--clr-nav-hover);
 }
 
-/* Social Media Icons - From Uiverse.io by MrBishtji */
-#SocailIcons {
-  min-width: 350px;
+/* Social Media Icons - From Uiverse.io by Tsiangana */
+.tooltip-container {
+  background: rgb(3, 169, 244);
+  background: linear-gradient(
+    138deg,
+    rgba(3, 169, 244, 1) 15%,
+    rgba(63, 180, 233, 1) 65%
+  );
   position: relative;
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  gap: 1rem;
-}
-.icons {
-  width: 50px;
-  height: 50px;
-  background: #fff;
-  border-radius: 50%;
   cursor: pointer;
-  outline: none;
-  border: none;
-  z-index: 1;
-  text-align: center;
-  position: relative;
-}
-.iconName {
-  position: absolute;
-  top: -40px;
-  font-size: 12px;
-  color: #fff;
-  transform: scale(0);
-  border-radius: 3px;
-  text-align: center;
-  padding: 3px;
-  transition: transform 0.3s ease;
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-.icons.instaIcon:hover .iconName {
-  transform: scale(1);
-  left: 15px;
-  background: linear-gradient(30deg, #0000ff, #f56040);
-}
-
-.icons.linkedin:hover .iconName {
-  transform: scale(1);
-  left: 106px;
-  background: #0274b3;
-}
-.icons.whatsapp:hover .iconName {
-  transform: scale(1);
-  right: 100px;
-  background: #25d366;
-}
-.icons.youtube:hover .iconName {
-  transform: scale(1);
-  right: 15px;
-  background: #ff0000;
-}
-.icon {
-  z-index: 1;
-  display: inline-flex;
+  font-size: 17px;
+  padding: 0.7em 0.7em;
+  border-radius: 50px;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  position: relative;
-  overflow: hidden;
-  border: none;
-  outline: none;
-  transition: color 0.3s ease;
-  color: #0c0c0c;
+  gap: 0.5rem;
 }
-.icon:hover {
-  color: #fff;
+.tooltip-container:hover {
+  background: #fff;
+  transition: all 0.6s;
 }
-.icon::before {
-  content: "";
+.tooltip-container .text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  fill: #fff;
+  transition: all 0.2s;
+}
+.tooltip-container:hover .text {
+  fill: rgb(3, 169, 244);
+  transition: all 0.6s;
+}
+
+/* Tooltip styles */
+.tooltip1,
+.tooltip2,
+.tooltip3,
+.tooltip4,
+.tooltip5,
+.tooltip6,
+.tooltip7 {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 0;
-  border-radius: 50%;
-  transform: rotateX(360deg);
-  transition: height 0.3s ease;
-  z-index: -1;
-}
-
-.icon:hover::before {
-  height: 100%;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  visibility: hidden;
+  background: #fff;
+  padding: 10px;
+  border-radius: 50px;
+  transition: opacity 0.3s, visibility 0.3s, top 0.3s, background 0.3s;
   z-index: 1;
-}
-.icon:hover {
-  box-shadow: 5px 5px 10px #181717ce;
-}
-
-.icon.tube::before {
-  z-index: -1;
-  background: red;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.icon.insta::before {
-  z-index: -1;
-  background: linear-gradient(40deg, #0000ff, #f56040);
+.tooltip-container:hover .tooltip1 {
+  top: 150%;
+  opacity: 1;
+  visibility: visible;
+  background: #fff;
+  border-radius: 50px;
+  transform: translate(-50%, -5px);
+}
+.tooltip-container:hover .tooltip1:hover {
+  background: #03a9f4;
+}
+.tooltip-container:hover .tooltip1:hover svg {
+  fill: #fff;
 }
 
-.icon.link::before {
-  z-index: -1;
-  background: #0274b3;
+.tooltip-container:hover .tooltip2 {
+  top: -120%;
+  opacity: 1;
+  visibility: visible;
+  background: #fff;
+  transform: translate(-50%, -5px);
+  border-radius: 50px;
+}
+.tooltip-container:hover .tooltip2:hover {
+  background: #0462df;
+}
+.tooltip-container:hover .tooltip2:hover svg {
+  fill: #fff;
 }
 
-.icon.whats::before {
-  z-index: -1;
-  background: #25d366;
+.tooltip-container:hover .tooltip3 {
+  top: 10%;
+  opacity: 1;
+  visibility: visible;
+  background: #fff;
+  transform: translate(85%, -5px);
+  border-radius: 50px;
+}
+.tooltip-container:hover .tooltip3:hover {
+  background: #1db954;
+}
+.tooltip-container:hover .tooltip3:hover svg {
+  fill: #fff;
+}
+
+.tooltip-container:hover .tooltip4 {
+  top: 10%;
+  opacity: 1;
+  visibility: visible;
+  background: #fff;
+  transform: translate(70%, -5px);
+  border-radius: 50px;
+}
+.tooltip-container:hover .tooltip4:hover {
+  background: #8c9eff;
+}
+.tooltip-container:hover .tooltip4:hover svg {
+  fill: #fff;
+}
+
+.tooltip-container:hover .tooltip5 {
+  top: -78%;
+  opacity: 1;
+  visibility: visible;
+  background: #fff;
+  transform: translate(70%, -5px);
+  border-radius: 50px;
+}
+.tooltip-container:hover .tooltip5:hover {
+  background: #bd081c;
+}
+.tooltip-container:hover .tooltip5:hover svg {
+  fill: #fff;
+}
+
+.tooltip-container:hover .tooltip6 {
+  top: -79%;
+  opacity: 1;
+  visibility: visible;
+  background: #fff;
+  transform: translate(70%, -5px);
+  border-radius: 50px;
+}
+.tooltip-container:hover .tooltip6:hover {
+  background: #ea4c89;
+}
+.tooltip-container:hover .tooltip6:hover svg {
+  fill: #fff;
+}
+
+.tooltip-container:hover .tooltip7 {
+  top: 104%;
+  opacity: 1;
+  visibility: visible;
+  background: #fff;
+  transform: translate(70%, -5px);
+  border-radius: 50px;
+}
+.tooltip-container:hover .tooltip7:hover {
+  background: #000;
+}
+.tooltip-container:hover .tooltip7:hover svg {
+  fill: #fff;
 }
