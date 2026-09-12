@@ -9,6 +9,7 @@ import {
   Save,
   X,
   Image as ImageIcon,
+  Upload,
 } from 'lucide-react';
 
 interface Banner {
@@ -42,6 +43,7 @@ export const BannersScreen: React.FC<BannersScreenProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState<{
     title: string;
     content: string;
@@ -140,6 +142,37 @@ export const BannersScreen: React.FC<BannersScreenProps> = ({
   const handleCancel = () => {
     setIsEditing(false);
     setEditingBanner(null);
+  };
+
+  const handleUploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', file);
+
+      const response = await fetch('/banners/upload-image', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: uploadFormData,
+      });
+
+      const data = await response.json();
+      if (data.success && data.data?.url) {
+        setFormData({ ...formData, imageUrl: data.data.url });
+      } else {
+        alert('Upload ảnh thất bại');
+      }
+    } catch (error) {
+      console.error('Failed to upload image:', error);
+      alert('Upload ảnh thất bại');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const getTypeColor = (type: string) => {
@@ -246,15 +279,57 @@ export const BannersScreen: React.FC<BannersScreenProps> = ({
 
             <div className="space-y-2 sm:col-span-2">
               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                URL Hình Ảnh (Tùy chọn)
+                Hình Ảnh (Tùy chọn)
               </label>
-              <input
-                type="text"
-                value={formData.imageUrl}
-                onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500"
-                placeholder="https://example.com/image.jpg"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="file"
+                  id="banner-image"
+                  accept="image/*"
+                  onChange={handleUploadImage}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="banner-image"
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl transition-all inline-flex items-center gap-2 cursor-pointer"
+                >
+                  {uploading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Đang upload...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4" />
+                      <span>Upload Ảnh</span>
+                    </>
+                  )}
+                </label>
+                {formData.imageUrl && (
+                  <div className="flex items-center gap-2 flex-1">
+                    <img
+                      src={formData.imageUrl}
+                      alt="Preview"
+                      className="w-12 h-12 object-cover rounded"
+                    />
+                    <button
+                      onClick={() => setFormData({ ...formData, imageUrl: '' })}
+                      className="p-2 hover:bg-slate-700 rounded-lg text-red-400"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              {formData.imageUrl && (
+                <input
+                  type="text"
+                  value={formData.imageUrl}
+                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500"
+                  placeholder="URL hình ảnh"
+                />
+              )}
             </div>
 
             <div className="space-y-2">

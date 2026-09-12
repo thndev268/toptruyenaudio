@@ -1,16 +1,21 @@
-import { Controller, Get, Post, Body, UseGuards, Query, Param, Patch, Delete } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, UseGuards, Query, Param, Patch, Delete, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AccountRole } from '../../common/enums';
 import { BannersService } from './banners.service';
+import { StorageService } from '../storage/storage.service';
 
 @ApiTags('Banners')
 @Controller('banners')
 export class BannersController {
-  constructor(private readonly bannersService: BannersService) {}
+  constructor(
+    private readonly bannersService: BannersService,
+    private readonly storageService: StorageService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Lấy danh sách banner đang hoạt động' })
@@ -107,5 +112,32 @@ export class BannersController {
   @ApiOperation({ summary: 'Lấy thống kê banner (Admin)' })
   async getBannerStats() {
     return this.bannersService.getBannerStats();
+  }
+
+  @Post('upload-image')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(AccountRole.OWNER_ADMIN)
+  @ApiBearerAuth()
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({ summary: 'Upload ảnh banner' })
+  async uploadBannerImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new Error('No file uploaded');
+    }
+
+    const fileName = `banner-${Date.now()}-${file.originalname}`;
+    const publicUrl = await this.storageService.uploadFile(
+      'banners',
+      fileName,
+      file.buffer,
+      file.mimetype,
+    );
+
+    return {
+      success: true,
+      data: { url: publicUrl },
+      message: 'Image uploaded successfully',
+    };
   }
 }

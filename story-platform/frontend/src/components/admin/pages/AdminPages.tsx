@@ -523,7 +523,7 @@ export const AdminBannersPage: React.FC = () => {
   const loadBanners = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/banners/admin/all', {
+      const response = await fetch('/banners/admin/all', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
@@ -542,7 +542,7 @@ export const AdminBannersPage: React.FC = () => {
 
   const handleCreateBanner = async (banner: any) => {
     try {
-      const response = await fetch('/api/banners', {
+      const response = await fetch('/banners', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -560,7 +560,7 @@ export const AdminBannersPage: React.FC = () => {
 
   const handleUpdateBanner = async (id: string, banner: any) => {
     try {
-      const response = await fetch(`/api/banners/${id}`, {
+      const response = await fetch(`/banners/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -578,7 +578,7 @@ export const AdminBannersPage: React.FC = () => {
 
   const handleDeleteBanner = async (id: string) => {
     try {
-      const response = await fetch(`/api/banners/${id}`, {
+      const response = await fetch(`/banners/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
