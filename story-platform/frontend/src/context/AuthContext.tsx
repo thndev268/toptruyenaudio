@@ -246,6 +246,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     initializeAuth();
 
+    // Handle tab visibility change to refresh session
+    const handleVisibilityChange = async () => {
+      if (!document.hidden && isMounted && authData.user) {
+        console.log('[AuthContext] Tab became visible, refreshing session');
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session && session.user) {
+            // Session is still valid, no action needed
+            console.log('[AuthContext] Session still valid');
+          } else {
+            // Session expired, redirect to login
+            console.log('[AuthContext] Session expired, clearing auth');
+            setAuthData({ role: 'GUEST', user: null });
+            saveProfileToCache(null);
+          }
+        } catch (err) {
+          console.error('[AuthContext] Failed to refresh session on visibility change:', err);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[AuthContext] Auth state changed:', event, session?.user?.id);
       if (!isMounted) return;
@@ -283,6 +306,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       isMounted = false;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       subscription.unsubscribe();
     };
   }, [checkBannedStatus]);
