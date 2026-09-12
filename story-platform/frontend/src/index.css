@@ -403,6 +403,11 @@
   margin: 0;
   position: relative;
   font-family: "Patrick Hand", "Comic Sans MS", cursive;
+  pointer-events: none;
+}
+
+.doodle-icon-content .doodle-link {
+  pointer-events: auto;
 }
 
 /* --- THE ICONS (Drawn Buttons) --- */
@@ -413,6 +418,7 @@
   width: 49px;
   height: 50px;
   text-decoration: none;
+  pointer-events: auto;
 
   /* Irregular hand-drawn circles */
   border: 4px solid #1e1e24;
