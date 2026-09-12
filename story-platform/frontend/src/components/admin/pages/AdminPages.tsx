@@ -28,6 +28,7 @@ import { SecurityAlertsScreen } from '../screens/SecurityAlertsScreen';
 import { SecurityCenterScreen } from '../screens/SecurityCenterScreen';
 import { FeatureFlagsScreen } from '../screens/FeatureFlagsScreen';
 import { ZaloSettingsScreen } from '../screens/ZaloSettingsScreen';
+import { BannersScreen } from '../screens/BannersScreen';
 import { TelegramSettingsScreen } from '../screens/TelegramSettingsScreen';
 import { PayOSScreen } from '../screens/PayOSScreen';
 import { AuditLogsScreen } from '../screens/AuditLogsScreen';
@@ -505,6 +506,109 @@ export const AdminSocialLinksPage: React.FC = () => {
         onUpdateLink={handleUpdateLink}
         onDeleteLink={handleDeleteLink}
         onToggleLink={handleToggleLink}
+      />
+    </AdminPageContainer>
+  );
+};
+
+// 22. Banners Page
+export const AdminBannersPage: React.FC = () => {
+  const [banners, setBanners] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadBanners();
+  }, []);
+
+  const loadBanners = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/banners/admin/all', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setBanners(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to load banners:', error);
+      setBanners([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateBanner = async (banner: any) => {
+    try {
+      const response = await fetch('/api/banners', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify(banner),
+      });
+      if (response.ok) {
+        await loadBanners();
+      }
+    } catch (error) {
+      console.error('Failed to create banner:', error);
+    }
+  };
+
+  const handleUpdateBanner = async (id: string, banner: any) => {
+    try {
+      const response = await fetch(`/api/banners/${id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify(banner),
+      });
+      if (response.ok) {
+        await loadBanners();
+      }
+    } catch (error) {
+      console.error('Failed to update banner:', error);
+    }
+  };
+
+  const handleDeleteBanner = async (id: string) => {
+    try {
+      const response = await fetch(`/api/banners/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+      if (response.ok) {
+        await loadBanners();
+      }
+    } catch (error) {
+      console.error('Failed to delete banner:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <AdminPageContainer>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-slate-400">Đang tải...</div>
+        </div>
+      </AdminPageContainer>
+    );
+  }
+
+  return (
+    <AdminPageContainer>
+      <BannersScreen
+        banners={banners}
+        onCreateBanner={handleCreateBanner}
+        onUpdateBanner={handleUpdateBanner}
+        onDeleteBanner={handleDeleteBanner}
       />
     </AdminPageContainer>
   );

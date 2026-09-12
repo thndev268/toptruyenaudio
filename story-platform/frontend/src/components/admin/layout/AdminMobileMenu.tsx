@@ -14,6 +14,7 @@ import {
   Scale,
   Headphones,
   Bell,
+  Megaphone,
   Wrench,
   AlertTriangle,
   Server,
@@ -170,6 +171,11 @@ export const AdminMobileMenu: React.FC<AdminMobileMenuProps> = ({
           label: 'Thông báo người dùng',
           route: '/admin/notifications',
           icon: Bell,
+        },
+        {
+          label: 'Banner thông báo',
+          route: '/admin/banners',
+          icon: Megaphone,
         },
         {
           label: 'Bảo trì hệ thống',
