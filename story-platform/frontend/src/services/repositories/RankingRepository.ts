@@ -125,7 +125,7 @@ class LocalRankingRepository implements RankingRepository {
       avatarUrl: undefined,
       level: 1,
       activityPoints: 120,
-      validListeningMinutes: 35,
+      validListeningMinutes: 0.58, // 35 phút = 0.58 giờ
       completedStories: 1,
       helpfulReviews: 2,
       activeDays: 3,
@@ -165,7 +165,7 @@ class LocalRankingRepository implements RankingRepository {
     current.activityPoints += cappedPoints;
 
     if (type === 'LISTEN') {
-      current.validListeningMinutes += Math.round(cappedPoints / 5);
+      current.validListeningMinutes += Math.round(cappedPoints / 5 / 60); // Chuyển từ phút sang giờ
     } else if (type === 'COMPLETE') {
       current.completedStories += 1;
     } else if (type === 'REVIEW') {

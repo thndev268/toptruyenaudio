@@ -261,7 +261,7 @@ export class ListeningService {
         displayName: user?.displayName || user?.username || 'Unknown',
         avatarUrl: user?.avatarUrl || null,
         level: 1,
-        validListeningMinutes: (ranking._sum.validListeningSeconds || 0) / 60,
+        validListeningMinutes: (ranking._sum.validListeningSeconds || 0) / 3600,
         achievements: [],
         favoriteStories: [], // TODO: Fetch actual favorite stories from database
       };

@@ -132,7 +132,7 @@ export const FeaturedActiveUsersSection: React.FC = () => {
 
               <div className="flex items-center gap-2 text-[10px] text-slate-400">
                 <span className="text-cyan-400 font-mono font-bold flex items-center gap-0.5">
-                  <Clock className="w-3 h-3" /> {Math.round(user.validListeningMinutes / 60)}h nghe
+                  <Clock className="w-3 h-3" /> {Math.round(user.validListeningMinutes || 0)}h nghe
                 </span>
                 <span>•</span>
                 <span className="text-emerald-400 font-mono font-bold">Lvl {user.level}</span>
