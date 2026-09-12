@@ -88,22 +88,22 @@ export const Footer: React.FC = () => {
   };
 
   return (
-    <footer className="bg-slate-900/90 border-t border-slate-800/80 text-slate-400 text-sm mt-12 pb-24">
-      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-8 sm:py-10">
+    <footer className="bg-slate-900/90 border-t border-slate-800/80 text-slate-400 text-sm mt-12 pb-16 sm:pb-20 lg:pb-24">
+      <div className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-6 sm:py-8 lg:py-10">
         
         {/* Footer Columns: Responsive Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 lg:gap-8 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
           
           {/* Brand & Intro Column */}
-          <div className="md:col-span-3 lg:col-span-1 space-y-3 pb-4 md:pb-0 border-b md:border-none border-slate-800/80">
+          <div className="md:col-span-3 lg:col-span-1 space-y-2 sm:space-y-3 pb-3 sm:pb-4 md:pb-0 border-b md:border-none border-slate-800/80">
             <BrandLogo variant="full" />
-            <p className="text-xs text-slate-400 leading-relaxed max-w-sm mt-3">
+            <p className="text-xs text-slate-400 leading-relaxed max-w-sm mt-2 sm:mt-3">
               TOP TRUYỆN AUDIO là nền tảng nghe truyện audio trực tuyến, giúp người dùng khám phá và thưởng thức những câu chuyện hấp dẫn mọi lúc, mọi nơi.
             </p>
           </div>
 
           {/* Column 1: KHÁM PHÁ */}
-          <div className="border-b border-slate-800/80 md:border-none pb-3 md:pb-0">
+          <div className="border-b border-slate-800/80 md:border-none pb-3 sm:pb-3 md:pb-0">
             <button
               onClick={() => toggleSection('explore')}
               className="w-full flex items-center justify-between md:justify-start text-xs font-bold uppercase tracking-wider text-white font-mono py-1 md:py-0 min-h-[44px] md:min-h-0"
@@ -132,7 +132,7 @@ export const Footer: React.FC = () => {
           </div>
 
           {/* Column 2: DÀNH CHO CREATOR & ĐỐI TÁC */}
-          <div className="border-b border-slate-800/80 md:border-none pb-3 md:pb-0">
+          <div className="border-b border-slate-800/80 md:border-none pb-3 sm:pb-3 md:pb-0">
             <button
               onClick={() => toggleSection('creator')}
               className="w-full flex items-center justify-between md:justify-start text-xs font-bold uppercase tracking-wider text-white font-mono py-1 md:py-0 min-h-[44px] md:min-h-0"
@@ -161,7 +161,7 @@ export const Footer: React.FC = () => {
           </div>
 
           {/* Column 3: HỖ TRỢ & PHÁP LÝ */}
-          <div className="pb-3 md:pb-0">
+          <div className="pb-3 sm:pb-3 md:pb-0">
             <button
               onClick={() => toggleSection('support')}
               className="w-full flex items-center justify-between md:justify-start text-xs font-bold uppercase tracking-wider text-white font-mono py-1 md:py-0 min-h-[44px] md:min-h-0"
@@ -192,12 +192,12 @@ export const Footer: React.FC = () => {
         </div>
 
         {/* Bottom copyright notice */}
-        <div className="pt-6 border-t border-slate-800 text-center text-xs text-slate-500">
+        <div className="pt-4 sm:pt-6 border-t border-slate-800 text-center text-xs text-slate-500">
           <p className="font-medium text-slate-400">© {currentYear} TOP TRUYỆN AUDIO. All rights reserved.</p>
         </div>
 
         {/* Support Tooltip Dropdown */}
-        <div className="mt-6 flex justify-center">
+        <div className="mt-4 sm:mt-6 flex justify-center">
           <div className="tooltip-wrapper">
             <ul className="tooltip-container">
               <li style={{ '--i': '1.1s' } as React.CSSProperties} className="nav-link">
@@ -291,7 +291,7 @@ export const Footer: React.FC = () => {
 
         {/* Social Media Icons */}
         {socialLinks.length > 0 && (
-          <div className="mt-8 flex justify-center pb-4">
+          <div className="mt-6 sm:mt-8 flex justify-center pb-2 sm:pb-4">
             <div id="SocailIcons">
               {socialLinks.map((link) => {
                 const config = getPlatformConfig(link.platform);

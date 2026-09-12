@@ -4,6 +4,7 @@ import { useOutletContext, useNavigate, useParams } from 'react-router-dom';
 import { AdminLayoutContextType } from '../layout/AdminLayout';
 import { AdminPageContainer } from '../layout/AdminPageContainer';
 import { AdminUser, AdminStoryItem } from '../../../types/admin';
+import { apiSocialLinksRepository } from '../../../services/repositories/ApiSocialLinksRepository';
 
 // Screen Components
 import { DashboardScreen } from '../screens/DashboardScreen';
@@ -440,12 +441,11 @@ export const AdminSocialLinksPage: React.FC = () => {
   const loadLinks = async () => {
     setLoading(true);
     try {
-      // TODO: Use actual API repository when backend is ready
-      // const data = await apiSocialLinksRepository.getAll();
-      // setLinks(data);
-      setLinks([]);
+      const data = await apiSocialLinksRepository.getAll();
+      setLinks(data);
     } catch (error) {
       console.error('Failed to load social links:', error);
+      setLinks([]);
     } finally {
       setLoading(false);
     }
@@ -453,9 +453,8 @@ export const AdminSocialLinksPage: React.FC = () => {
 
   const handleCreateLink = async (link: any) => {
     try {
-      // TODO: Use actual API call
-      // await apiSocialLinksRepository.create(link);
-      setLinks([...links, { ...link, id: Date.now().toString(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }]);
+      await apiSocialLinksRepository.create(link);
+      await loadLinks();
     } catch (error) {
       console.error('Failed to create link:', error);
     }
@@ -463,9 +462,8 @@ export const AdminSocialLinksPage: React.FC = () => {
 
   const handleUpdateLink = async (id: string, link: any) => {
     try {
-      // TODO: Use actual API call
-      // await apiSocialLinksRepository.update(id, link);
-      setLinks(links.map(l => l.id === id ? { ...l, ...link, updatedAt: new Date().toISOString() } : l));
+      await apiSocialLinksRepository.update(id, link);
+      await loadLinks();
     } catch (error) {
       console.error('Failed to update link:', error);
     }
@@ -473,9 +471,8 @@ export const AdminSocialLinksPage: React.FC = () => {
 
   const handleDeleteLink = async (id: string) => {
     try {
-      // TODO: Use actual API call
-      // await apiSocialLinksRepository.delete(id);
-      setLinks(links.filter(l => l.id !== id));
+      await apiSocialLinksRepository.delete(id);
+      await loadLinks();
     } catch (error) {
       console.error('Failed to delete link:', error);
     }
@@ -483,9 +480,8 @@ export const AdminSocialLinksPage: React.FC = () => {
 
   const handleToggleLink = async (id: string) => {
     try {
-      // TODO: Use actual API call
-      // await apiSocialLinksRepository.toggle(id);
-      setLinks(links.map(l => l.id === id ? { ...l, isActive: !l.isActive, updatedAt: new Date().toISOString() } : l));
+      await apiSocialLinksRepository.toggle(id);
+      await loadLinks();
     } catch (error) {
       console.error('Failed to toggle link:', error);
     }
