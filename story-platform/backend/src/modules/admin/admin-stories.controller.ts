@@ -9,6 +9,7 @@ import {
   UseInterceptors,
   UsePipes,
   UploadedFile,
+  UploadedFiles,
   Get,
   Query,
   BadRequestException,
@@ -20,7 +21,7 @@ import {
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { AdminCreateStoryDto } from '../stories/dto/story.dto';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor, AnyFilesInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -564,14 +565,14 @@ export class AdminStoriesController {
 
   @Post(':id/chapters')
   @ApiOperation({ summary: 'Tạo chương mới cho truyện' })
-  @UseInterceptors(FileInterceptor('audioFile'), FileInterceptor('videoFile'))
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(AnyFilesInterceptor())
   async createChapter(
     @Param('id') storyId: string,
     @CurrentUser('id') adminId: string,
     @Req() req: Request,
     @Body() body: any,
-    @UploadedFile() audioFile?: Express.Multer.File,
-    @UploadedFile() videoFile?: Express.Multer.File,
+    @UploadedFiles() files?: Express.Multer.File[],
   ) {
     const requestId = (req.headers['x-request-id'] as string) || (req as any).id;
     // Check if story exists
@@ -582,6 +583,10 @@ export class AdminStoriesController {
         message: `Không tìm thấy truyện với ID: ${storyId}`,
       });
     }
+
+    // Extract audioFile and videoFile from files array
+    const audioFile = files?.find(f => f.fieldname === 'audioFile');
+    const videoFile = files?.find(f => f.fieldname === 'videoFile');
 
     let audioUrl = body.audioUrl;
     if (audioFile) {
@@ -784,15 +789,14 @@ export class AdminStoriesController {
   @Put(':storyId/chapters/:chapterId')
   @ApiOperation({ summary: 'Cập nhật thông tin chapter' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('audioFile'), FileInterceptor('videoFile'))
+  @UseInterceptors(AnyFilesInterceptor())
   async updateChapter(
     @Param('storyId') storyId: string,
     @Param('chapterId') chapterId: string,
     @CurrentUser('id') adminId: string,
     @Req() req: Request,
     @Body() body: any,
-    @UploadedFile() audioFile?: Express.Multer.File,
-    @UploadedFile() videoFile?: Express.Multer.File,
+    @UploadedFiles() files?: Express.Multer.File[],
   ) {
     try {
       const requestId = (req.headers['x-request-id'] as string) || (req as any).id;
@@ -812,6 +816,10 @@ export class AdminStoriesController {
           message: 'Chapter không thuộc về story này',
         });
       }
+
+      // Extract audioFile and videoFile from files array
+      const audioFile = files?.find(f => f.fieldname === 'audioFile');
+      const videoFile = files?.find(f => f.fieldname === 'videoFile');
 
       let audioUrl = body.audioUrl;
       if (audioFile) {
