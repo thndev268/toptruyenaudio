@@ -116,13 +116,10 @@ export const SocialLinksScreen: React.FC<SocialLinksScreenProps> = ({
 
   const getPlatformIcon = (platform: string) => {
     const icons: Record<string, string> = {
-      INSTAGRAM: '📷',
-      LINKEDIN: '💼',
-      WHATSAPP: '💬',
-      YOUTUBE: '▶️',
-      FACEBOOK: '📘',
-      TIKTOK: '🎵',
+      FACEBOOK: '�',
+      INSTAGRAM: '�',
       TWITTER: '🐦',
+      MAIL: '✉️',
     };
     return icons[platform] || '🔗';
   };
@@ -181,13 +178,10 @@ export const SocialLinksScreen: React.FC<SocialLinksScreenProps> = ({
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-cyan-500"
               >
                 <option value="">Chọn platform</option>
-                <option value="INSTAGRAM">Instagram</option>
-                <option value="LINKEDIN">LinkedIn</option>
-                <option value="WHATSAPP">WhatsApp</option>
-                <option value="YOUTUBE">YouTube</option>
                 <option value="FACEBOOK">Facebook</option>
-                <option value="TIKTOK">TikTok</option>
+                <option value="INSTAGRAM">Instagram</option>
                 <option value="TWITTER">Twitter</option>
+                <option value="MAIL">Mail</option>
               </select>
             </div>
 
