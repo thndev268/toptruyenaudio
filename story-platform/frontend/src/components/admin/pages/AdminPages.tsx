@@ -29,6 +29,7 @@ import { SecurityCenterScreen } from '../screens/SecurityCenterScreen';
 import { FeatureFlagsScreen } from '../screens/FeatureFlagsScreen';
 import { ZaloSettingsScreen } from '../screens/ZaloSettingsScreen';
 import { BannersScreen } from '../screens/BannersScreen';
+import { apiRequest } from '../../../services/apiClient';
 import { TelegramSettingsScreen } from '../screens/TelegramSettingsScreen';
 import { PayOSScreen } from '../screens/PayOSScreen';
 import { AuditLogsScreen } from '../screens/AuditLogsScreen';
@@ -523,15 +524,8 @@ export const AdminBannersPage: React.FC = () => {
   const loadBanners = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/banners/admin/all', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-      });
-      const data = await response.json();
-      if (data.success) {
-        setBanners(data.data);
-      }
+      const data = await apiRequest('banners/admin/all');
+      setBanners(data);
     } catch (error) {
       console.error('Failed to load banners:', error);
       setBanners([]);
@@ -542,53 +536,39 @@ export const AdminBannersPage: React.FC = () => {
 
   const handleCreateBanner = async (banner: any) => {
     try {
-      const response = await fetch('/banners', {
+      await apiRequest('banners', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
         body: JSON.stringify(banner),
       });
-      if (response.ok) {
-        await loadBanners();
-      }
+      await loadBanners();
     } catch (error) {
       console.error('Failed to create banner:', error);
+      alert('Tạo banner thất bại');
     }
   };
 
   const handleUpdateBanner = async (id: string, banner: any) => {
     try {
-      const response = await fetch(`/banners/${id}`, {
+      await apiRequest(`banners/${id}`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
         body: JSON.stringify(banner),
       });
-      if (response.ok) {
-        await loadBanners();
-      }
+      await loadBanners();
     } catch (error) {
       console.error('Failed to update banner:', error);
+      alert('Cập nhật banner thất bại');
     }
   };
 
   const handleDeleteBanner = async (id: string) => {
     try {
-      const response = await fetch(`/banners/${id}`, {
+      await apiRequest(`banners/${id}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
       });
-      if (response.ok) {
-        await loadBanners();
-      }
+      await loadBanners();
     } catch (error) {
       console.error('Failed to delete banner:', error);
+      alert('Xóa banner thất bại');
     }
   };
 
