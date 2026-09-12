@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Award, 
+import { Award,
   LayoutDashboard,
   Users,
   UserCheck,
@@ -20,7 +20,8 @@ import { Award,
   Sliders,
   CreditCard,
   User,
- } from 'lucide-react';
+  Share2,
+} from 'lucide-react';
 import { AdminDropdownMenu, AdminNavGroup } from './AdminDropdownMenu';
 
 interface AdminNavigationProps {
@@ -215,6 +216,13 @@ export const AdminNavigation: React.FC<AdminNavigationProps> = ({
           route: '/admin/payos',
           icon: CreditCard,
           description: 'Quản lý thông tin PayOS',
+        },
+        {
+          id: 'social-links',
+          label: 'Liên kết mạng xã hội',
+          route: '/admin/social-links',
+          icon: Share2,
+          description: 'Quản lý liên kết Instagram, Facebook, YouTube...',
         },
         {
           id: 'profile',

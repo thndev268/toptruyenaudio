@@ -26,6 +26,7 @@ import { StorageModule } from './modules/storage/storage.module';
 import { TelegramModule } from './modules/telegram/telegram.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { BadgesModule } from './modules/badges/badges.module';
+import { SocialLinksModule } from './modules/social-links/social-links.module';
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { BadgesModule } from './modules/badges/badges.module';
     TelegramModule,
     ChatModule,
     BadgesModule,
+    SocialLinksModule,
   ],
   providers: [
     // Tắt rate limiting trong development

@@ -866,3 +866,24 @@ model BotKnowledgeChunk {
   @@index([documentId])
   @@map("bot_knowledge_chunks")
 }
+
+// -----------------------------------------------------------------------------
+// SOCIAL MEDIA LINKS
+// -----------------------------------------------------------------------------
+
+model SocialMediaLink {
+  id          String   @id @default(cuid())
+  platform    String   // INSTAGRAM, LINKEDIN, WHATSAPP, YOUTUBE, FACEBOOK, TIKTOK, TWITTER
+  name        String   // Display name (e.g., "Instagram", "LinkedIn")
+  url         String   // Full URL to the social media page
+  iconUrl     String?  // Optional custom icon URL
+  isActive    Boolean  @default(true)
+  order       Int      @default(0) // Display order
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([platform])
+  @@index([isActive])
+  @@index([order])
+  @@map("social_media_links")
+}

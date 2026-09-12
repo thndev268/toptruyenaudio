@@ -1,5 +1,5 @@
 import { HonoraryTitlesScreen } from '../screens/HonoraryTitlesScreen';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate, useParams } from 'react-router-dom';
 import { AdminLayoutContextType } from '../layout/AdminLayout';
 import { AdminPageContainer } from '../layout/AdminPageContainer';
@@ -34,6 +34,7 @@ import { AdminProfileScreen } from '../screens/AdminProfileScreen';
 import { AdminBadgesScreen } from '../screens/AdminBadgesScreen';
 import { AdminBadgesPage } from './AdminBadgesPage';
 import { SystemStatusScreen } from '../screens/SystemStatusScreen';
+import { SocialLinksScreen } from '../screens/SocialLinksScreen';
 
 export { AdminBadgesPage };
 
@@ -423,6 +424,92 @@ export const AdminSystemStatusPage: React.FC = () => {
   return (
     <AdminPageContainer>
       <SystemStatusScreen />
+    </AdminPageContainer>
+  );
+};
+
+// 21. Social Links Page
+export const AdminSocialLinksPage: React.FC = () => {
+  const [links, setLinks] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadLinks();
+  }, []);
+
+  const loadLinks = async () => {
+    setLoading(true);
+    try {
+      // TODO: Use actual API repository when backend is ready
+      // const data = await apiSocialLinksRepository.getAll();
+      // setLinks(data);
+      setLinks([]);
+    } catch (error) {
+      console.error('Failed to load social links:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateLink = async (link: any) => {
+    try {
+      // TODO: Use actual API call
+      // await apiSocialLinksRepository.create(link);
+      setLinks([...links, { ...link, id: Date.now().toString(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }]);
+    } catch (error) {
+      console.error('Failed to create link:', error);
+    }
+  };
+
+  const handleUpdateLink = async (id: string, link: any) => {
+    try {
+      // TODO: Use actual API call
+      // await apiSocialLinksRepository.update(id, link);
+      setLinks(links.map(l => l.id === id ? { ...l, ...link, updatedAt: new Date().toISOString() } : l));
+    } catch (error) {
+      console.error('Failed to update link:', error);
+    }
+  };
+
+  const handleDeleteLink = async (id: string) => {
+    try {
+      // TODO: Use actual API call
+      // await apiSocialLinksRepository.delete(id);
+      setLinks(links.filter(l => l.id !== id));
+    } catch (error) {
+      console.error('Failed to delete link:', error);
+    }
+  };
+
+  const handleToggleLink = async (id: string) => {
+    try {
+      // TODO: Use actual API call
+      // await apiSocialLinksRepository.toggle(id);
+      setLinks(links.map(l => l.id === id ? { ...l, isActive: !l.isActive, updatedAt: new Date().toISOString() } : l));
+    } catch (error) {
+      console.error('Failed to toggle link:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <AdminPageContainer>
+        <div className="flex items-center justify-center py-12">
+          <div className="text-slate-400">Đang tải...</div>
+        </div>
+      </AdminPageContainer>
+    );
+  }
+
+  return (
+    <AdminPageContainer>
+      <SocialLinksScreen
+        links={links}
+        onCreateLink={handleCreateLink}
+        onUpdateLink={handleUpdateLink}
+        onDeleteLink={handleDeleteLink}
+        onToggleLink={handleToggleLink}
+      />
     </AdminPageContainer>
   );
 };
