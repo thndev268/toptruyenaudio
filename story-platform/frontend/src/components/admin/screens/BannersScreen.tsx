@@ -11,6 +11,7 @@ import {
   Image as ImageIcon,
   Upload,
 } from 'lucide-react';
+import { apiRequest } from '../../../services/apiClient';
 
 interface Banner {
   id: string;
@@ -153,23 +154,22 @@ export const BannersScreen: React.FC<BannersScreenProps> = ({
       const uploadFormData = new FormData();
       uploadFormData.append('file', file);
 
-      const response = await fetch('/banners/upload-image', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: uploadFormData,
-      });
+      const data = await apiRequest<{ success: boolean; data: { url: string }; message: string }>(
+        'banners/upload-image',
+        {
+          method: 'POST',
+          body: uploadFormData,
+        }
+      );
 
-      const data = await response.json();
       if (data.success && data.data?.url) {
         setFormData({ ...formData, imageUrl: data.data.url });
       } else {
-        alert('Upload ảnh thất bại');
+        alert('Upload ảnh thất bại: ' + (data.message || 'Unknown error'));
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to upload image:', error);
-      alert('Upload ảnh thất bại');
+      alert('Upload ảnh thất bại: ' + (error.message || 'Unknown error'));
     } finally {
       setUploading(false);
     }
