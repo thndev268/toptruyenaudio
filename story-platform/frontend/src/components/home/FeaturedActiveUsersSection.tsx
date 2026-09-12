@@ -94,7 +94,7 @@ export const FeaturedActiveUsersSection: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 sm:gap-4">
-        {activeUsers.slice(0, 3).map((user) => (
+        {activeUsers.slice(0, 3).map((user, index) => (
           <div
             key={user.userId}
             onClick={() => setSelectedUser(user)}
@@ -115,8 +115,13 @@ export const FeaturedActiveUsersSection: React.FC = () => {
               <div className="w-12 h-12 rounded-2xl overflow-hidden bg-slate-800 border border-slate-700 group-hover:border-cyan-400/80 transition-colors">
                 <img src={user.avatarUrl} alt={user.displayName} className="w-full h-full object-cover" />
               </div>
-              <div className="absolute -top-1.5 -left-1.5 w-6 h-6 bg-amber-500 text-slate-950 font-mono text-[10px] font-extrabold rounded-full flex items-center justify-center shadow-md">
-                <Crown className="w-3.5 h-3.5 fill-slate-950" />
+              <div className={`absolute -top-1.5 -left-1.5 w-6 h-6 font-mono text-[10px] font-extrabold rounded-full flex items-center justify-center shadow-md ${
+                index === 0 ? 'bg-amber-500 text-slate-950' :
+                index === 1 ? 'bg-slate-300 text-slate-950' :
+                index === 2 ? 'bg-amber-600 text-white' :
+                'bg-slate-700 text-slate-200'
+              }`}>
+                {index === 0 ? <Crown className="w-3.5 h-3.5 fill-slate-950" /> : `#${user.rank || index + 1}`}
               </div>
             </div>
 

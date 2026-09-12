@@ -254,7 +254,7 @@ export class ListeningService {
 
     const userMap = new Map(users.map(u => [u.id, u]));
 
-    return rankings.map(ranking => {
+    return rankings.map((ranking, index) => {
       const user = userMap.get(ranking.profileId);
       return {
         userId: ranking.profileId,
@@ -262,6 +262,7 @@ export class ListeningService {
         avatarUrl: user?.avatarUrl || null,
         level: 1,
         validListeningMinutes: (ranking._sum.validListeningSeconds || 0) / 3600,
+        rank: index + 1,
         achievements: [],
         favoriteStories: [], // TODO: Fetch actual favorite stories from database
       };

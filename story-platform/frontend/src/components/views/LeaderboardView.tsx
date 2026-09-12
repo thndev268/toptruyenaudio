@@ -165,7 +165,7 @@ export const LeaderboardView: React.FC = () => {
       {mainTab === 'USERS' && (
         <div className="space-y-3">
           {Array.isArray(userRankings) && userRankings.length > 0 ? (
-            userRankings.map((user, rank) => (
+            userRankings.map((user) => (
               <div
                 key={user.userId}
                 onClick={() => setSelectedUser(user)}
@@ -181,7 +181,7 @@ export const LeaderboardView: React.FC = () => {
               >
                 <div className="flex items-center gap-4 min-w-0">
                   <div className="shrink-0 w-8 h-8 rounded-xl bg-slate-800 text-amber-400 font-mono font-bold text-xs flex items-center justify-center">
-                    #{rank + 1}
+                    #{user.rank}
                   </div>
 
                   <div className="w-12 h-12 rounded-2xl overflow-hidden bg-slate-800 border border-slate-700 group-hover:border-cyan-400/80 transition-colors shrink-0">
