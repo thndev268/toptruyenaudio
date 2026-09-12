@@ -255,7 +255,9 @@ export const Footer: React.FC = () => {
           <ul className="doodle-container">
             <li className="doodle-icon-content">
               <a
-                href={getLinkUrl('FACEBOOK')}
+                href="https://www.facebook.com/profile.php?id=61593950954172"
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label="Facebook"
                 className="doodle-link link-spotify"
               >
@@ -277,7 +279,9 @@ export const Footer: React.FC = () => {
 
             <li className="doodle-icon-content">
               <a
-                href={getLinkUrl('INSTAGRAM')}
+                href="https://www.instagram.com/toptruyenreview/"
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label="Instagram"
                 className="doodle-link link-pinterest"
               >
@@ -298,7 +302,9 @@ export const Footer: React.FC = () => {
 
             <li className="doodle-icon-content">
               <a
-                href={getLinkUrl('TWITTER')}
+                href="https://twitter.com"
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label="Twitter"
                 className="doodle-link link-twitter"
               >
@@ -314,7 +320,7 @@ export const Footer: React.FC = () => {
 
             <li className="doodle-icon-content">
               <a
-                href={getLinkUrl('MAIL')}
+                href="mailto:thndev26@gmail.com"
                 aria-label="Mail"
                 className="doodle-link link-mail"
               >
