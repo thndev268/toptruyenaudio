@@ -48,10 +48,14 @@ export const BannerNotification: React.FC<BannerNotificationProps> = ({ classNam
   const [banners, setBanners] = useState<Banner[]>([]);
   const [visibleBanner, setVisibleBanner] = useState<Banner | null>(null);
 
-  // Only show banner for logged-in users
-  if (!user) return null;
-
   useEffect(() => {
+    // Only load banners for logged-in users
+    if (!user) {
+      setBanners([]);
+      setVisibleBanner(null);
+      return;
+    }
+
     const loadBanners = async () => {
       const fetchedBanners = await bannersRepository.fetchBanners(user.id);
       setBanners(fetchedBanners);
