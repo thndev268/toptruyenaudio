@@ -19,9 +19,9 @@ export interface SocialLinksRepository {
 class ApiSocialLinksRepository implements SocialLinksRepository {
   async getActiveLinks(): Promise<SocialLink[]> {
     try {
-      const res = await apiRequest<SocialLink[]>('/social-links');
-      if (res && Array.isArray(res)) {
-        return res;
+      const res = await apiRequest<{ data: SocialLink[] }>('/social-links');
+      if (res && res.data && Array.isArray(res.data)) {
+        return res.data;
       }
       return [];
     } catch (err) {
