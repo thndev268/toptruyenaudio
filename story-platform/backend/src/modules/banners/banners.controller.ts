@@ -34,6 +34,7 @@ export class BannersController {
   async createBanner(@Body() body: {
     title: string;
     content: string;
+    imageUrl?: string;
     type?: 'INFO' | 'WARNING' | 'ERROR' | 'SUCCESS' | 'PROMOTION';
     backgroundColor?: string;
     textColor?: string;
@@ -59,6 +60,7 @@ export class BannersController {
     @Body() body: {
       title?: string;
       content?: string;
+      imageUrl?: string;
       type?: 'INFO' | 'WARNING' | 'ERROR' | 'SUCCESS' | 'PROMOTION';
       backgroundColor?: string;
       textColor?: string;

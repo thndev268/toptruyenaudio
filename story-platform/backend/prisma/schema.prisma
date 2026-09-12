@@ -719,7 +719,8 @@ model UserNotification {
 model BannerNotification {
   id              String   @id @default(cuid())
   title           String
-  content         String
+  content         String   @db.Text
+  imageUrl        String?  // Optional banner image URL
   type            String   @default("INFO") // INFO, WARNING, ERROR, SUCCESS, PROMOTION
   backgroundColor String   @default("#0f172a")
   textColor       String   @default("#ffffff")

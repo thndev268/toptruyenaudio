@@ -92,6 +92,7 @@ export class BannersService {
   async createBanner(body: {
     title: string;
     content: string;
+    imageUrl?: string;
     type?: BannerType;
     backgroundColor?: string;
     textColor?: string;
@@ -105,6 +106,7 @@ export class BannersService {
       data: {
         title: body.title,
         content: body.content,
+        imageUrl: body.imageUrl,
         type: body.type || 'INFO',
         backgroundColor: body.backgroundColor || '#0f172a',
         textColor: body.textColor || '#ffffff',
@@ -126,6 +128,7 @@ export class BannersService {
   async updateBanner(bannerId: string, body: {
     title?: string;
     content?: string;
+    imageUrl?: string;
     type?: BannerType;
     backgroundColor?: string;
     textColor?: string;

@@ -11,6 +11,9 @@ import { storage } from './services/storage';
 
 import { UserRole } from './types';
 
+// Components
+import { BannerNotification } from './components/common/BannerNotification';
+
 // Layouts
 import { PublicLayout } from './components/layout/PublicLayout';
 import { DashboardLayout } from './components/layout/DashboardLayout';
@@ -191,6 +194,7 @@ export function App() {
                 <NotificationProvider>
                   <BadgeToastProvider>
                     <AudioPlayerProvider>
+                      <BannerNotification />
                       <Routes>
               
               {/* Public Website Routes */}

@@ -4,6 +4,7 @@ export interface Banner {
   id: string;
   title: string;
   content: string;
+  imageUrl?: string;
   type: 'INFO' | 'WARNING' | 'ERROR' | 'SUCCESS' | 'PROMOTION';
   backgroundColor: string;
   textColor: string;
