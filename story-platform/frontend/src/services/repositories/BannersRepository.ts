@@ -40,16 +40,23 @@ export class BannersRepository {
   }
 
   async fetchBanners(userId?: string): Promise<Banner[]> {
+    console.log('[BANNER API] fetching banners');
     try {
-      const response = await apiRequest<{ success: boolean; data: Banner[] }>(`/banners${userId ? '' : ''}`);
-      if (response?.success && Array.isArray(response.data)) {
-        this.banners = response.data;
+      const response = await apiRequest<Banner[]>('banners');
+      console.log('[BANNER API] response:', response);
+      
+      // Backend returns array directly, not wrapped in { success, data }
+      if (Array.isArray(response)) {
+        this.banners = response;
         this.notifyListeners();
+        console.log('[BANNER API] banners count:', this.banners.length);
         return this.banners;
       }
+      
+      console.log('[BANNER API] response is not array, returning empty');
       return [];
     } catch (error) {
-      console.error('[BannersRepository] Failed to fetch banners:', error);
+      console.error('[BANNER API ERROR]', error);
       return [];
     }
   }
