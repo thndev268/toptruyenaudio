@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, AlertTriangle, AlertCircle, CheckCircle, Info, Gift } from 'lucide-react';
+import { X, AlertTriangle, AlertCircle, CheckCircle, Info, Gift, ChevronLeft, ChevronRight } from 'lucide-react';
 import { bannersRepository, Banner } from '../../services/repositories/BannersRepository';
 import { useAuth } from '../../context/AuthContext';
 
@@ -46,13 +46,15 @@ const cleanupExpiredDismissals = () => {
 export const BannerNotification: React.FC<BannerNotificationProps> = ({ className = '' }) => {
   const { user } = useAuth();
   const [banners, setBanners] = useState<Banner[]>([]);
-  const [visibleBanner, setVisibleBanner] = useState<Banner | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     // Only load banners for logged-in users
     if (!user) {
       setBanners([]);
-      setVisibleBanner(null);
+      setCurrentIndex(0);
+      setIsModalOpen(false);
       return;
     }
 
@@ -60,7 +62,7 @@ export const BannerNotification: React.FC<BannerNotificationProps> = ({ classNam
       const fetchedBanners = await bannersRepository.fetchBanners(user.id);
       setBanners(fetchedBanners);
       if (fetchedBanners.length > 0) {
-        setVisibleBanner(fetchedBanners[0]);
+        setIsModalOpen(true);
       }
     };
 
@@ -81,19 +83,26 @@ export const BannerNotification: React.FC<BannerNotificationProps> = ({ classNam
     };
   }, [user]);
 
-  const handleDismiss = async () => {
-    if (!visibleBanner) return;
-
+  const handleDismiss = async (bannerId: string) => {
     try {
-      await bannersRepository.dismissBanner(visibleBanner.id);
-      setBanners(prev => prev.filter(b => b.id !== visibleBanner.id));
-      setVisibleBanner(prevBanners => {
-        const remaining = banners.filter(b => b.id !== visibleBanner.id);
-        return remaining.length > 0 ? remaining[0] : null;
-      });
+      await bannersRepository.dismissBanner(bannerId);
+      setBanners(prev => prev.filter(b => b.id !== bannerId));
+      if (banners.length <= 1) {
+        setIsModalOpen(false);
+      } else if (currentIndex >= banners.length - 1) {
+        setCurrentIndex(0);
+      }
     } catch (error) {
       console.error('Failed to dismiss banner:', error);
     }
+  };
+
+  const handleNext = () => {
+    setCurrentIndex((prev) => (prev + 1) % banners.length);
+  };
+
+  const handlePrev = () => {
+    setCurrentIndex((prev) => (prev - 1 + banners.length) % banners.length);
   };
 
   const getIcon = (type: string) => {
@@ -112,58 +121,136 @@ export const BannerNotification: React.FC<BannerNotificationProps> = ({ classNam
     }
   };
 
-  const Icon = visibleBanner ? getIcon(visibleBanner.type) : Info;
+  const currentBanner = banners[currentIndex];
 
-  if (!visibleBanner) return null;
+  if (!isModalOpen || !currentBanner) return null;
+
+  const Icon = getIcon(currentBanner.type);
 
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        transition={{ duration: 0.3 }}
-        className="relative w-full"
-        style={{
-          backgroundColor: visibleBanner.backgroundColor,
-          color: visibleBanner.textColor,
-        }}
-      >
-        <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 ${className}`}>
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              {visibleBanner.imageUrl && (
-                <div className="flex-shrink-0">
-                  <img 
-                    src={visibleBanner.imageUrl} 
-                    alt={visibleBanner.title}
-                    className="w-12 h-12 object-cover rounded"
-                  />
-                </div>
-              )}
-              <div className="flex-shrink-0">
-                <Icon className="w-5 h-5" style={{ color: visibleBanner.textColor }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate" style={{ color: visibleBanner.textColor }}>
-                  {visibleBanner.title}
-                </p>
-                <p className="text-xs opacity-90 truncate" style={{ color: visibleBanner.textColor }}>
-                  {visibleBanner.content}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={handleDismiss}
-              className="flex-shrink-0 p-1 rounded hover:opacity-70 transition-opacity"
-              style={{ color: visibleBanner.textColor }}
-              aria-label="Đóng"
+      {isModalOpen && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsModalOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
+          />
+          
+          {/* Modal */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+              className="relative w-full max-w-lg"
             >
-              <X className="w-4 h-4" />
-            </button>
+              <div
+                className="rounded-2xl shadow-2xl overflow-hidden"
+                style={{
+                  background: `linear-gradient(135deg, ${currentBanner.backgroundColor} 0%, ${adjustColor(currentBanner.backgroundColor, -20)} 100%)`,
+                  color: currentBanner.textColor,
+                }}
+              >
+                {/* Header */}
+                <div className="relative p-6 pb-4">
+                  <button
+                    onClick={() => setIsModalOpen(false)}
+                    className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 transition-colors"
+                    style={{ color: currentBanner.textColor }}
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                  
+                  <div className="flex items-start gap-4">
+                    {currentBanner.imageUrl && (
+                      <div className="flex-shrink-0">
+                        <img 
+                          src={currentBanner.imageUrl} 
+                          alt={currentBanner.title}
+                          className="w-20 h-20 object-cover rounded-xl shadow-lg"
+                        />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
+                          <Icon className="w-5 h-5" style={{ color: currentBanner.textColor }} />
+                        </div>
+                        <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
+                          {currentBanner.type}
+                        </span>
+                      </div>
+                      <h3 className="text-xl font-bold mb-1" style={{ color: currentBanner.textColor }}>
+                        {currentBanner.title}
+                      </h3>
+                      <p className="text-sm opacity-90 leading-relaxed" style={{ color: currentBanner.textColor }}>
+                        {currentBanner.content}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 pb-6 pt-2">
+                  <div className="flex items-center justify-between">
+                    {/* Navigation */}
+                    {banners.length > 1 && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handlePrev}
+                          disabled={banners.length <= 1}
+                          className="p-2 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-30"
+                          style={{ color: currentBanner.textColor }}
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <span className="text-sm font-medium" style={{ color: currentBanner.textColor }}>
+                          {currentIndex + 1} / {banners.length}
+                        </span>
+                        <button
+                          onClick={handleNext}
+                          disabled={banners.length <= 1}
+                          className="p-2 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-30"
+                          style={{ color: currentBanner.textColor }}
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Dismiss button */}
+                    <button
+                      onClick={() => handleDismiss(currentBanner.id)}
+                      className="px-4 py-2 rounded-xl font-semibold text-sm transition-all hover:scale-105"
+                      style={{ 
+                        backgroundColor: 'rgba(255,255,255,0.2)',
+                        color: currentBanner.textColor 
+                      }}
+                    >
+                      Đóng 3 giờ
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           </div>
-        </div>
-      </motion.div>
+        </>
+      )}
     </AnimatePresence>
   );
 };
+
+// Helper function to adjust color brightness
+function adjustColor(color: string, amount: number): string {
+  const hex = color.replace('#', '');
+  const num = parseInt(hex, 16);
+  const r = Math.min(255, Math.max(0, (num >> 16) + amount));
+  const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + amount));
+  const b = Math.min(255, Math.max(0, (num & 0x0000FF) + amount));
+  return `#${(1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1)}`;
+}
