@@ -141,54 +141,54 @@ export const BannerNotification: React.FC<BannerNotificationProps> = ({ classNam
           />
           
           {/* Modal */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8">
             <motion.div
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-              className="relative w-full max-w-lg"
+              className="relative w-full max-w-2xl lg:max-w-4xl"
             >
               <div
-                className="rounded-2xl shadow-2xl overflow-hidden"
+                className="rounded-3xl shadow-2xl overflow-hidden"
                 style={{
                   background: `linear-gradient(135deg, ${currentBanner.backgroundColor} 0%, ${adjustColor(currentBanner.backgroundColor, -20)} 100%)`,
                   color: currentBanner.textColor,
                 }}
               >
                 {/* Header */}
-                <div className="relative p-6 pb-4">
+                <div className="relative p-6 sm:p-8 lg:p-10 pb-4">
                   <button
                     onClick={() => setIsModalOpen(false)}
-                    className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 transition-colors"
+                    className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 sm:p-3 rounded-full hover:bg-white/10 transition-colors"
                     style={{ color: currentBanner.textColor }}
                   >
-                    <X className="w-5 h-5" />
+                    <X className="w-5 h-5 sm:w-6 sm:h-6" />
                   </button>
                   
-                  <div className="flex items-start gap-4">
+                  <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
                     {currentBanner.imageUrl && (
-                      <div className="flex-shrink-0">
+                      <div className="flex-shrink-0 w-full sm:w-auto">
                         <img 
                           src={currentBanner.imageUrl} 
                           alt={currentBanner.title}
-                          className="w-20 h-20 object-cover rounded-xl shadow-lg"
+                          className="w-full sm:w-32 sm:h-32 lg:w-48 lg:h-48 object-cover rounded-2xl shadow-lg"
                         />
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="p-2 rounded-lg" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
-                          <Icon className="w-5 h-5" style={{ color: currentBanner.textColor }} />
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                        <div className="p-2 sm:p-3 rounded-xl" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
+                          <Icon className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: currentBanner.textColor }} />
                         </div>
-                        <span className="text-xs font-semibold px-2 py-1 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
+                        <span className="text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
                           {currentBanner.type}
                         </span>
                       </div>
-                      <h3 className="text-xl font-bold mb-1" style={{ color: currentBanner.textColor }}>
+                      <h3 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2 sm:mb-3" style={{ color: currentBanner.textColor }}>
                         {currentBanner.title}
                       </h3>
-                      <p className="text-sm opacity-90 leading-relaxed" style={{ color: currentBanner.textColor }}>
+                      <p className="text-sm sm:text-base lg:text-lg opacity-90 leading-relaxed" style={{ color: currentBanner.textColor }}>
                         {currentBanner.content}
                       </p>
                     </div>
@@ -196,29 +196,29 @@ export const BannerNotification: React.FC<BannerNotificationProps> = ({ classNam
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 pb-6 pt-2">
-                  <div className="flex items-center justify-between">
+                <div className="px-6 sm:px-8 lg:px-10 pb-6 sm:pb-8 lg:pb-10 pt-4">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-6">
                     {/* Navigation */}
                     {banners.length > 1 && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 sm:gap-3">
                         <button
                           onClick={handlePrev}
                           disabled={banners.length <= 1}
-                          className="p-2 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-30"
+                          className="p-2 sm:p-3 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-30"
                           style={{ color: currentBanner.textColor }}
                         >
-                          <ChevronLeft className="w-5 h-5" />
+                          <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
                         </button>
-                        <span className="text-sm font-medium" style={{ color: currentBanner.textColor }}>
+                        <span className="text-sm sm:text-base font-medium" style={{ color: currentBanner.textColor }}>
                           {currentIndex + 1} / {banners.length}
                         </span>
                         <button
                           onClick={handleNext}
                           disabled={banners.length <= 1}
-                          className="p-2 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-30"
+                          className="p-2 sm:p-3 rounded-xl hover:bg-white/10 transition-colors disabled:opacity-30"
                           style={{ color: currentBanner.textColor }}
                         >
-                          <ChevronRight className="w-5 h-5" />
+                          <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
                         </button>
                       </div>
                     )}
@@ -226,7 +226,7 @@ export const BannerNotification: React.FC<BannerNotificationProps> = ({ classNam
                     {/* Dismiss button */}
                     <button
                       onClick={() => handleDismiss(currentBanner.id)}
-                      className="px-4 py-2 rounded-xl font-semibold text-sm transition-all hover:scale-105"
+                      className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-semibold text-sm sm:text-base transition-all hover:scale-105"
                       style={{ 
                         backgroundColor: 'rgba(255,255,255,0.2)',
                         color: currentBanner.textColor 
