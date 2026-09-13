@@ -8,45 +8,41 @@ interface BannerNotificationProps {
   className?: string;
 }
 
-const DISMISSAL_STORAGE_KEY = 'banner_dismissals';
+const DISMISSAL_DURATION = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
 
-const getDismissedBanners = (): Record<string, { dismissedAt: number; expiresAt: number }> => {
+const getBannerDismissalTime = (bannerId: string): number | null => {
   try {
-    const stored = localStorage.getItem(DISMISSAL_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : {};
+    const key = `toptruyenaudio_banner_dismissed_${bannerId}`;
+    const stored = localStorage.getItem(key);
+    return stored ? parseInt(stored, 10) : null;
   } catch {
-    return {};
+    return null;
   }
 };
 
-const setDismissedBanner = (bannerId: string) => {
-  const dismissals = getDismissedBanners();
+const setBannerDismissed = (bannerId: string) => {
+  const key = `toptruyenaudio_banner_dismissed_${bannerId}`;
   const now = Date.now();
-  const expiresAt = now + 3 * 60 * 60 * 1000; // 3 hours
-  dismissals[bannerId] = { dismissedAt: now, expiresAt };
-  localStorage.setItem(DISMISSAL_STORAGE_KEY, JSON.stringify(dismissals));
+  localStorage.setItem(key, now.toString());
 };
 
 const isBannerDismissed = (bannerId: string): boolean => {
-  const dismissals = getDismissedBanners();
-  const dismissal = dismissals[bannerId];
-  if (!dismissal) return false;
-  return Date.now() < dismissal.expiresAt;
+  const dismissedAt = getBannerDismissalTime(bannerId);
+  if (!dismissedAt) return false;
+  const now = Date.now();
+  return now - dismissedAt < DISMISSAL_DURATION;
 };
 
-const cleanupExpiredDismissals = () => {
-  const dismissals = getDismissedBanners();
-  const now = Date.now();
-  const cleaned = Object.fromEntries(
-    Object.entries(dismissals).filter(([_, value]) => now < value.expiresAt)
-  );
-  localStorage.setItem(DISMISSAL_STORAGE_KEY, JSON.stringify(cleaned));
+const cleanupBannerDismissal = (bannerId: string) => {
+  const key = `toptruyenaudio_banner_dismissed_${bannerId}`;
+  localStorage.removeItem(key);
 };
 
 export const BannerNotification: React.FC<BannerNotificationProps> = ({ className = '' }) => {
   const { user } = useAuth();
   const [banner, setBanner] = useState<Banner | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDismissing, setIsDismissing] = useState(false);
 
   useEffect(() => {
     // Only load banners for logged-in users
@@ -58,10 +54,16 @@ export const BannerNotification: React.FC<BannerNotificationProps> = ({ classNam
 
     const loadBanners = async () => {
       const fetchedBanners = await bannersRepository.fetchBanners(user.id);
-      // Only show the first banner (highest priority)
+      // Only show the first banner (highest priority) that is not dismissed
       if (fetchedBanners.length > 0) {
-        setBanner(fetchedBanners[0]);
-        setIsModalOpen(true);
+        const activeBanner = fetchedBanners.find(b => !isBannerDismissed(b.id));
+        if (activeBanner) {
+          setBanner(activeBanner);
+          setIsModalOpen(true);
+        } else {
+          setBanner(null);
+          setIsModalOpen(false);
+        }
       } else {
         setBanner(null);
         setIsModalOpen(false);
@@ -86,12 +88,21 @@ export const BannerNotification: React.FC<BannerNotificationProps> = ({ classNam
   }, [user]);
 
   const handleDismiss = async (bannerId: string) => {
+    if (isDismissing) return;
+    
+    setIsDismissing(true);
     try {
-      await bannersRepository.dismissBanner(bannerId);
+      console.log('[BannerNotification] Dismissing banner:', bannerId);
+      // Save dismissal time to localStorage (client-side only)
+      setBannerDismissed(bannerId);
+      console.log('[BannerNotification] Banner dismissed successfully');
       setBanner(null);
       setIsModalOpen(false);
     } catch (error) {
-      console.error('Failed to dismiss banner:', error);
+      console.error('[BannerNotification] Failed to dismiss banner:', error);
+      alert('Không thể đóng banner. Vui lòng thử lại.');
+    } finally {
+      setIsDismissing(false);
     }
   };
 
@@ -189,13 +200,14 @@ export const BannerNotification: React.FC<BannerNotificationProps> = ({ classNam
                     {/* Dismiss button */}
                     <button
                       onClick={() => handleDismiss(banner.id)}
-                      className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-semibold text-sm sm:text-base transition-all hover:scale-105"
+                      disabled={isDismissing}
+                      className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 rounded-2xl font-semibold text-sm sm:text-base transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                       style={{ 
                         backgroundColor: 'rgba(255,255,255,0.2)',
                         color: banner.textColor 
                       }}
                     >
-                      Đóng 3 giờ
+                      {isDismissing ? 'Đang đóng...' : 'Đóng 3 giờ'}
                     </button>
                   </div>
                 </div>
