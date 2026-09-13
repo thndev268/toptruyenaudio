@@ -29,8 +29,17 @@ const setBannerDismissed = (bannerId: string) => {
 const isBannerDismissed = (bannerId: string): boolean => {
   const dismissedAt = getBannerDismissalTime(bannerId);
   if (!dismissedAt) return false;
+  
   const now = Date.now();
-  return now - dismissedAt < DISMISSAL_DURATION;
+  const elapsed = now - dismissedAt;
+  
+  if (elapsed < DISMISSAL_DURATION) {
+    return true; // Still within 3 hour window
+  }
+  
+  // Expired, clean up the key
+  cleanupBannerDismissal(bannerId);
+  return false;
 };
 
 const cleanupBannerDismissal = (bannerId: string) => {
@@ -54,17 +63,33 @@ export const BannerNotification: React.FC<BannerNotificationProps> = ({ classNam
 
     const loadBanners = async () => {
       const fetchedBanners = await bannersRepository.fetchBanners(user.id);
+      console.log('[BANNER] fetched:', fetchedBanners.length, 'banners');
+      
       // Only show the first banner (highest priority) that is not dismissed
       if (fetchedBanners.length > 0) {
         const activeBanner = fetchedBanners.find(b => !isBannerDismissed(b.id));
+        console.log('[BANNER] selected:', activeBanner ? activeBanner.id : 'none (all dismissed)');
+        
         if (activeBanner) {
-          setBanner(activeBanner);
-          setIsModalOpen(true);
+          const dismissed = isBannerDismissed(activeBanner.id);
+          console.log('[BANNER] dismissed:', dismissed);
+          
+          if (!dismissed) {
+            console.log('[BANNER] opening:', activeBanner.id);
+            setBanner(activeBanner);
+            setIsModalOpen(true);
+          } else {
+            console.log('[BANNER] not opening (dismissed):', activeBanner.id);
+            setBanner(null);
+            setIsModalOpen(false);
+          }
         } else {
+          console.log('[BANNER] no active banner (all dismissed)');
           setBanner(null);
           setIsModalOpen(false);
         }
       } else {
+        console.log('[BANNER] no banners available');
         setBanner(null);
         setIsModalOpen(false);
       }
@@ -87,19 +112,33 @@ export const BannerNotification: React.FC<BannerNotificationProps> = ({ classNam
     };
   }, [user]);
 
+  // ESC key handler
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isModalOpen && banner) {
+        handleDismiss(banner.id);
+      }
+    };
+
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isModalOpen, banner]);
+
   const handleDismiss = async (bannerId: string) => {
     if (isDismissing) return;
     
     setIsDismissing(true);
     try {
-      console.log('[BannerNotification] Dismissing banner:', bannerId);
+      console.log('[BANNER] closing:', bannerId);
+      const timestamp = Date.now();
+      console.log('[BANNER] dismiss timestamp:', timestamp);
       // Save dismissal time to localStorage (client-side only)
       setBannerDismissed(bannerId);
-      console.log('[BannerNotification] Banner dismissed successfully');
+      console.log('[BANNER] dismissed successfully');
       setBanner(null);
       setIsModalOpen(false);
     } catch (error) {
-      console.error('[BannerNotification] Failed to dismiss banner:', error);
+      console.error('[BANNER] Failed to dismiss banner:', error);
       alert('Không thể đóng banner. Vui lòng thử lại.');
     } finally {
       setIsDismissing(false);
@@ -135,7 +174,7 @@ export const BannerNotification: React.FC<BannerNotificationProps> = ({ classNam
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setIsModalOpen(false)}
+            onClick={() => handleDismiss(banner.id)}
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50"
           />
           
@@ -146,20 +185,22 @@ export const BannerNotification: React.FC<BannerNotificationProps> = ({ classNam
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-              className="relative w-full max-w-2xl lg:max-w-4xl"
+              className="relative w-full max-w-2xl lg:max-w-4xl max-h-[90vh]"
             >
               <div
-                className="rounded-3xl shadow-2xl overflow-hidden"
+                className="rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
                 style={{
                   background: `linear-gradient(135deg, ${banner.backgroundColor} 0%, ${adjustColor(banner.backgroundColor, -20)} 100%)`,
                   color: banner.textColor,
                 }}
               >
                 {/* Header */}
-                <div className="relative p-6 sm:p-8 lg:p-10 pb-4">
+                <div className="relative p-6 sm:p-8 lg:p-10 pb-4 overflow-y-auto flex-shrink-0">
                   <button
-                    onClick={() => setIsModalOpen(false)}
-                    className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 sm:p-3 rounded-full hover:bg-white/10 transition-colors"
+                    onClick={() => handleDismiss(banner.id)}
+                    disabled={isDismissing}
+                    aria-label="Đóng"
+                    className="absolute top-4 right-4 sm:top-6 sm:right-6 p-2 sm:p-3 rounded-full hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
                     style={{ color: banner.textColor }}
                   >
                     <X className="w-5 h-5 sm:w-6 sm:h-6" />
