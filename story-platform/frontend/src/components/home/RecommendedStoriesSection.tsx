@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sparkles, Compass, BookmarkCheck } from 'lucide-react';
+import { Sparkles, Compass, BookmarkCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AudioStory } from '../../types';
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
 import { adminRepository } from '../../services/repositories/AdminRepository';
@@ -27,9 +27,12 @@ export const RecommendedStoriesSection: React.FC<RecommendedStoriesSectionProps>
   const { listeningHistory, listeningProgressMap, favorites, playChapter } = useAudioPlayer();
 
   const [selectedGenreFilter, setSelectedGenreFilter] = useState<string | 'ALL'>('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   const handleSelectGenre = (genre: string) => {
     setSelectedGenreFilter(genre);
+    setCurrentPage(1);
   };
 
   // Compute recommendation scores based on user's listening history and favorites
@@ -158,6 +161,13 @@ export const RecommendedStoriesSection: React.FC<RecommendedStoriesSectionProps>
     );
   }, [recommendedList, selectedGenreFilter]);
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredList.length / itemsPerPage);
+  const paginatedList = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredList.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredList, currentPage, itemsPerPage]);
+
   if (!effectiveStories || effectiveStories.length === 0) return null;
 
   return (
@@ -184,6 +194,11 @@ export const RecommendedStoriesSection: React.FC<RecommendedStoriesSectionProps>
               ) : (
                 <span className="px-2.5 py-0.5 bg-slate-800 text-slate-300 border border-slate-700 text-[10px] font-mono font-bold rounded-full">
                   Phổ biến ({filteredList.length} bộ)
+                </span>
+              )}
+              {totalPages > 1 && (
+                <span className="px-2.5 py-0.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono font-bold rounded-full">
+                  Trang {currentPage} / {totalPages}
                 </span>
               )}
             </div>
@@ -236,9 +251,9 @@ export const RecommendedStoriesSection: React.FC<RecommendedStoriesSectionProps>
         </div>
       )}
 
-      {/* Full Recommendation Grid Without Pagination */}
+      {/* Full Recommendation Grid With Pagination */}
       <div className="relative z-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-5 pt-1">
-        {filteredList.map(({ story, reason }) => (
+        {paginatedList.map(({ story, reason }) => (
           <StoryCard
             key={story.id}
             onPlayClick={() => { 
@@ -262,6 +277,58 @@ if (!chapter) return;
           />
         ))}
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="relative z-10 flex items-center justify-center gap-2 pt-4">
+          <button
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 bg-slate-800/80 hover:bg-slate-700/80 disabled:bg-slate-900/50 disabled:text-slate-600 disabled:cursor-not-allowed text-slate-300 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer border border-slate-700/80"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Trang trước
+          </button>
+
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`w-10 h-10 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    currentPage === pageNum
+                      ? 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20'
+                      : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border border-slate-700/80'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 bg-slate-800/80 hover:bg-slate-700/80 disabled:bg-slate-900/50 disabled:text-slate-600 disabled:cursor-not-allowed text-slate-300 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer border border-slate-700/80"
+          >
+            Trang sau
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

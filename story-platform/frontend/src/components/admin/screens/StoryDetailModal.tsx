@@ -166,6 +166,14 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
   console.log('[StoryDetailModal] Raw chapters count:', rawChapters.length);
   console.log('[StoryDetailModal] Raw chapters:', rawChapters.map(c => ({ number: c.number, title: c.title })));
 
+  console.log('[StoryDetailModal] Story:', story.id, story.title);
+  console.log('[StoryDetailModal] Raw chapters count:', rawChapters.length);
+  console.log('[StoryDetailModal] Raw chapters:', rawChapters.map(c => ({ number: c.number, title: c.title })));
+
+  console.log('[StoryDetailModal] Story:', story.id, story.title);
+  console.log('[StoryDetailModal] Raw chapters count:', rawChapters.length);
+  console.log('[StoryDetailModal] Raw chapters:', rawChapters.map(c => ({ number: c.number, title: c.title })));
+
   // Filtered chapters for search and access filter
   const filteredChapters = rawChapters.filter((chapter) => {
     const matchSearch =
@@ -1055,6 +1063,7 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
               </div>
             ) : (
               <div className="space-y-2.5">
+                {console.log('[StoryDetailModal] Rendering filtered chapters:', filteredChapters.length)}
                 {filteredChapters.map((chapter) => {
                   const isSelected = selectedChapterIds.includes(chapter.id);
                   const isPlaying = playingChapterNumber === chapter.number;
