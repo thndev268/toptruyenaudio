@@ -180,7 +180,7 @@ class AdminRepositoryService {
         }
 
         try {
-          const storiesResponse = await apiRequest<{ success: boolean; data: any[] } | any[]>('/stories');
+          const storiesResponse = await apiRequest<{ success: boolean; data: any[] } | any[]>('/stories?limit=1000');
           
           console.log('[fetchFromBackendApi] Stories response:', storiesResponse);
           
@@ -351,7 +351,7 @@ class AdminRepositoryService {
   async fetchPublicStoriesApi(): Promise<any[]> {
     if (getDataSourceMode() === 'API') {
       try {
-        const res = await apiRequest<any[]>('/stories');
+        const res = await apiRequest<any[]>('/stories?limit=1000');
         if (Array.isArray(res)) {
           this.stories = res;
           return this.getPublicStories();
