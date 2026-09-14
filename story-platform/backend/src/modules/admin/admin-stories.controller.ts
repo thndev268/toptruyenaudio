@@ -550,6 +550,7 @@ export class AdminStoriesController {
         where: { storyId: id },
         orderBy: { number: 'asc' },
       });
+      console.log(`[getChapters] Fetched ${chapters.length} chapters for story ${id}`);
       return {
         success: true,
         data: chapters,

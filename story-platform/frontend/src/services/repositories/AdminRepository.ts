@@ -196,7 +196,8 @@ class AdminRepositoryService {
           const storiesArray = Array.isArray(this.stories) ? this.stories : [];
           
           if (storiesData.length > 0) {
-            storiesData.forEach((as: any) => {
+            // Fetch chapters for all stories in parallel
+            const chapterFetchPromises = storiesData.map(async (as: any) => {
               // Ensure genreIds is set from genres array if missing
               if (as.genres && Array.isArray(as.genres) && as.genres.length > 0 && (!as.genreIds || as.genreIds.length === 0)) {
                 as.genreIds = as.genres.map((g: any) => g.id);
@@ -211,12 +212,18 @@ class AdminRepositoryService {
               } else {
                 storiesArray.unshift(as);
               }
-              if (as.chapters && Array.isArray(as.chapters)) {
-                this.storyChapters[as.id] = as.chapters;
-              } else {
-                // Fetch chapters separately if not included in story response
-                this.fetchStoryChapters(as.id);
-              }
+              
+              // Always fetch chapters to ensure we have the complete list
+              await this.fetchStoryChapters(as.id);
+            });
+            
+            await Promise.all(chapterFetchPromises);
+            
+            // Attach chapters to each story object after all fetches complete
+            storiesArray.forEach((story: any) => {
+              const chapters = this.storyChapters[story.id] || [];
+              story._chapters = chapters;
+              story.chapters = chapters;
             });
           }
           
@@ -335,6 +342,8 @@ class AdminRepositoryService {
           favoriteCount: 0,
         },
         chapters: chapters.length > 0 ? chapters : [],
+        // Ensure chapters are always available for filtering
+        _chapters: chapters,
       };
     });
   }
@@ -787,7 +796,14 @@ class AdminRepositoryService {
 
   // --- Stories ---
   getStories(): AdminStoryItem[] {
-    return [...this.stories];
+    return this.stories.map((s) => {
+      const chapters = this.storyChapters[s.id] || [];
+      return {
+        ...s,
+        chapters: chapters,
+        _chapters: chapters,
+      };
+    });
   }
 
   getStoryById(id: string): AdminStoryItem | undefined {

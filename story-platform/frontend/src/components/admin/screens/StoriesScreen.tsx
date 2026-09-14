@@ -12,7 +12,8 @@ import {
   Headphones,
   SlidersHorizontal,
   RotateCcw,
-  Sparkles
+  Sparkles,
+  FileAudio
 } from 'lucide-react';
 import { AdminStoryItem } from '../../../types/admin';
 import { AdminFilterPanel, AdminFilterItem } from '../common/AdminFilterPanel';
@@ -38,19 +39,22 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PUBLISHED' | 'PENDING' | 'DRAFT'>('ALL');
   const [accessFilter, setAccessFilter] = useState<'ALL' | 'FREE' | 'PREMIUM'>('ALL');
+  const [chapterFilter, setChapterFilter] = useState<'ALL' | 'MISSING_CHAPTER_2'>('ALL');
   const [isFilterVisible, setIsFilterVisible] = useState(false);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (statusFilter !== 'ALL') count++;
     if (accessFilter !== 'ALL') count++;
+    if (chapterFilter !== 'ALL') count++;
     return count;
-  }, [statusFilter, accessFilter]);
+  }, [statusFilter, accessFilter, chapterFilter]);
 
   const handleResetFilters = () => {
     setSearch('');
     setStatusFilter('ALL');
     setAccessFilter('ALL');
+    setChapterFilter('ALL');
   };
 
   const filtered = useMemo(() => {
@@ -62,9 +66,18 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({
         s.narratorName.toLowerCase().includes(search.toLowerCase());
       const matchStatus = statusFilter === 'ALL' || s.publishStatus === statusFilter;
       const matchAccess = accessFilter === 'ALL' || s.accessLevel === accessFilter;
-      return matchSearch && matchStatus && matchAccess;
+      
+      // Check if story has chapter 2 for the missing chapter filter
+      let matchChapter = true;
+      if (chapterFilter === 'MISSING_CHAPTER_2') {
+        const chapters = Array.isArray((s as any)._chapters) ? (s as any)._chapters : (Array.isArray((s as any).chapters) ? (s as any).chapters : []);
+        const hasChapter2 = chapters.some((c: any) => c.number === 2);
+        matchChapter = !hasChapter2;
+      }
+      
+      return matchSearch && matchStatus && matchAccess && matchChapter;
     });
-  }, [stories, search, statusFilter, accessFilter]);
+  }, [stories, search, statusFilter, accessFilter, chapterFilter]);
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -136,6 +149,17 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({
             <option value="PREMIUM">Yêu cầu gói Premium</option>
           </select>
         </AdminFilterItem>
+
+        <AdminFilterItem label="Trạng thái tập">
+          <select
+            value={chapterFilter}
+            onChange={(e) => setChapterFilter(e.target.value as any)}
+            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 min-h-[42px] cursor-pointer"
+          >
+            <option value="ALL">Tất cả truyện</option>
+            <option value="MISSING_CHAPTER_2">Thiếu tập 2</option>
+          </select>
+        </AdminFilterItem>
       </AdminFilterPanel>
 
       {/* Grid View */}
@@ -194,6 +218,10 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({
                 <div className="flex items-center gap-1">
                   <Star className="w-3 h-3 text-amber-400" />
                   {story.rating} / 5.0
+                </div>
+                <div className="flex items-center gap-1 col-span-2">
+                  <FileAudio className="w-3 h-3 text-rose-400" />
+                  {Array.isArray((story as any)._chapters) ? (story as any)._chapters.length : (Array.isArray((story as any).chapters) ? (story as any).chapters.length : 0)} tập
                 </div>
               </div>
 
