@@ -116,6 +116,8 @@ export interface AdminStoryItem {
   iframeCode?: string;
   iframeUrl?: string;
   videoDurationSeconds?: number; // Duration in seconds for Chapter 1 (video stories)
+  chapters?: any[]; // Optional chapters array for filtering
+  _chapters?: any[]; // Internal chapters reference
 }
 
 export interface AdminChapterItem {
