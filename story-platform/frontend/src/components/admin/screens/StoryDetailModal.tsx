@@ -161,6 +161,10 @@ export const StoryDetailModal: React.FC<StoryDetailModalProps> = ({
     ? getStoryChapters(story.id)
     : adminRepository.getStoryChapters(story.id);
   const rawChapters: AudioChapter[] = localChapters !== null ? localChapters : repoChapters;
+  
+  console.log('[StoryDetailModal] Story:', story.id, story.title);
+  console.log('[StoryDetailModal] Raw chapters count:', rawChapters.length);
+  console.log('[StoryDetailModal] Raw chapters:', rawChapters.map(c => ({ number: c.number, title: c.title })));
 
   // Filtered chapters for search and access filter
   const filteredChapters = rawChapters.filter((chapter) => {

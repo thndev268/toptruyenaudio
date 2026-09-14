@@ -155,7 +155,9 @@ export class AdminStoriesController {
     try {
       const stories = await this.prisma.story.findMany({
         include: {
-          chapters: true,
+          chapters: {
+            orderBy: { number: 'asc' },
+          },
           genres: {
             include: {
               genre: true,
@@ -165,6 +167,11 @@ export class AdminStoriesController {
         orderBy: {
           createdAt: 'desc',
         },
+      });
+
+      console.log('[getAllStories] Fetched stories count:', stories.length);
+      stories.forEach(story => {
+        console.log(`[getAllStories] Story ${story.id} (${story.title}): ${story.chapters.length} chapters`);
       });
 
       // Transform genres from GenreToStory[] to Genre[]

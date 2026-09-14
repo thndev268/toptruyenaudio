@@ -69,6 +69,8 @@ export class StoriesService {
       take: Number(limit),
     });
 
+    console.log('[findAllPublic] Fetched stories with chapters count:', stories.map(s => ({ id: s.id, title: s.title, chaptersCount: s.chapters?.length || 0 })));
+
     // Transform genres from GenreToStory[] to Genre[] for consistent API response
     // Add totalChapters count and stats object
     return stories.map(story => ({

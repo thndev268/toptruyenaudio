@@ -13,7 +13,9 @@ import {
   SlidersHorizontal,
   RotateCcw,
   Sparkles,
-  FileAudio
+  FileAudio,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { AdminStoryItem } from '../../../types/admin';
 import { AdminFilterPanel, AdminFilterItem } from '../common/AdminFilterPanel';
@@ -41,6 +43,8 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({
   const [accessFilter, setAccessFilter] = useState<'ALL' | 'FREE' | 'PREMIUM'>('ALL');
   const [chapterFilter, setChapterFilter] = useState<'ALL' | 'MISSING_CHAPTER_2'>('ALL');
   const [isFilterVisible, setIsFilterVisible] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -55,6 +59,7 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({
     setStatusFilter('ALL');
     setAccessFilter('ALL');
     setChapterFilter('ALL');
+    setCurrentPage(1);
   };
 
   const filtered = useMemo(() => {
@@ -78,6 +83,18 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({
       return matchSearch && matchStatus && matchAccess && matchChapter;
     });
   }, [stories, search, statusFilter, accessFilter, chapterFilter]);
+
+  // Pagination logic
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const paginatedStories = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filtered.slice(startIndex, startIndex + itemsPerPage);
+  }, [filtered, currentPage, itemsPerPage]);
+
+  // Reset to page 1 when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, accessFilter, chapterFilter]);
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -112,6 +129,11 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({
           <span className="px-3 py-2 rounded-xl bg-slate-950 text-cyan-400 text-xs font-mono font-bold border border-slate-800">
             {filtered.length} / {stories.length} bộ truyện
           </span>
+          {totalPages > 1 && (
+            <span className="px-3 py-2 rounded-xl bg-slate-950 text-rose-400 text-xs font-mono font-bold border border-slate-800">
+              Trang {currentPage} / {totalPages}
+            </span>
+          )}
         </div>
       </div>
 
@@ -164,7 +186,7 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({
 
       {/* Grid View */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filtered.map((story) => (
+        {paginatedStories.map((story) => (
           <div key={story.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden flex flex-col group shadow-lg hover:shadow-cyan-500/5 transition-all">
             <div className="relative aspect-video overflow-hidden">
               <img loading="lazy" src={story.coverUrl} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 bg-slate-800" />
@@ -244,6 +266,58 @@ export const StoriesScreen: React.FC<StoriesScreenProps> = ({
           </div>
         ))}
       </div>
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 pt-4">
+          <button
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            disabled={currentPage === 1}
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-750 disabled:bg-slate-900 disabled:text-slate-600 disabled:cursor-not-allowed text-slate-300 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Trang trước
+          </button>
+
+          <div className="flex items-center gap-1">
+            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              let pageNum;
+              if (totalPages <= 5) {
+                pageNum = i + 1;
+              } else if (currentPage <= 3) {
+                pageNum = i + 1;
+              } else if (currentPage >= totalPages - 2) {
+                pageNum = totalPages - 4 + i;
+              } else {
+                pageNum = currentPage - 2 + i;
+              }
+
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`w-10 h-10 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    currentPage === pageNum
+                      ? 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20'
+                      : 'bg-slate-800 hover:bg-slate-750 text-slate-300'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-750 disabled:bg-slate-900 disabled:text-slate-600 disabled:cursor-not-allowed text-slate-300 text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer"
+          >
+            Trang sau
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
