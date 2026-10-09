@@ -7,7 +7,7 @@ import { badgeServerStore } from "./server/badge-store";
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Body parser for JSON and form data
   app.use(express.json({ limit: '10mb' }));
