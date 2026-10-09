@@ -126,6 +126,7 @@ export class BannersController {
       throw new Error('No file uploaded');
     }
 
+    // Upload to Supabase Storage
     const fileName = `banner-${Date.now()}-${file.originalname}`;
     const publicUrl = await this.storageService.uploadFile(
       'banners',
