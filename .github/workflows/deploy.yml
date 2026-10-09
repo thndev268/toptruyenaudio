@@ -32,8 +32,6 @@ jobs:
 
       - name: Build
         working-directory: story-platform/frontend
-        env:
-          GITHUB_PAGES: 'true'
         run: npm run build
 
       - name: Upload artifact
