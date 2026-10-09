@@ -74,7 +74,7 @@ export const PayOSScreen: React.FC = () => {
         await fetchStatus(); // Refresh status
       }
     } catch (error: any) {
-      showToast('error', 'Lỗi kiểm tra', error.message || 'Không thể kiểm tra token');
+      showToast('error', 'Lỗi kiểm tra', 'Không thể kiểm tra token');
     }
   };
 
@@ -100,7 +100,7 @@ export const PayOSScreen: React.FC = () => {
         setSaveState('success');
       }
     } catch (error: any) {
-      showToast('error', 'Lỗi lưu token', error.message || 'Không thể lưu token');
+      showToast('error', 'Lỗi lưu token', 'Không thể lưu token');
       setSaveState('error');
     }
   };

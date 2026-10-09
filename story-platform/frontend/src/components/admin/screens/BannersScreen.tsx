@@ -169,7 +169,7 @@ export const BannersScreen: React.FC<BannersScreenProps> = ({
       }
     } catch (error: any) {
       console.error('Failed to upload image:', error);
-      alert('Upload ảnh thất bại: ' + (error.message || 'Unknown error'));
+      alert('Upload ảnh thất bại. Vui lòng thử lại.');
     } finally {
       setUploading(false);
     }

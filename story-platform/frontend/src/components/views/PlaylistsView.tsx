@@ -48,7 +48,7 @@ export const PlaylistsView: React.FC = () => {
       setIsCreateOpen(false);
       loadPlaylists();
     } catch (error: any) {
-      setErrorMsg(error.message);
+      setErrorMsg('Không thể tạo danh sách phát. Vui lòng thử lại.');
     }
   };
 

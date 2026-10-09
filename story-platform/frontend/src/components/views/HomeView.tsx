@@ -54,7 +54,7 @@ export const HomeView: React.FC = () => {
     return (
       <ErrorState
         title={hasTimedOut ? 'Hệ thống đang gặp sự cố' : 'Không thể tải dữ liệu'}
-        message={hasTimedOut ? 'Vui lòng chờ trong giây lát...' : error.message}
+        message={hasTimedOut ? 'Vui lòng chờ trong giây lát...' : 'Vui lòng thử lại sau hoặc liên hệ hỗ trợ'}
         onRetry={retry}
         isRetrying={isLoading}
       />

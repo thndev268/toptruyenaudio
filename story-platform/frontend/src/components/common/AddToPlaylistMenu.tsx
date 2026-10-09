@@ -62,7 +62,7 @@ export const AddToPlaylistMenu: React.FC<AddToPlaylistMenuProps> = ({ storyId, c
       onSuccess(playlist.name);
       onClose();
     } catch (error: any) {
-      showToast('error', 'Lỗi', error.message || 'Không thể thêm vào danh sách phát');
+      showToast('error', 'Lỗi', 'Không thể thêm vào danh sách phát');
     }
   };
 

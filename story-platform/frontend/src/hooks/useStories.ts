@@ -82,11 +82,13 @@ export function useStories() {
       }
 
       if (mountedRef.current) {
+        // Sanitize error message - don't show raw errors to users
+        const userFriendlyMessage = 'Không thể tải dữ liệu. Vui lòng thử lại sau.';
         setState(prev => ({
           ...prev,
           isLoading: false,
           isLoadingMore: false,
-          error: error instanceof Error ? error : new Error('Không thể tải dữ liệu'),
+          error: new Error(userFriendlyMessage),
           hasTimedOut: false,
         }));
       }
