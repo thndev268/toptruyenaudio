@@ -520,7 +520,14 @@ Yêu cầu trả về đúng duy nhất định dạng JSON thuần không có b
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+
+    // SPA fallback for all non-API routes
+    app.get('*', (req, res, next) => {
+      // Don't handle API routes with SPA fallback
+      if (req.path.startsWith('/api')) {
+        return res.status(404).json({ error: 'API endpoint not found' });
+      }
+      // Handle all other routes with SPA fallback
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
