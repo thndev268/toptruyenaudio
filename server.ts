@@ -44,6 +44,30 @@ async function startServer() {
     res.json({ status: "root-server-ok", geminiConfigured: !!geminiApiKey });
   });
 
+  // TEMPORARY ENDPOINTS - These will be removed when backend NestJS is deployed
+  // These endpoints return empty arrays for now to prevent HTML fallback errors
+
+  // Active users ranking endpoint
+  app.get("/api/v1/listening/rankings/users", (req, res) => {
+    const { period = 'week', limit = '10' } = req.query;
+    const limitNum = parseInt(limit as string) || 10;
+    console.log('[TEMP] /api/v1/listening/rankings/users called - returning empty array');
+    res.json([]);
+  });
+
+  // Stories endpoint
+  app.get("/api/v1/stories", (req, res) => {
+    const { limit = '1000' } = req.query;
+    console.log('[TEMP] /api/v1/stories called - returning empty array');
+    res.json([]);
+  });
+
+  // Genres endpoint
+  app.get("/api/v1/stories/genres/all", (req, res) => {
+    console.log('[TEMP] /api/v1/stories/genres/all called - returning empty array');
+    res.json([]);
+  });
+
   // Video Player & Iframe CSS Settings Storage
   let videoSettings = {
     showIframeByDefault: false,
@@ -468,6 +492,9 @@ Yêu cầu trả về đúng duy nhất định dạng JSON thuần không có b
   });
 
   // API routes proxy to NestJS (if backend URL is configured)
+  // NOTE: Disabled for now since backend is not deployed
+  // When backend is deployed, uncomment and set BACKEND_URL environment variable
+  /*
   const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
   if (backendUrl && backendUrl !== 'http://localhost:3001') {
     app.use('/api', createProxyMiddleware({
@@ -480,6 +507,7 @@ Yêu cầu trả về đúng duy nhất định dạng JSON thuần không có b
       }
     }));
   }
+  */
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

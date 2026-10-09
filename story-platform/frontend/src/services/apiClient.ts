@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 
-const API_BASE_URL = ((import.meta as any).env?.VITE_API_URL as string) || 
+const API_BASE_URL = ((import.meta as any).env?.VITE_API_URL as string) ||
   (import.meta.env.PROD ? 'https://api.toptruyenaudio.site/api/v1' : 'http://localhost:3001/api/v1');
 
 console.log('[apiClient] API_BASE_URL configured:', API_BASE_URL);
@@ -46,8 +46,8 @@ export async function apiRequest<T = any>(
   options: RequestInit = {},
   _isRetry = false
 ): Promise<T> {
-  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
-  
+  let url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+
   const customHeaders = (options.headers || {}) as Record<string, string>;
   const headers: Record<string, string> = {
     ...customHeaders,
@@ -65,9 +65,9 @@ export async function apiRequest<T = any>(
   if (!isPublicEndpoint) {
     // Only get session for protected endpoints
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
+
     console.log('[apiClient] Fetching session for endpoint:', endpoint);
-    
+
     if (sessionError) {
       console.error('[apiClient] Supabase session error:', sessionError);
       throw new ApiError(
@@ -101,6 +101,12 @@ export async function apiRequest<T = any>(
       credentials: 'omit',
     });
   } catch (err) {
+    // If network error and not already retrying, try fallback to relative path
+    if (!_isRetry && import.meta.env.PROD && url.startsWith('https://api.toptruyenaudio.site')) {
+      console.warn('[apiClient] Network error to backend, retrying with relative path:', endpoint);
+      const fallbackUrl = `/api/v1${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+      return apiRequest<T>(fallbackUrl, options, true);
+    }
     throw new ApiError(
       'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.',
       'NETWORK_ERROR',
