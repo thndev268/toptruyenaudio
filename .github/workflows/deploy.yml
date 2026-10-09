@@ -26,14 +26,14 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: toptruyenaudio/story-platform/frontend/package-lock.json
+          cache-dependency-path: story-platform/frontend/package-lock.json
 
       - name: Install dependencies
-        working-directory: toptruyenaudio/story-platform/frontend
+        working-directory: story-platform/frontend
         run: npm ci
 
       - name: Build
-        working-directory: toptruyenaudio/story-platform/frontend
+        working-directory: story-platform/frontend
         env:
           GITHUB_PAGES: 'true'
         run: npm run build
@@ -41,7 +41,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: toptruyenaudio/story-platform/frontend/dist
+          path: story-platform/frontend/dist
 
   deploy:
     environment:
