@@ -33,6 +33,7 @@
     "cookie-parser": "^1.4.7",
     "date-fns": "^4.4.0",
     "dotenv": "^17.2.3",
+    "esbuild": "^0.25.12",
     "express": "^4.21.2",
     "express-mongo-sanitize": "^2.2.0",
     "helmet": "^8.3.0",
@@ -59,12 +60,10 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "autoprefixer": "^10.4.21",
-    "esbuild": "^0.25.12",
     "prisma": "^7.9.1",
     "tailwindcss": "^4.1.14",
     "ts-jest": "^29.4.12",
     "tsx": "^4.21.0",
-    "typescript": "~5.8.2",
-    "vite": "^5.4.11"
+    "typescript": "~5.8.2"
   }
 }

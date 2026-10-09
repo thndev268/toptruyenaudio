@@ -9,6 +9,28 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
 
+  // CORS configuration
+  const allowedOrigins = [
+    'https://toptruyenaudio.site',
+    'https://www.toptruyenaudio.site',
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ];
+
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin && allowedOrigins.includes(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-admin-id');
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(200);
+      return;
+    }
+    next();
+  });
+
   // Body parser for JSON and form data
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -445,15 +467,19 @@ Yêu cầu trả về đúng duy nhất định dạng JSON thuần không có b
     }
   });
 
-  // API routes proxy to NestJS (if running on 3001)
-  app.use('/api', createProxyMiddleware({
-    target: 'http://localhost:3001',
-    changeOrigin: true,
-    onError: (err, req, res) => {
-      console.error('Proxy Error:', err);
-      res.status(502).json({ error: 'Backend server is not reachable' });
-    }
-  }));
+  // API routes proxy to NestJS (if backend URL is configured)
+  const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
+  if (backendUrl && backendUrl !== 'http://localhost:3001') {
+    app.use('/api', createProxyMiddleware({
+      target: backendUrl,
+      changeOrigin: true,
+      pathRewrite: { '^/api': '/api' },
+      onError: (err, req, res) => {
+        console.error('Proxy Error:', err);
+        res.status(502).json({ error: 'Backend server is not reachable' });
+      }
+    }));
+  }
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
