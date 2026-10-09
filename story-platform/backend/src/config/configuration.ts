@@ -1,0 +1,49 @@
+export default () => {
+  const isProd = process.env.NODE_ENV === 'production';
+
+  const mongodbUri = process.env.MONGODB_URI;
+  if (isProd && !mongodbUri) {
+    throw new Error('MONGODB_URI environment variable is required in production');
+  }
+
+  const accessSecret = process.env.JWT_ACCESS_SECRET;
+  const refreshSecret = process.env.JWT_REFRESH_SECRET;
+
+  if (isProd && (!accessSecret || !refreshSecret)) {
+    throw new Error('JWT_ACCESS_SECRET and JWT_REFRESH_SECRET are required in production');
+  }
+
+  return {
+    port: parseInt(process.env.PORT || '3001', 10),
+    apiPrefix: process.env.API_PREFIX || '/api/v1',
+    appUrl: process.env.APP_URL || 'http://localhost:3001',
+    mongodbUri: mongodbUri || 'mongodb://localhost:27017/story_platform_db',
+    jwt: {
+      accessSecret: accessSecret || 'dev_access_secret_key_change_in_prod',
+      accessExpiration: process.env.JWT_ACCESS_EXPIRATION || '15m',
+      refreshSecret: refreshSecret || 'dev_refresh_secret_key_change_in_prod',
+      refreshExpiration: process.env.JWT_REFRESH_EXPIRATION || '7d',
+    },
+    corsOrigins: (process.env.CORS_ORIGINS || 'http://localhost:3000').split(','),
+    telegram: {
+      botToken: process.env.TELEGRAM_BOT_TOKEN || '',
+      adminChatId: process.env.TELEGRAM_ADMIN_CHAT_ID || '',
+      webhookSecret: process.env.TELEGRAM_WEBHOOK_SECRET || '',
+      webhookUrl: process.env.TELEGRAM_WEBHOOK_URL || '',
+    },
+    rateLimit: {
+      global: {
+        ttl: parseInt(process.env.RATE_LIMIT_TTL_GLOBAL || '60000', 10),
+        limit: parseInt(process.env.RATE_LIMIT_LIMIT_GLOBAL || '2000', 10), // Tăng lên 2000
+      },
+      auth: {
+        ttl: parseInt(process.env.RATE_LIMIT_TTL_AUTH || '60000', 10),
+        limit: parseInt(process.env.RATE_LIMIT_LIMIT_AUTH || '1000', 10), // Tăng lên 1000
+      },
+      support: {
+        ttl: parseInt(process.env.RATE_LIMIT_TTL_SUPPORT || '60000', 10),
+        limit: parseInt(process.env.RATE_LIMIT_LIMIT_SUPPORT || '200', 10), // Tăng lên 200
+      },
+    },
+  };
+};

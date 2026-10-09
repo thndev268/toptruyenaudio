@@ -1,0 +1,890 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+// -----------------------------------------------------------------------------
+// AUTH & USERS
+// -----------------------------------------------------------------------------
+
+model Profile {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  emailNormalized String?  @unique
+  username        String?  @unique
+  displayName     String?
+  passwordHash    String?
+  role            String   @default("USER") // GUEST, USER, CREATOR, PARTNER, ADMIN, OWNER_ADMIN
+  membershipTier  String   @default("FREE")
+  status          String   @default("ACTIVE")
+  suspendedReason String?
+  suspendedAt     DateTime?
+  avatarUrl       String?
+  lastLoginAt     DateTime?
+  lastLoginIp     String?
+  passwordChangedAt DateTime?
+  premiumExpiresAt DateTime?
+  version         Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Comment moderation fields
+  commentWarningCount Int      @default(0)
+  commentBlockedUntil DateTime?
+  lastCommentWarningAt DateTime?
+
+  refreshSessions       RefreshSession[]
+
+  listeningProgress     ListeningProgress[]
+  listeningSessions     ListeningSession[]
+  userSubscriptions     UserSubscription[]
+  supportConversations  SupportConversation[]
+  securityEvents        SecurityEvent[]
+  wallets               Wallet[]
+  creatorApplications   CreatorApplication[]
+  partnerApplications   PartnerApplication[]
+  userTitles            UserTitle[]
+  payments             Payment[]
+  paymentHistory        PaymentHistory[]
+  comments              Comment[]
+  userNotifications     UserNotification[]
+
+  @@map("profiles")
+}
+
+// -----------------------------------------------------------------------------
+// STORIES & CONTENT
+// -----------------------------------------------------------------------------
+
+model RefreshSession {
+  id            String   @id @default(cuid())
+  userId        String
+  profile       Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId      String
+  tokenHash     String   @unique
+  isRevoked     Boolean  @default(false)
+  revokedAt     DateTime?
+  revokedReason String?
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_sessions")
+}
+
+model Story {
+  id            String   @id @default(cuid())
+  title         String
+  slug          String   @unique
+  authorName    String
+  narratorName  String
+  summary       String
+  storyline     String?
+  audioContent  String?
+  coverUrl      String?
+  iframeCode    String?
+  iframeUrl     String?
+  isVideoStory  Boolean  @default(false)
+  storyStatus   String   @default("ONGOING")
+  publishStatus String   @default("PUBLISHED")
+  accessLevel   String   @default("FREE")
+  rating        Float    @default(5.0)
+  listenCount   Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  chapters      Chapter[]
+  genres        GenreToStory[]
+  contentRights ContentRights[]
+  comments      Comment[]
+  knowledgeItems BotKnowledgeItem[] @relation("KnowledgeToStory")
+
+  @@map("stories")
+}
+
+model Chapter {
+  id              String   @id @default(cuid())
+  storyId         String
+  story           Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  number          Int
+  title           String
+  slug            String?
+  audioUrl        String?
+  videoUrl        String?
+  videoIframeUrl  String?
+  iframeCode      String?
+  audioContent    String?
+  durationSeconds Int      @default(0)
+  accessLevel     String   @default("FREE")
+  isEarlyAccess   Boolean  @default(false)
+  narrator        String?
+  publishStatus   String   @default("PUBLISHED")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  listeningProgress ListeningProgress[]
+  comments         Comment[]
+
+  @@map("chapters")
+}
+
+model Genre {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  iconName    String?
+  storyCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stories     GenreToStory[]
+
+  @@map("genres")
+}
+
+model GenreToStory {
+  storyId String
+  genreId String
+
+  story   Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  genre   Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([storyId, genreId])
+  @@map("genres_stories")
+}
+
+model Comment {
+  id              String   @id @default(cuid())
+  storyId         String
+  story           Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  chapterId       String?
+  chapter         Chapter? @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  userId          String
+  profile         Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentId        String?
+  parent          Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies         Comment[] @relation("CommentReplies")
+  content         String
+  hasSpoiler      Boolean  @default(false)
+  helpfulCount    Int      @default(0)
+  verifiedListener Boolean @default(false)
+  status          String   @default("APPROVED") // APPROVED, PENDING, REJECTED, HIDDEN
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([storyId])
+  @@index([chapterId])
+  @@index([userId])
+  @@index([parentId])
+  @@index([status])
+  @@map("comments")
+}
+
+model ContentRights {
+  id            String   @id @default(cuid())
+  storyId       String
+  story         Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  provider      String
+  contractId    String?
+  expiresAt     DateTime?
+  status        String   @default("ACTIVE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("content_rights")
+}
+
+// -----------------------------------------------------------------------------
+// LISTENING ACTIVITY
+// -----------------------------------------------------------------------------
+
+model ListeningProgress {
+  id              String   @id @default(cuid())
+  profileId       String
+  profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  chapterId       String
+  chapter         Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  storyId         String?
+  progressSeconds Int      @default(0)
+  positionSeconds Int      @default(0)
+  durationSeconds Int      @default(0)
+  progressPercent Float    @default(0)
+  completed       Boolean  @default(false)
+  isCompleted     Boolean  @default(false)
+  playbackMode    String?
+  playbackRate    Float    @default(1.0)
+  lastPlayedAt    DateTime @default(now())
+  lastListenedAt  DateTime @default(now())
+  version         Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([profileId, chapterId])
+  @@map("listening_progress")
+}
+
+model ListeningSession {
+  id              String   @id @default(cuid())
+  profileId       String
+  profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  storyId         String?
+  chapterId       String?
+  deviceInfo      String?
+  ipAddress       String?
+  durationSeconds Int      @default(0)
+  validListeningSeconds Int @default(0)
+  audioContentSecondsPlayed Int @default(0)
+  playQualifiedAt DateTime?
+  lastHeartbeatAt DateTime?
+  lastPositionSeconds Int @default(0)
+  playbackRate    Float    @default(1.0)
+  status          String?
+  completedAt     DateTime?
+  startedAt       DateTime @default(now())
+  endedAt         DateTime?
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+
+  @@index([profileId])
+  @@index([createdAt])
+  @@map("listening_sessions")
+}
+
+// -----------------------------------------------------------------------------
+// SUBSCRIPTIONS & PAYMENTS
+// -----------------------------------------------------------------------------
+
+model SubscriptionPlan {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  name          String
+  price         Float
+  durationDays  Int
+  benefits      String[]
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  userSubscriptions UserSubscription[]
+  payments          Payment[]
+  knowledgeItems    BotKnowledgeItem[] @relation("KnowledgeToPlan")
+
+  @@map("subscription_plans")
+}
+
+model UserSubscription {
+  id            String   @id @default(cuid())
+  profileId     String
+  profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  planId        String?
+  plan          SubscriptionPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  status        String   @default("EXPIRED") // ACTIVE, EXPIRED, CANCELLED
+  startAt       DateTime?
+  endAt         DateTime?
+  autoRenew     Boolean  @default(false)
+  lastNotifiedAt DateTime?
+  updatedAt     DateTime @updatedAt
+
+  @@index([profileId])
+  @@index([status])
+  @@index([endAt])
+  @@map("user_subscriptions")
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  orderCode     String   @unique
+  userId        String
+  profile       Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  packageId     String
+  plan          SubscriptionPlan @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  planName      String
+  amount        Float
+  durationDays  Int
+  description   String
+  status        String   @default("PENDING") // PENDING, PAID, CANCELLED, EXPIRED, FAILED
+  checkoutUrl   String?
+  qrCode        String?
+  createdAt     DateTime @default(now())
+  paidAt        DateTime?
+  cancelledAt   DateTime?
+
+  @@index([userId])
+  @@index([orderCode])
+  @@map("payments")
+}
+
+model PaymentHistory {
+  id            String   @id @default(cuid())
+  userId        String
+  profile       Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  paymentId     String
+  orderCode     String
+  type          String   @default("PREMIUM_PURCHASE")
+  amount        Float
+  packageId     String
+  status        String
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([orderCode])
+  @@map("payment_history")
+}
+
+model PremiumGrantLedger {
+  id            String   @id @default(cuid())
+  profileId     String
+  grantedBy     String
+  grantedByAdminId String?
+  reason        String
+  daysGranted   Int
+  idempotencyKey String?
+  action        String?
+  planId        String?
+  durationDays  Int?
+  previousExpiresAt DateTime?
+  newExpiresAt  DateTime?
+  createdAt     DateTime @default(now())
+
+  @@map("premium_grant_ledgers")
+}
+
+// -----------------------------------------------------------------------------
+// WALLETS & CREATORS
+// -----------------------------------------------------------------------------
+
+model Wallet {
+  id            String   @id @default(cuid())
+  profileId     String
+  profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  balance       Float    @default(0)
+  currency      String   @default("VND")
+  status        String   @default("ACTIVE")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  ledgerEntries      LedgerEntry[]
+  withdrawalRequests WithdrawalRequest[]
+
+  @@map("wallets")
+}
+
+model LedgerEntry {
+  id            String   @id @default(cuid())
+  walletId      String
+  wallet        Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  amount        Float
+  type          String   @default("CREDIT") // CREDIT, DEBIT
+  description   String?
+  referenceId   String?
+  createdAt     DateTime @default(now())
+
+  @@map("ledger_entries")
+}
+
+model WithdrawalRequest {
+  id            String   @id @default(cuid())
+  walletId      String
+  wallet        Wallet   @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  amount        Float
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  bankDetails   String // JSON string
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("withdrawal_requests")
+}
+
+model CreatorApplication {
+  id            String   @id @default(cuid())
+  profileId     String
+  profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  realName      String
+  portfolioUrl  String?
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  reviewNotes   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("creator_applications")
+}
+
+// -----------------------------------------------------------------------------
+// PARTNERS & AFFILIATES
+// -----------------------------------------------------------------------------
+
+model PartnerApplication {
+  id            String   @id @default(cuid())
+  profileId     String
+  profile       Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  companyName   String?
+  website       String?
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("partner_applications")
+}
+
+model AffiliateEvent {
+  id            String   @id @default(cuid())
+  affiliateId   String
+  eventType     String
+  revenue       Float    @default(0)
+  createdAt     DateTime @default(now())
+
+  @@map("affiliate_events")
+}
+
+model Commission {
+  id            String   @id @default(cuid())
+  affiliateId   String
+  amount        Float
+  status        String   @default("PENDING")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("commissions")
+}
+
+// -----------------------------------------------------------------------------
+// SUPPORT, SECURITY & AUDIT
+// -----------------------------------------------------------------------------
+
+model SupportConversation {
+  id               String   @id @default(cuid())
+  userId           String
+  profile          Profile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userName         String
+  subject          String
+  category         String   @default("OTHER")
+  status           String   @default("WAITING_FOR_ADMIN")
+  priority         String   @default("NORMAL")
+  lastMessageAt    DateTime @default(now())
+  userUnreadCount  Int      @default(0)
+  adminUnreadCount Int      @default(0)
+  resolvedAt       DateTime?
+  closedAt         DateTime?
+  // Telegram integration fields
+  telegramChatId   String?  @unique
+  telegramMessageId Int?
+  isTelegramLinked Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  messages      SupportMessage[]
+
+  @@map("support_conversations")
+}
+
+model SupportMessage {
+  id              String   @id @default(cuid())
+  conversationId  String
+  conversation    SupportConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId        String
+  senderRole      String   @default("USER")
+  senderName      String
+  clientMessageId String?
+  content         String
+  hiddenAt        DateTime?
+  createdAt       DateTime @default(now())
+
+  @@map("support_messages")
+}
+
+model SecurityEvent {
+  id                String   @id @default(cuid())
+  title             String
+  type              String
+  status            String   @default("NEW")
+  severity          String   @default("MEDIUM")
+  description       String
+  ipAddress         String?
+  country           String?
+  userAgent         String?
+  endpoint          String?
+  method            String?
+  statusCode        Int?
+  action            String   @default("ALLOWED") // ALLOWED, WARNING, BLOCKED
+  riskLevel         String   @default("LOW") // LOW, MEDIUM, HIGH, CRITICAL
+  reason            String?
+  requestCount      Int?
+  metadata          Json?
+  detectedAt        DateTime @default(now())
+  investigatedAt    DateTime?
+  actionTaken       String?
+  resolvedAt        DateTime?
+  resolvedByAdminId String?
+  resolutionNote    String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  profile           Profile? @relation(fields: [resolvedByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([ipAddress])
+  @@index([riskLevel])
+  @@index([statusCode])
+  @@index([createdAt])
+  @@index([action])
+
+  @@map("security_events")
+}
+
+model BlockedIp {
+  id          String   @id @default(cuid())
+  ipAddress   String   @unique
+  reason      String?
+  blockedBy   String?
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([ipAddress])
+  @@index([expiresAt])
+
+  @@map("blocked_ips")
+}
+
+model AuditLog {
+  id                 String   @id @default(cuid())
+  timestamp          DateTime @default(now())
+  performedByAdminId String
+  action             String
+  resource           String
+  resourceId         String
+  entityName         String
+  reason             String
+  requestId          String
+  metadata           Json?
+
+  @@map("audit_logs")
+}
+
+model Report {
+  id            String   @id @default(cuid())
+  reporterId    String
+  targetType    String
+  targetId      String
+  reason        String
+  status        String   @default("PENDING")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("reports")
+}
+
+model FeatureFlag {
+  id            String   @id @default(cuid())
+  key           String   @unique
+  name          String?
+  descriptionVi String?
+  category      String?
+  isEnabled     Boolean  @default(false)
+  isLocked      Boolean  @default(false)
+  version       Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("feature_flags")
+}
+
+model HonoraryTitle {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  level       String?  @default("COMMON")
+  iconUrl     String?
+  effects     Json?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userTitles  UserTitle[]
+
+  @@map("honorary_titles")
+}
+
+model UserTitle {
+  id          String   @id @default(cuid())
+  profileId   String
+  profile     Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  titleId     String
+  title       HonoraryTitle @relation(fields: [titleId], references: [id], onDelete: Cascade)
+  assignedAt  DateTime @default(now())
+  assignedBy  String?
+  revokedAt   DateTime?
+  revokedBy   String?
+  revokeReason String?
+  awardPeriod String? // Format: YYYY-MM for monthly badges (e.g., "2026-08"), null for permanent badges
+  expirationAt DateTime? // Badge tự hết hạn (khác với revokedAt)
+
+  @@unique([profileId, titleId, awardPeriod], name: "profileId_titleId_awardPeriod")
+  @@unique([profileId, titleId], where: { awardPeriod: null }, name: "profileId_titleId_permanent")
+  @@index([profileId])
+  @@index([titleId])
+  @@index([revokedAt])
+  @@index([expirationAt])
+  @@index([awardPeriod])
+  @@map("user_titles")
+}
+
+model IdempotencyRecord {
+  id            String   @id @default(cuid())
+  key           String
+  actorId       String
+  operation     String
+  resourceId    String?
+  requestHash   String
+  responseStatus Int
+  responseBody  Json?
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([actorId, operation, key])
+  @@map("idempotency_records")
+}
+
+// -----------------------------------------------------------------------------
+// PAYMENT GATEWAY CONFIGURATION
+// -----------------------------------------------------------------------------
+
+model PayOSConfig {
+  id              String   @id @default(cuid())
+  clientId        String   @unique
+  clientSecret    String
+  isActive        Boolean  @default(true)
+  gatewayToken    String?  // JWT token from payment gateway (will be stored here)
+  tokenStatus     String   @default("NOT_CONFIGURED") // NOT_CONFIGURED, ACTIVE, EXPIRED, INVALID
+  lastValidatedAt DateTime?
+  lastValidatedBy String?  // Admin ID who last validated
+  isValid         Boolean  @default(false)
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("payos_configs")
+}
+
+// -----------------------------------------------------------------------------
+// NOTIFICATIONS
+// -----------------------------------------------------------------------------
+
+model Notification {
+  id              String   @id @default(cuid())
+  title           String
+  content         String
+  type            String   @default("SYSTEM") // NEW_USER, NEW_STORY, NEW_CHAPTER, PROMOTION, SYSTEM, OTHER, BADGE_AWARD
+  targetAudience  String   @default("ALL") // ALL, REGULAR, PREMIUM, CREATOR, SPECIFIC_USER
+  targetUserId    String?
+  badgeId         String?  // ID of badge to be awarded
+  badgeClaimed    Boolean  @default(false) // Whether badge has been claimed
+  idempotencyKey  String?  @unique // Unique key to prevent duplicate notifications (e.g., "badge_TOP_LISTENER_user123_2026-08")
+  status          String   @default("DRAFT") // DRAFT, SCHEDULED, SENDING, SENT, CANCELLED
+  scheduledAt     DateTime?
+  sentAt          DateTime?
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  userNotifications UserNotification[]
+
+  @@map("notifications")
+}
+
+model UserNotification {
+  id              String   @id @default(cuid())
+  notificationId  String
+  userId          String
+  isRead          Boolean  @default(false)
+  readAt          DateTime?
+  createdAt       DateTime @default(now())
+
+  notification    Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user            Profile     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId])
+  @@index([userId])
+  @@index([notificationId])
+  @@map("user_notifications")
+}
+
+model BannerNotification {
+  id              String   @id @default(cuid())
+  title           String
+  content         String   @db.Text
+  imageUrl        String?  // Optional banner image URL
+  type            String   @default("INFO") // INFO, WARNING, ERROR, SUCCESS, PROMOTION
+  backgroundColor String   @default("#0f172a")
+  textColor       String   @default("#ffffff")
+  isActive        Boolean  @default(true)
+  startDate       DateTime?
+  endDate         DateTime?
+  priority        Int      @default(0)
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("banner_notifications")
+}
+
+model UserBannerDismissal {
+  id              String   @id @default(cuid())
+  bannerId        String
+  userId          String
+  dismissedAt     DateTime @default(now())
+  expiresAt       DateTime // When the banner should show again (3 hours after dismissal)
+
+  @@unique([bannerId, userId])
+  @@index([userId])
+  @@index([bannerId])
+  @@map("user_banner_dismissals")
+}
+
+model AiUsage {
+  id            String   @id @default(cuid())
+  date          DateTime @db.Date
+  model         String   // gpt-4o-mini, etc.
+  requestCount  Int      @default(0)
+  inputTokens   Int      @default(0)
+  outputTokens  Int      @default(0)
+  totalTokens   Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([date, model])
+  @@index([date])
+  @@map("ai_usage")
+}
+
+model BotSettings {
+  id                     String   @id @default(cuid())
+  botEnabled             Boolean  @default(true)
+  aiEnabled              Boolean  @default(true)
+  aiTimeoutSeconds       Int      @default(5)
+  autoHandoffEnabled     Boolean  @default(true)
+  supportStartTime       String   @default("08:00")
+  supportEndTime         String   @default("22:00")
+  greetingMessage        String?
+  handoffMessage         String?
+  unknownMessage         String?
+  outsideHoursMessage    String?
+  closedMessage          String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@map("bot_settings")
+}
+
+// -----------------------------------------------------------------------------
+// BOT KNOWLEDGE BASE
+// -----------------------------------------------------------------------------
+
+model BotKnowledgeCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  knowledgeItems BotKnowledgeItem[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("bot_knowledge_categories")
+}
+
+model BotKnowledgeItem {
+  id          String   @id @default(cuid())
+  categoryId  String
+  category    BotKnowledgeCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  question    String
+  answer      String   @db.Text
+  keywords    String[]
+  priority    Int      @default(0)
+  viewCount   Int      @default(0)
+  helpfulCount Int     @default(0)
+  isActive    Boolean  @default(true)
+  
+  relatedStoryId     String?
+  relatedStory       Story?   @relation("KnowledgeToStory", fields: [relatedStoryId], references: [id], onDelete: SetNull)
+  relatedPlanId      String?
+  relatedPlan        SubscriptionPlan? @relation("KnowledgeToPlan", fields: [relatedPlanId], references: [id], onDelete: SetNull)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String?
+
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([keywords])
+  @@index([relatedStoryId])
+  @@index([relatedPlanId])
+  @@map("bot_knowledge_items")
+}
+
+model BotKnowledgeDocument {
+  id          String   @id @default(cuid())
+  fileName    String
+  mimeType    String
+  fileSize    Int
+  storagePath String
+  status      String   @default("PROCESSING") // PROCESSING, READY, FAILED
+  errorMessage String?
+  content     String?  @db.Text // Extracted text content
+  chunkCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  uploadedBy  String?
+
+  chunks      BotKnowledgeChunk[]
+
+  @@index([status])
+  @@map("bot_knowledge_documents")
+}
+
+model BotKnowledgeChunk {
+  id          String   @id @default(cuid())
+  documentId  String
+  document    BotKnowledgeDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  content     String   @db.Text
+  chunkIndex  Int
+  embedding   String?  // Vector embedding (future use)
+  createdAt   DateTime @default(now())
+
+  @@index([documentId])
+  @@map("bot_knowledge_chunks")
+}
+
+// -----------------------------------------------------------------------------
+// SOCIAL MEDIA LINKS
+// -----------------------------------------------------------------------------
+
+model SocialMediaLink {
+  id          String   @id @default(cuid())
+  platform    String   // INSTAGRAM, LINKEDIN, WHATSAPP, YOUTUBE, FACEBOOK, TIKTOK, TWITTER
+  name        String   // Display name (e.g., "Instagram", "LinkedIn")
+  url         String   // Full URL to the social media page
+  iconUrl     String?  // Optional custom icon URL
+  isActive    Boolean  @default(true)
+  order       Int      @default(0) // Display order
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([platform])
+  @@index([isActive])
+  @@index([order])
+  @@map("social_media_links")
+}

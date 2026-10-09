@@ -1,0 +1,573 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --mini-player-height: 80px;
+
+    /* Semantic color tokens - LIGHT */
+    --bg-main: #f8fafc;
+    --bg-surface: #ffffff;
+    --bg-surface-hover: #f1f5f9;
+    --bg-surface-elevated: #ffffff;
+    --bg-muted: #e2e8f0;
+
+    --text-primary: #0f172a;
+    --text-secondary: #334155;
+    --text-muted: #64748b;
+    --text-subtle: #94a3b8;
+
+    --border-subtle: #e2e8f0;
+    --border-strong: #cbd5e1;
+
+    --overlay-bg: rgba(15, 23, 42, 0.5);
+  }
+
+  .dark {
+    /* Semantic color tokens - DARK */
+    --bg-main: #020617;
+    --bg-surface: #0f172a;
+    --bg-surface-hover: #1e293b;
+    --bg-surface-elevated: #1e293b;
+    --bg-muted: #1e293b;
+
+    --text-primary: #f8fafc;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
+    --text-subtle: #64748b;
+
+    --border-subtle: #1e293b;
+    --border-strong: #334155;
+
+    --overlay-bg: rgba(2, 6, 23, 0.85);
+  }
+
+  html {
+    scroll-padding-top: 5rem;
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    touch-action: manipulation;
+  }
+
+  body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    overflow-x: hidden;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: none; /* Prevent pull-to-refresh if not needed or handle specifically */
+  }
+
+  /* Optimized Mobile Layouts */
+  .mobile-optimized-scroll {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    will-change: scroll-position;
+  }
+
+  .gpu-accelerated {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000;
+    will-change: transform, opacity;
+  }
+
+  /* Respect prefers-reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Specific theme transition properties to avoid reflow */
+  .theme-transition,
+  .theme-transition *,
+  .theme-transition *::before,
+  .theme-transition *::after {
+    transition-property: color, background-color, border-color, box-shadow, fill, stroke !important;
+    transition-duration: 200ms !important;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1) !important;
+  }
+
+  /* Prevent zoom on mobile inputs */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+  @media (min-width: 768px) {
+    input, select, textarea {
+      font-size: 0.875rem !important; /* 14px */
+    }
+  }
+}
+
+/* Custom sleek scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-main);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #06b6d4; /* cyan-500 */
+}
+
+/* Hide scrollbar for clean horizontal scroll containers */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slideOutRight {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slideOutLeft {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideOutRight {
+  animation: slideOutRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideOutLeft {
+  animation: slideOutLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.filter-scroll-area {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Main container layout padding taking mini-player into account */
+.main-container-padding {
+  padding-bottom: calc(var(--mini-player-height) + 2rem);
+}
+
+/* YouTube Audio Source Hidden Container */
+.youtube-audio-source {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  left: -9999px;
+  top: -9999px;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Clock Loader Animation - From Uiverse.io by doniaskima */
+.loader {
+  display: inline-flex;
+  border: 2px solid #000;
+  --c: no-repeat linear-gradient(#000 0 0) 50%;
+  background: var(--c) calc(50% - 5px)/5px 5px,
+    var(--c) calc(50% + 5px)/5px 5px;
+}
+
+.loader::before,
+.loader::after {
+  content: "12 00 23 40 31 45 60 17 45 32 29 42 50 08 14 07 46 11 03 55";
+  font-size: 30px;
+  font-family: monospace;
+  font-weight: bold;
+  line-height: 1em;
+  height: 1em;
+  width: 2ch;
+  color: #0000;
+  text-shadow: 0 0 0 #000;
+  overflow: hidden;
+  margin: 5px 10px;
+  animation: l3 1s steps(20) infinite;
+}
+
+.loader::before {
+  animation-duration: 1.5s;
+}
+
+@keyframes l3 {
+  100% {
+    text-shadow: 0 -20em 0 #000
+  }
+}
+
+/* Tooltip Support Dropdown - From Uiverse.io by Zain-Muhammad */
+.tooltip-wrapper {
+  --clr-btn: rgb(2 22 36);
+  --clr-dropdown: rgb(2 22 36);
+  --clr-nav-hover: rgb(2 22 36);
+  --clr-dropdown-hov: rgb(2 22 36);
+  --clr-dropdown-link-hov: rgb(2 22 36);
+  --clr-light: #ffffff;
+}
+.nav-link {
+  position: relative;
+}
+.tooltip-wrapper > .tooltip-container {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+.tooltip-container,
+.tooltip-menu-with-icon {
+  list-style: none;
+}
+.nav-link > .tooltip-tab {
+  color: var(--clr-light);
+  background: var(--clr-btn);
+  padding: 0.8rem 1rem;
+  letter-spacing: 1px;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  column-gap: 12px;
+  justify-content: space-between;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid #00c1d5;
+  transition: 0.3s ease-in-out;
+}
+.nav-link > .tooltip-tab:hover svg {
+  transform: rotate(360deg);
+  transition: 0.3s ease-in-out;
+}
+.tooltip-links {
+  text-decoration: none;
+}
+.nav-link svg {
+  fill: #fff;
+}
+.tooltip {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 12rem;
+  max-width: 15rem;
+  transform: translateY(10px);
+  opacity: 0;
+  pointer-events: none;
+  transition: 0.5s;
+  padding: 15px 0px 0px 0px;
+}
+.tooltip::after {
+  content: "";
+  width: 15px;
+  height: 15px;
+  background: #00c1d5 no-repeat -30px -50px fixed;
+  top: 0px;
+  left: 6%;
+  position: absolute;
+  display: inline-block;
+  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+  transform: rotate(360deg);
+  z-index: -1;
+  box-shadow: 0px 6px 30px rgb(2 22 36);
+}
+.tooltip .tooltip-menu-with-icon {
+  padding: 10px 0px;
+  background-color: var(--clr-dropdown);
+  border: 1px solid #00c1d5;
+  position: relative;
+}
+.tooltip-link {
+  position: relative;
+}
+.tooltip-link:not(:nth-last-child(2)) {
+  border-bottom: 1px solid var(--clr-dropdown);
+}
+.tooltip-link > a {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  column-gap: 10px;
+  background-color: var(--clr-dropdown);
+  color: var(--clr-light);
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  transition: 0.3s;
+}
+.tooltip-menu-with-icon svg {
+  height: 20px;
+  margin-left: 0px;
+}
+.nav-link:hover > .tooltip-tab {
+  transform: scale(1.1);
+}
+.nav-link:hover > .tooltip,
+.tooltip-link:hover > .tooltip {
+  transform: translate(0, 0);
+  opacity: 1;
+  pointer-events: auto;
+  -webkit-transform: translate(0, 0);
+  -moz-transform: translate(0, 0);
+  -ms-transform: translate(0, 0);
+  -o-transform: translate(0, 0);
+}
+.nav-link:hover > .tooltip-tab {
+  transform: scale(1);
+  background-color: var(--clr-nav-hover);
+}
+
+/* Social Media Icons - Doodle Style from Uiverse.io by mamyapro123 */
+/* --- THE DOODLE NOTEBOOK CONTAINER --- */
+.doodle-container {
+  list-style: none;
+  margin: 0;
+  padding: 25px 35px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+
+  /* Beautiful textured lined paper look */
+  background-color: #fdfbf7;
+  background-image: repeating-linear-gradient(
+    transparent,
+    transparent 22px,
+    #8ef0ce 22px,
+    #8ef0ce 24px
+  );
+
+  /* Hand-drawn borders */
+  border: 4px solid #1e1e24;
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; /* Sketchy wobbly shape */
+
+  /* Heavy pop-art pencil shadow */
+  box-shadow: 8px 10px 0px rgba(30, 30, 36, 0.15);
+
+  /* MAGIC TRICK: Applies the SVG pencil texture to the whole box! */
+  filter: url(#pencil-texture);
+}
+
+.doodle-icon-content {
+  margin: 0;
+  position: relative;
+  font-family: "Patrick Hand", "Comic Sans MS", cursive;
+  pointer-events: none;
+}
+
+.doodle-icon-content .doodle-link {
+  pointer-events: auto;
+}
+
+/* --- THE ICONS (Drawn Buttons) --- */
+.doodle-link {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 49px;
+  height: 50px;
+  text-decoration: none;
+  pointer-events: auto;
+
+  /* Irregular hand-drawn circles */
+  border: 4px solid #1e1e24;
+  border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+  box-shadow: 3px 4px 0px #1e1e24; /* Hard pencil outline shadow */
+
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Base Beautiful Pastel Colors */
+.link-spotify {
+  background-color: #caffbf;
+}
+.link-pinterest {
+  background-color: #ffc4d9;
+}
+.link-twitter {
+  background-color: #a0c4ff;
+}
+.link-mail {
+  background-color: #fdffb6;
+}
+
+.doodle-svg {
+  width: 28px;
+  height: 28px;
+  fill: #1e1e24; /* Black pencil icons */
+  transform: rotate(-5deg); /* Badly stamped look */
+  transition: all 0.3s ease;
+}
+
+/* --- CRAZY CRAYON HOVER ANIMATIONS --- */
+.doodle-link:hover {
+  transform: translateY(-8px) scale(1.1);
+  box-shadow: 6px 10px 0px #1e1e24;
+  animation: child-wiggle 0.3s ease-in-out infinite alternate;
+}
+
+/* Crayon Fill Colors on Hover */
+.link-spotify:hover {
+  background-color: #00f5d4; /* Bright cyan */
+  border-radius: 60% 40% 40% 60% / 50% 50% 40% 60%;
+}
+.link-pinterest:hover {
+  background-color: #ff0a54; /* Bright hot pink */
+  border-radius: 50% 50% 60% 40% / 40% 60% 50% 50%;
+}
+.link-twitter:hover {
+  background-color: #00bbf9; /* Bright blue */
+  border-radius: 40% 60% 50% 50% / 60% 40% 60% 40%;
+}
+.link-mail:hover {
+  background-color: #fcd22a; /* Bright yellow */
+  border-radius: 70% 30% 50% 50% / 40% 60% 40% 60%;
+}
+
+/* Make icons white when filled with crayon color */
+.doodle-link:hover .doodle-svg {
+  fill: #ffffff;
+  /* Adds a rough black outline to the white icon to keep it sketchy */
+  filter: drop-shadow(2px 2px 0px #1e1e24) drop-shadow(-1px -1px 0px #1e1e24);
+  transform: rotate(15deg) scale(1.2);
+}
+
+/* Shakes the button like a kid coloring it furiously! */
+@keyframes child-wiggle {
+  0% {
+    transform: translateY(-8px) scale(1.1) rotate(-4deg);
+  }
+  100% {
+    transform: translateY(-8px) scale(1.1) rotate(4deg);
+  }
+}
+
+/* --- THE SPEECH BUBBLE TOOLTIPS (Sticky Notes) --- */
+.doodle-tooltip {
+  position: absolute;
+  top: 0px; /* Starts low and hidden */
+  left: 50%;
+  transform: translateX(-50%) rotate(-5deg); /* Childish crooked tilt */
+
+  padding: 8px 16px;
+  color: #1e1e24;
+
+  /* Wobbly hand-drawn speech bubble */
+  border: 4px solid #1e1e24;
+  border-radius: 255px 25px 225px 25px / 25px 225px 25px 255px;
+  box-shadow: 4px 6px 0px #1e1e24;
+
+  opacity: 0;
+  visibility: hidden;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 1px;
+
+  /* Bouncy pop-up animation */
+  transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* The little triangle tail drawn under the speech bubble */
+.doodle-tooltip::after {
+  content: "";
+  position: absolute;
+  bottom: -11px;
+  left: 50%;
+  transform: translateX(-50%) rotate(15deg) skewX(25deg);
+  width: 16px;
+  height: 16px;
+  border-bottom: 4px solid #1e1e24;
+  border-right: 4px solid #1e1e24;
+}
+
+/* Tooltip Beautiful Colors */
+.tooltip-spotify {
+  background-color: #00f5d4;
+}
+.tooltip-spotify::after {
+  background-color: #00f5d4;
+}
+
+.tooltip-pinterest {
+  background-color: #ff0a54;
+  color: #ffffff;
+  text-shadow: 2px 2px 0px #1e1e24;
+}
+.tooltip-pinterest::after {
+  background-color: #ff0a54;
+}
+
+.tooltip-twitter {
+  background-color: #00bbf9;
+}
+.tooltip-twitter::after {
+  background-color: #00bbf9;
+}
+
+.tooltip-mail {
+  background-color: #fcd22a;
+}
+.tooltip-mail::after {
+  background-color: #fcd22a;
+}
+
+/* Tooltip Hover Pop-Up */
+.doodle-icon-content:hover .doodle-tooltip {
+  opacity: 1;
+  visibility: visible;
+  top: -75px;
+  transform: translateX(-50%) rotate(3deg); /* Tilts the other way when popped up! */
+}

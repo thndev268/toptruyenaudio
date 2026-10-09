@@ -1,0 +1,80 @@
+--- story-platform/backend/src/modules/listening/listening.service.ts
++++ story-platform/backend/src/modules/listening/listening.service.ts
+@@ -5,9 +5,10 @@
+ import { ListeningSession, ListeningSessionDocument } from './schemas/listening-session.schema';
++import { ListeningProgress, ListeningProgressDocument } from './schemas/listening-progress.schema';
+ import { StoriesService } from '../stories/stories.service';
+-import { StartSessionDto, HeartbeatDto } from './dto/listening.dto';
++import { StartSessionDto, HeartbeatDto, UpsertListeningProgressDto } from './dto/listening.dto';
+ import { ListeningSessionStatus, MembershipTier } from '../../../common/enums';
+ 
+ @Injectable()
+ export class ListeningService {
+   private readonly HEARTBEAT_MAX_GAP_SECONDS = 45; // Max allowed gap between heartbeats
+   private readonly QUALIFIED_PLAY_THRESHOLD_SECONDS = 30; // Min seconds to count as a play
+@@ -16,6 +17,7 @@
+ 
+   constructor(
+     @InjectModel(ListeningSession.name) private sessionModel: Model<ListeningSessionDocument>,
++    @InjectModel(ListeningProgress.name) private progressModel: Model<ListeningProgressDocument>,
+     private storiesService: StoriesService,
+   ) {}
+ 
+@@ -107,4 +109,56 @@
+       completedCount: result.completedCount,
+     };
+   }
++
++  async getListeningProgress(userId: string) {
++    const progresses = await this.progressModel.find({ userId }).exec();
++    const progressMap = {};
++    progresses.forEach(p => {
++      // We want to return a map of storyId to the latest progress. Or chapterId.
++      // Wait, frontend uses listeningProgressMap by storyId mostly, storing the latest chapter.
++      // But let's just return all progresses for the user, and let frontend build the map.
++      // However, to keep it simple and optimized, we can return the array.
++    });
++    return progresses;
++  }
++
++  async getListeningProgressByChapter(userId: string, chapterId: string) {
++    return this.progressModel.findOne({ userId, chapterId }).exec();
++  }
++
++  async upsertListeningProgress(userId: string, chapterId: string, dto: UpsertListeningProgressDto) {
++    let progressPercent = 0;
++    if (dto.durationSeconds > 0) {
++      progressPercent = (dto.positionSeconds / dto.durationSeconds) * 100;
++    }
++    if (progressPercent > 100) progressPercent = 100;
++    if (progressPercent < 0) progressPercent = 0;
++
++    // if it's less than 15s remaining or >= 95%, mark as completed
++    const remainingSeconds = dto.durationSeconds - dto.positionSeconds;
++    const isCompleted = dto.completed || (dto.durationSeconds > 0 && (remainingSeconds <= 15 || progressPercent >= 95));
++
++    return this.progressModel.findOneAndUpdate(
++      { userId, chapterId },
++      {
++        userId,
++        chapterId,
++        storyId: dto.storyId,
++        positionSeconds: dto.positionSeconds,
++        durationSeconds: dto.durationSeconds,
++        progressPercent,
++        completed: isCompleted,
++        playbackMode: dto.playbackMode,
++        playbackRate: dto.playbackRate,
++        lastPlayedAt: new Date(),
++      },
++      { upsert: true, new: true, setDefaultsOnInsert: true },
++    ).exec();
++  }
++
++  async deleteListeningProgress(userId: string, chapterId?: string) {
++    if (chapterId) {
++      return this.progressModel.deleteOne({ userId, chapterId }).exec();
++    }
++    return this.progressModel.deleteMany({ userId }).exec();
++  }
+ }

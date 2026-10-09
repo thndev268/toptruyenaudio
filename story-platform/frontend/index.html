@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>TOP TRUYỆN AUDIO – Nghe truyện audio trực tuyến</title>
+    <meta name="description" content="Nền tảng nghe truyện audio trực tuyến với kho truyện phong phú, trình phát hiện đại và trải nghiệm nghe liền mạch trên mọi thiết bị." />
+    <meta name="application-name" content="TOP TRUYỆN AUDIO" />
+    <meta name="apple-mobile-web-app-title" content="TopTruyện" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="theme-color" content="#020617" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="apple-touch-icon" href="/branding/apple-touch-icon.png" />
+    <meta property="og:title" content="TOP TRUYỆN AUDIO – Nghe truyện audio trực tuyến" />
+    <meta property="og:description" content="Nền tảng nghe truyện audio trực tuyến với kho truyện phong phú, trình phát hiện đại và trải nghiệm nghe liền mạch trên mọi thiết bị." />
+    <meta name="twitter:title" content="TOP TRUYỆN AUDIO – Nghe truyện audio trực tuyến" />
+    <meta name="twitter:description" content="Nền tảng nghe truyện audio trực tuyến với kho truyện phong phú, trình phát hiện đại và trải nghiệm nghe liền mạch trên mọi thiết bị." />
+    <link rel="icon" type="image/svg+xml" href="/branding/top-truyen-audio-logo.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <script>
+      (function() {
+        try {
+          window.onerror = function(msg, url, line, col, error) {
+            if (msg === 'Script error.' || msg === 'Script error') {
+              return true; // Suppress cross-origin script error notification
+            }
+            return false;
+          };
+          var key = 'toptruyenaudio:theme:v1';
+          var pref = localStorage.getItem(key);
+          if (!pref) {
+            var legacy = localStorage.getItem('app_user_preferences');
+            if (legacy) {
+              var parsed = JSON.parse(legacy);
+              if (parsed && parsed.theme) {
+                pref = parsed.theme.toUpperCase();
+              }
+            }
+          }
+          if (pref) {
+            pref = pref.replace(/['"]/g, '').toUpperCase();
+          }
+          var isDark = false;
+          if (pref === 'DARK') {
+            isDark = true;
+          } else if (pref === 'LIGHT') {
+            isDark = false;
+          } else {
+            isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          }
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.style.colorScheme = 'dark';
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.style.colorScheme = 'light';
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1888581498904623"
+     crossorigin="anonymous"></script>
+  </head>
+  <body class="bg-slate-900 text-slate-100 antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

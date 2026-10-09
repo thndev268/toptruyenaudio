@@ -1,0 +1,98 @@
+import React from 'react';
+import { motion } from 'motion/react';
+
+export const PremiumLoadingScreen: React.FC<{ message?: string }> = ({ message = 'Đang tải...' }) => {
+  return (
+    <div className="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center z-50">
+      {/* Animated Background Gradient */}
+      <div className="absolute inset-0 overflow-hidden">
+        <motion.div
+          className="absolute w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-3xl"
+          animate={{
+            scale: [1, 1.2, 1],
+            opacity: [0.3, 0.5, 0.3],
+          }}
+          transition={{
+            duration: 4,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+          style={{ top: '20%', left: '20%' }}
+        />
+        <motion.div
+          className="absolute w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-3xl"
+          animate={{
+            scale: [1, 1.3, 1],
+            opacity: [0.2, 0.4, 0.2],
+          }}
+          transition={{
+            duration: 5,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 0.5,
+          }}
+          style={{ bottom: '20%', right: '20%' }}
+        />
+      </div>
+
+      {/* Logo/Brand */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="relative z-10 text-center mb-12"
+      >
+        <img 
+          src="/branding/logotoptruyen.png" 
+          alt="Top Truyện Audio Logo" 
+          className="w-48 h-48 sm:w-64 sm:h-64 mx-auto mb-4 object-contain"
+        />
+        <div className="text-sm text-slate-400 tracking-widest uppercase">
+          Premium Audio Experience
+        </div>
+      </motion.div>
+
+      {/* Animated Loading Text */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+        className="relative z-10 mb-8"
+      >
+        <div className="loader">
+          {message}
+        </div>
+      </motion.div>
+
+      {/* Decorative Elements */}
+      <motion.div
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 text-xs text-slate-600"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1 }}
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
+          <span>Đang kết nối với máy chủ...</span>
+        </div>
+      </motion.div>
+
+      <style>{`
+        .loader {
+          width: fit-content;
+          font-size: 40px;
+          font-family: monospace;
+          font-weight: bold;
+          text-transform: uppercase;
+          color: #0000;
+          -webkit-text-stroke: 1px #22d3ee;
+          background: linear-gradient(90deg, #0000 33%, #22d3ee 0 67%, #0000 0) 100%/300% 100% no-repeat text;
+          animation: l12 4s steps(14) infinite;
+        }
+        @keyframes l12 {
+          to { background-position: 0 }
+        }
+      `}</style>
+    </div>
+  );
+};

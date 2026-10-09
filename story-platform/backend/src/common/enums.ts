@@ -1,0 +1,229 @@
+export enum AccountRole {
+  USER = 'USER',
+  CREATOR = 'CREATOR',
+  OWNER_ADMIN = 'OWNER_ADMIN',
+}
+
+export enum UserRole {
+  USER = 'USER',
+  CREATOR = 'CREATOR',
+  PARTNER = 'PARTNER',
+  REVIEWER = 'REVIEWER',
+  ADMIN = 'ADMIN',
+  OWNER_ADMIN = 'OWNER_ADMIN',
+}
+
+export enum MembershipTier {
+  FREE = 'FREE',
+  PREMIUM = 'PREMIUM',
+}
+
+export enum AccountStatus {
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  DISABLED = 'DISABLED',
+}
+
+export enum UserStatus {
+  PENDING = 'PENDING',
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  DISABLED = 'DISABLED',
+  BANNED = 'BANNED',
+}
+
+export enum SubscriptionPlanId {
+  PREMIUM_MONTHLY = 'PREMIUM_MONTHLY',
+  PREMIUM_QUARTERLY = 'PREMIUM_QUARTERLY',
+  PREMIUM_SEMIANNUAL = 'PREMIUM_SEMIANNUAL',
+  PREMIUM_ANNUAL = 'PREMIUM_ANNUAL',
+}
+
+export const LEGACY_PLAN_ID_MAP = {
+  PREMIUM_SEMI_ANNUAL: 'PREMIUM_SEMIANNUAL',
+} as const;
+
+export enum SubscriptionStatus {
+  NONE = 'NONE',
+  PENDING = 'PENDING',
+  ACTIVE = 'ACTIVE',
+  EXPIRED = 'EXPIRED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum SubscriptionSource {
+  ADMIN_GRANT = 'ADMIN_GRANT',
+  MIGRATION = 'MIGRATION',
+}
+
+export enum SecurityEventType {
+  FAILED_LOGINS_SPIKE = 'FAILED_LOGINS_SPIKE',
+  RATE_LIMIT_TRIGGERED = 'RATE_LIMIT_TRIGGERED',
+  REFRESH_TOKEN_REUSE = 'REFRESH_TOKEN_REUSE',
+  UNAUTHORIZED_ADMIN_ACCESS = 'UNAUTHORIZED_ADMIN_ACCESS',
+}
+
+export enum SecurityEventStatus {
+  NEW = 'NEW',
+  INVESTIGATING = 'INVESTIGATING',
+  ACTION_REQUIRED = 'ACTION_REQUIRED',
+  WAITING_FOR_USER = 'WAITING_FOR_USER',
+  RESOLVED = 'RESOLVED',
+  FALSE_POSITIVE = 'FALSE_POSITIVE',
+  REOPENED = 'REOPENED',
+}
+
+export enum GenreStatus {
+  ACTIVE = 'ACTIVE',
+  HIDDEN = 'HIDDEN',
+}
+
+export enum StoryStatus {
+  ONGOING = 'ONGOING',
+  COMPLETED = 'COMPLETED',
+  PAUSED = 'PAUSED',
+}
+
+export enum PublishStatus {
+  DRAFT = 'DRAFT',
+  PENDING_REVIEW = 'PENDING_REVIEW',
+  PUBLISHED = 'PUBLISHED',
+  REJECTED = 'REJECTED',
+  HIDDEN = 'HIDDEN',
+}
+
+export enum AgeRating {
+  ALL = 'ALL',
+  TEEN = 'TEEN',
+  MATURE = 'MATURE',
+}
+
+export enum ContentType {
+  TEXT = 'TEXT',
+  AUDIO = 'AUDIO',
+  VIDEO = 'VIDEO',
+}
+
+export enum OwnerType {
+  CREATOR = 'CREATOR',
+  PARTNER = 'PARTNER',
+  PLATFORM = 'PLATFORM',
+}
+
+export enum RightsType {
+  OWNED = 'OWNED',
+  LICENSED = 'LICENSED',
+  PUBLIC_DOMAIN = 'PUBLIC_DOMAIN',
+  PARTNER_EMBED = 'PARTNER_EMBED',
+}
+
+export enum ReviewStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  EXPIRED = 'EXPIRED',
+}
+
+export enum ApplicationStatus {
+  DRAFT = 'DRAFT',
+  SUBMITTED = 'SUBMITTED',
+  REVIEWING = 'REVIEWING',
+  NEEDS_INFO = 'NEEDS_INFO',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  WITHDRAWN = 'WITHDRAWN',
+}
+
+export enum PartnerApplicationStatus {
+  SUBMITTED = 'SUBMITTED',
+  REVIEWING = 'REVIEWING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  SUSPENDED = 'SUSPENDED',
+}
+
+export enum WalletOwnerType {
+  USER = 'USER',
+  PARTNER = 'PARTNER',
+  PLATFORM = 'PLATFORM',
+}
+
+export enum WalletType {
+  USER_CREDIT = 'USER_CREDIT',
+  PARTNER_EARNING = 'PARTNER_EARNING',
+  PARTNER_CAMPAIGN = 'PARTNER_CAMPAIGN',
+}
+
+export enum LedgerDirection {
+  CREDIT = 'CREDIT',
+  DEBIT = 'DEBIT',
+}
+
+export enum LedgerEntryType {
+  TOPUP = 'TOPUP',
+  PURCHASE = 'PURCHASE',
+  COMMISSION = 'COMMISSION',
+  WITHDRAWAL = 'WITHDRAWAL',
+  REFUND = 'REFUND',
+  REVERSAL = 'REVERSAL',
+  ADJUSTMENT = 'ADJUSTMENT',
+}
+
+export enum PaymentStatus {
+  PENDING = 'PENDING',
+  PROCESSING = 'PROCESSING',
+  PAID = 'PAID',
+  FAILED = 'FAILED',
+  EXPIRED = 'EXPIRED',
+  REFUND_PENDING = 'REFUND_PENDING',
+  REFUNDED = 'REFUNDED',
+}
+
+export enum WithdrawalStatus {
+  REQUESTED = 'REQUESTED',
+  REVIEWING = 'REVIEWING',
+  APPROVED = 'APPROVED',
+  PROCESSING = 'PROCESSING',
+  PAID = 'PAID',
+  REJECTED = 'REJECTED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum AffiliateEventType {
+  CLICK = 'CLICK',
+  SIGNUP = 'SIGNUP',
+  PURCHASE = 'PURCHASE',
+}
+
+export enum CommissionStatus {
+  PENDING = 'PENDING',
+  AVAILABLE = 'AVAILABLE',
+  PAID = 'PAID',
+  REVERSED = 'REVERSED',
+}
+
+export enum WalletStatus {
+  ACTIVE = 'ACTIVE',
+  FROZEN = 'FROZEN',
+  LOCKED = 'LOCKED',
+}
+
+export enum ReportTargetType {
+  STORY = 'STORY',
+  CHAPTER = 'CHAPTER',
+  COMMENT = 'COMMENT',
+}
+
+export enum ReportStatus {
+  OPEN = 'OPEN',
+  REVIEWING = 'REVIEWING',
+  RESOLVED = 'RESOLVED',
+  REJECTED = 'REJECTED',
+}
+
+export enum ListeningSessionStatus {
+  ACTIVE = 'ACTIVE',
+  PAUSED = 'PAUSED',
+  COMPLETED = 'COMPLETED',
+  ABANDONED = 'ABANDONED',
+}

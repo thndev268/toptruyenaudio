@@ -1,0 +1,12 @@
+{
+  "buildCommand": "cd story-platform/frontend && npm run build",
+  "outputDirectory": "story-platform/frontend/dist",
+  "installCommand": "cd story-platform/frontend && npm install --include=optional",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

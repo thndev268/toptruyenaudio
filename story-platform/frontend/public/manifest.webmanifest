@@ -1,0 +1,46 @@
+{
+  "name": "TOP TRUYỆN AUDIO",
+  "short_name": "TOP TRUYỆN",
+  "description": "Nền tảng nghe truyện audio trực tuyến",
+  "start_url": "/",
+  "id": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#020617",
+  "theme_color": "#06b6d4",
+  "categories": ["entertainment", "books", "audio"],
+  "icons": [
+    {
+      "src": "/branding/pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/branding/pwa-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/branding/pwa-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/branding/top-truyen-audio-logo.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "dir": "ltr",
+  "lang": "vi",
+  "display_override": ["standalone", "minimal-ui", "window-controls-overlay"],
+  "background_sync": {
+    "name": "audio-background-sync"
+  },
+  "prefer_related_applications": false
+}

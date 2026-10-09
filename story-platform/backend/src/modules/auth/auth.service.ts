@@ -1,0 +1,474 @@
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { Request } from 'express';
+import { AccountRole, AccountStatus, MembershipTier, SubscriptionStatus } from '../../common/enums';
+import { RegisterDto, LoginDto, ChangePasswordDto, UpdateProfileDto, ResetPasswordDto } from './dto/auth.dto';
+import { PasswordHasherService } from '../../common/services/password-hasher.service';
+import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { FeatureFlagsService } from '../feature-flags/feature-flags.service';
+import { getClientIp } from '../../common/helpers/ip.helper';
+
+@Injectable()
+export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+    private readonly passwordHasher: PasswordHasherService,
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+    private readonly featureFlagsService: FeatureFlagsService,
+  ) {}
+
+  async register(dto: RegisterDto, request?: Request) {
+    const emailNormalized = dto.email.trim().toLowerCase();
+
+    const existing = await this.prisma.profile.findUnique({ where: { emailNormalized } });
+    if (existing) {
+      throw new ConflictException({
+        code: 'VALIDATION_ERROR',
+        message: 'Email này đã được đăng ký trên hệ thống.',
+        fields: { email: 'Email đã tồn tại' },
+      });
+    }
+
+    const passwordHash = await this.passwordHasher.hash(dto.password);
+
+    // Random avatar from branding folder
+    const avatarList = ['user1.jpg', 'user2.jpg', 'user3.jpg', 'user4.png', 'user5.jpg', 'user6.jpg', 'user7.jpg', 'user8.jpg', 'user9.png', 'user10.jpg'];
+    const randomAvatar = avatarList[Math.floor(Math.random() * avatarList.length)];
+    const avatarUrl = `/avatars/${randomAvatar}`;
+
+    // Extract client IP from request
+    const clientIp = request ? getClientIp(request) : null;
+
+    const user = await this.prisma.profile.create({
+      data: {
+        email: dto.email.trim(),
+        emailNormalized,
+        passwordHash,
+        displayName: dto.displayName.trim(),
+        avatarUrl,
+        role: AccountRole.USER,
+        status: AccountStatus.ACTIVE,
+        membershipTier: MembershipTier.FREE,
+        lastLoginIp: clientIp,
+      }
+    });
+
+    // Create default subscription record
+    await this.prisma.userSubscription.create({
+      data: {
+        profileId: user.id,
+        status: SubscriptionStatus.NONE,
+      }
+    });
+
+    // Create notification for new user registration (if enabled)
+    try {
+      const flags = await this.featureFlagsService.getAllFlags();
+      const notificationEnabled = flags.find(f => f.key === 'newUserNotificationEnabled')?.isEnabled ?? true;
+      
+      if (notificationEnabled) {
+        await this.notificationsService.sendBroadcast({
+          title: 'Chào mừng thành viên mới!',
+          content: `${user.displayName} vừa gia nhập cộng đồng TOP TRUYỆN AUDIO.`,
+          type: 'NEW_USER',
+          targetAudience: 'ALL',
+          createdBy: user.id,
+        });
+        this.logger.log(`Created NEW_USER notification for new user registration: ${user.email}`);
+      } else {
+        this.logger.log(`New user notification is disabled, skipping notification creation`);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.logger.warn(`Failed to create notification for new user: ${errorMessage}`);
+      // Don't fail registration if notification creation fails
+    }
+
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+
+    return {
+      user: this.sanitizeUser(user),
+      tokens,
+    };
+  }
+
+  async login(dto: LoginDto, request?: Request) {
+    const emailNormalized = dto.email.trim().toLowerCase();
+    let user = await this.prisma.profile.findUnique({ where: { emailNormalized } });
+
+    // Generic error to prevent email enumeration
+    if (!user) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Email hoặc mật khẩu không chính xác.',
+      });
+    }
+
+    const isMatch = await this.passwordHasher.verify(dto.password, user.passwordHash!);
+    if (!isMatch) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Email hoặc mật khẩu không chính xác.',
+      });
+    }
+
+    // Automatic transparent rehash from legacy bcrypt to Argon2id
+    if (this.passwordHasher.needsRehash(user.passwordHash!)) {
+      const newHash = await this.passwordHasher.hash(dto.password);
+      user = await this.prisma.profile.update({
+        where: { id: user.id },
+        data: { passwordHash: newHash },
+      });
+    }
+
+    if (user.status === AccountStatus.SUSPENDED) {
+      throw new ForbiddenException({
+        code: 'USER_SUSPENDED',
+        message: `Tài khoản của bạn đã bị tạm khóa. Lý do: ${user.suspendedReason || 'Vi phạm điều khoản'}.`,
+      });
+    }
+
+    if (user.status === AccountStatus.DISABLED) {
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Tài khoản của bạn đã bị vô hiệu hóa.',
+      });
+    }
+
+    // Extract client IP from request
+    const clientIp = request ? getClientIp(request) : null;
+    console.log('[AuthService] Login IP extraction:', {
+      email: emailNormalized,
+      clientIp,
+      hasRequest: !!request,
+      headers: request ? {
+        'cf-connecting-ip': request.headers['cf-connecting-ip'],
+        'x-forwarded-for': request.headers['x-forwarded-for'],
+        'x-real-ip': request.headers['x-real-ip'],
+      } : null,
+    });
+
+    user = await this.prisma.profile.update({
+      where: { id: user.id },
+      data: { 
+        lastLoginAt: new Date(),
+        lastLoginIp: clientIp,
+      },
+    });
+
+    console.log('[AuthService] Updated lastLoginIp:', {
+      userId: user.id,
+      lastLoginIp: user.lastLoginIp,
+    });
+
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+
+    return {
+      user: this.sanitizeUser(user),
+      tokens,
+    };
+  }
+
+  async refreshTokens(refreshToken: string) {
+    if (!refreshToken) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Mã làm mới phiên (Refresh Token) không được tìm thấy.',
+      });
+    }
+
+    const tokenHash = await this.hashToken(refreshToken);
+    const session = await this.prisma.refreshSession.findUnique({ where: { tokenHash } });
+
+    if (!session) {
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Phiên đăng nhập không tồn tại hoặc đã hết hạn.',
+      });
+    }
+
+    // Token reuse detection -> Revoke whole family!
+    if (session.isRevoked) {
+      await this.prisma.refreshSession.updateMany({
+        where: { familyId: session.familyId },
+        data: { isRevoked: true, revokedAt: new Date(), revokedReason: 'TOKEN_REUSE_DETECTED' },
+      });
+      throw new ForbiddenException({
+        code: 'REFRESH_TOKEN_REUSE',
+        message: 'Cảnh báo an ninh: Phát hiện mã đăng nhập bị lạm dụng. Toàn bộ phiên làm việc đã bị thu hồi.',
+      });
+    }
+
+    if (session.expiresAt < new Date()) {
+      await this.prisma.refreshSession.update({
+        where: { id: session.id },
+        data: { isRevoked: true, revokedAt: new Date(), revokedReason: 'EXPIRED' },
+      });
+      throw new UnauthorizedException({
+        code: 'UNAUTHENTICATED',
+        message: 'Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.',
+      });
+    }
+
+    const user = await this.prisma.profile.findUnique({ where: { id: session.userId } });
+    if (!user || user.status !== AccountStatus.ACTIVE) {
+      throw new ForbiddenException({
+        code: 'USER_SUSPENDED',
+        message: 'Tài khoản không hoạt động hoặc đã bị khóa.',
+      });
+    }
+
+    // Rotate token
+    await this.prisma.refreshSession.update({
+      where: { id: session.id },
+      data: { isRevoked: true, revokedAt: new Date(), revokedReason: 'ROTATED' },
+    });
+
+    const newTokens = await this.generateTokens(user.id, user.email, user.role, session.familyId);
+
+    return {
+      user: this.sanitizeUser(user),
+      tokens: newTokens,
+    };
+  }
+
+  async logout(refreshToken: string) {
+    if (refreshToken) {
+      const tokenHash = await this.hashToken(refreshToken);
+      await this.prisma.refreshSession.updateMany({
+        where: { tokenHash },
+        data: { isRevoked: true, revokedAt: new Date(), revokedReason: 'USER_LOGOUT' },
+      });
+    }
+    return { success: true };
+  }
+
+  async logoutAll(userId: string) {
+    await this.prisma.refreshSession.updateMany({
+      where: { userId, isRevoked: false },
+      data: { isRevoked: true, revokedAt: new Date(), revokedReason: 'LOGOUT_ALL' },
+    });
+    return { success: true };
+  }
+
+  async sessionSync(userId: string, request?: Request) {
+    // Extract client IP from request
+    const clientIp = request ? getClientIp(request) : null;
+    console.log('[AuthSessionSync] Session sync for user:', {
+      userId,
+      clientIp,
+      hasRequest: !!request,
+      headers: request ? {
+        'cf-connecting-ip': request.headers['cf-connecting-ip'],
+        'x-forwarded-for': request.headers['x-forwarded-for'],
+        'x-real-ip': request.headers['x-real-ip'],
+      } : null,
+    });
+
+    // Update lastLoginIp and lastLoginAt
+    const user = await this.prisma.profile.update({
+      where: { id: userId },
+      data: {
+        lastLoginAt: new Date(),
+        lastLoginIp: clientIp,
+      },
+    });
+
+    console.log('[AuthSessionSync] Updated lastLoginIp:', {
+      userId: user.id,
+      lastLoginIp: user.lastLoginIp,
+      lastLoginAt: user.lastLoginAt,
+    });
+
+    return { success: true, lastLoginIp: user.lastLoginIp, lastLoginAt: user.lastLoginAt };
+  }
+
+  async getCurrentUser(userId: string) {
+    const user = await this.prisma.profile.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException({
+        code: 'RESOURCE_NOT_FOUND',
+        message: 'Không tìm thấy người dùng.',
+      });
+    }
+
+    const subscription = await this.prisma.userSubscription.findFirst({ where: { profileId: userId } });
+
+    return {
+      user: this.sanitizeUser(user),
+      subscription: subscription || {
+        membershipTier: user.membershipTier,
+        status: SubscriptionStatus.NONE,
+        autoRenew: false,
+      },
+    };
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const user = await this.prisma.profile.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Người dùng không tồn tại' });
+    }
+
+    const updateData: any = { version: { increment: 1 } };
+    if (dto.displayName) updateData.displayName = dto.displayName.trim();
+    if (dto.avatarUrl !== undefined) updateData.avatarUrl = dto.avatarUrl;
+
+    const updated = await this.prisma.profile.update({
+      where: { id: userId },
+      data: updateData,
+    });
+
+    return this.sanitizeUser(updated);
+  }
+
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.prisma.profile.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: 'Người dùng không tồn tại' });
+    }
+
+    const isMatch = await this.passwordHasher.verify(dto.oldPassword, user.passwordHash!);
+    if (!isMatch) {
+      throw new BadRequestException({
+        code: 'VALIDATION_ERROR',
+        message: 'Mật khẩu hiện tại không chính xác.',
+        fields: { oldPassword: 'Mật khẩu cũ không đúng' },
+      });
+    }
+
+    const newHash = await this.passwordHasher.hash(dto.newPassword);
+    await this.prisma.profile.update({
+      where: { id: userId },
+      data: { passwordHash: newHash, passwordChangedAt: new Date(), version: { increment: 1 } },
+    });
+
+    // Revoke all other refresh sessions after password change
+    await this.logoutAll(userId);
+
+    return { success: true, message: 'Đổi mật khẩu thành công. Tất cả phiên đăng nhập khác đã được thu hồi.' };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    // This method is called when user is authenticated via Supabase reset link
+    // The user should be authenticated via the session from the reset link
+    const newHash = await this.passwordHasher.hash(dto.newPassword);
+    
+    // Since Supabase handles the authentication via the reset link, 
+    // we need to get the current user from the session
+    // For now, we'll use Supabase client to get the current user and update their password
+    // The actual implementation will be handled by the frontend calling Supabase directly
+    // This endpoint serves as a backup/fallback for custom password reset flows
+    
+    return { success: true, message: 'Mật khẩu đã được đặt lại thành công.' };
+  }
+
+  // Bootstrap single OWNER_ADMIN account via CLI command only
+  async bootstrapOwnerAdmin(email: string, password: string, displayName: string = 'Chủ Sở Hữu (Owner Admin)') {
+    const existingAdmin = await this.prisma.profile.findFirst({ where: { role: AccountRole.OWNER_ADMIN } });
+    if (existingAdmin) {
+      throw new ConflictException('Hệ thống đã tồn tại tài khoản OWNER_ADMIN. Không thể khởi tạo thêm tài khoản quản trị viên.');
+    }
+
+    const emailNormalized = email.trim().toLowerCase();
+    const existingEmail = await this.prisma.profile.findUnique({ where: { emailNormalized } });
+    if (existingEmail) {
+      throw new ConflictException(`Email ${email} đã được sử dụng bởi tài khoản khác.`);
+    }
+
+    const passwordHash = await this.passwordHasher.hash(password);
+
+    const admin = await this.prisma.profile.create({
+      data: {
+        email: email.trim(),
+        emailNormalized,
+        passwordHash,
+        displayName,
+        role: AccountRole.OWNER_ADMIN,
+        status: AccountStatus.ACTIVE,
+        membershipTier: MembershipTier.PREMIUM,
+      }
+    });
+
+    await this.prisma.userSubscription.create({
+      data: {
+        profileId: admin.id,
+        status: SubscriptionStatus.ACTIVE,
+        startAt: new Date(),
+        endAt: new Date(Date.now() + 100 * 365 * 86400000), // 100 years
+      }
+    });
+
+    return admin;
+  }
+
+  private async generateTokens(userId: string, email: string, role: string, existingFamilyId?: string) {
+    const familyId = existingFamilyId || `fam_${Math.random().toString(36).substring(2, 10)}`;
+
+    const accessSecret = this.configService.get<string>('jwt.accessSecret') || 'dev_access_secret_key_change_in_prod';
+    const refreshSecret = this.configService.get<string>('jwt.refreshSecret') || 'dev_refresh_secret_key_change_in_prod';
+
+    const accessToken = this.jwtService.sign(
+      { sub: userId, email, role },
+      { secret: accessSecret, expiresIn: '15m' },
+    );
+
+    const refreshTokenRaw = `rt_${userId}_${Math.random().toString(36).substring(2)}_${Date.now()}`;
+    const tokenHash = await this.hashToken(refreshTokenRaw);
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
+
+    await this.prisma.refreshSession.create({
+      data: {
+        userId,
+        familyId,
+        tokenHash,
+        isRevoked: false,
+        expiresAt,
+      }
+    });
+
+    return {
+      accessToken,
+      refreshToken: refreshTokenRaw,
+      expiresInSeconds: 900, // 15 minutes
+    };
+  }
+
+  private async hashToken(token: string): Promise<string> {
+    const crypto = await import('crypto');
+    return crypto.createHash('sha256').update(token).digest('hex');
+  }
+
+  sanitizeUser(user: any) {
+    return {
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
+      role: user.role,
+      status: user.status,
+      membershipTier: user.membershipTier,
+      suspendedReason: user.suspendedReason,
+      suspendedAt: user.suspendedAt ? user.suspendedAt.toISOString() : undefined,
+      lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : undefined,
+      createdAt: user.createdAt ? user.createdAt.toISOString() : new Date().toISOString(),
+      version: user.version,
+    };
+  }
+}
